@@ -17,3 +17,6 @@ Prompts and costs
    Ich sehe ich beiden Fenster d:\, kann aber nicht hineinnavigieren. weder mit ENTER noch mit Klick. Das musst Du fixen.
    (0,30)
 8. Fehlermeldung aus Konsole reinkopert
+   (0,40)
+
+9. Die Fenster sind noch übereinander. Sie sollen nebeneineander sein. Eines links, eines rechts.

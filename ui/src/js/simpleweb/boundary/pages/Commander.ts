@@ -353,7 +353,7 @@ export class Commander extends LitElement {
       background: #64748b;
     }
 
-    @media (max-width: 1024px) {
+    @media (max-width: 768px) {
       .panes-container {
         grid-template-columns: 1fr;
       }
