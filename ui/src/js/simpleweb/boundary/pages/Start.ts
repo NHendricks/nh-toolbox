@@ -25,7 +25,7 @@ interface CommandResult {
   timestamp?: string
 }
 
-export class ReisebusLayout extends LitElement {
+export class NHStart extends LitElement {
   static styles = css`
     :host {
       display: block;
@@ -651,4 +651,4 @@ export class ReisebusLayout extends LitElement {
   }
 }
 
-customElements.define('simple-start', ReisebusLayout)
+customElements.define('simple-start', NHStart)
