@@ -156,14 +156,14 @@ if (fs.existsSync(versionFile)) {
   console.log('   ⚠️  version.txt not found!');
 }
 
-// Step 6: Rename electron.exe to x-tools.exe
-console.log('\n🏷️  Step 6: Renaming electron.exe to x-tools.exe...');
+// Step 6: Rename electron.exe
+console.log('\n🏷️  Step 6: Renaming electron.exe to nh-tools.exe...');
 const electronExe = path.join(outputDir, 'electron.exe');
-const xToolsExe = path.join(outputDir, 'x-tools.exe');
+const xToolsExe = path.join(outputDir, 'nh-tools.exe');
 
 if (fs.existsSync(electronExe)) {
   fs.renameSync(electronExe, xToolsExe);
-  console.log('   ✅ Renamed electron.exe → x-tools.exe');
+  console.log('   ✅ Renamed electron.exe → nh-tools.exe');
 } else {
   console.log('   ⚠️  electron.exe not found!');
 }

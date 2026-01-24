@@ -1,10 +1,10 @@
-# X-Tools (Nilsomat)
+# NH-Tools ((https://github.com/NHendricks/nh-tools))
 
 A modular Electron-based utility application with an extensible command-line backend and interactive UI.
 
 ## Overview
 
-X-Tools is a desktop application that provides a flexible framework for running various utility commands through both a CLI interface and a modern web-based UI. Built with TypeScript, Electron, and Lit Elements, it offers a clean architecture for adding new tools and commands.
+This is a desktop application that provides a flexible framework for running various utility commands through both a CLI interface and a modern web-based UI. Built with TypeScript, Electron, and Lit Elements, it offers a clean architecture for adding new tools and commands.
 
 ## Features
 
@@ -18,7 +18,7 @@ X-Tools is a desktop application that provides a flexible framework for running 
 ## Project Structure
 
 ```
-x-tools/
+/
 ├── backend/         # CLI command system with extensible architecture
 ├── process/         # Electron main process & IPC handlers
 ├── ui/              # Frontend UI (Lit Elements + Vite)
