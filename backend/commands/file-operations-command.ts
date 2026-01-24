@@ -14,6 +14,8 @@ const copyFile = promisify(fs.copyFile);
 const rename = promisify(fs.rename);
 const mkdir = promisify(fs.mkdir);
 const readFile = promisify(fs.readFile);
+const rmdir = promisify(fs.rmdir);
+const unlink = promisify(fs.unlink);
 
 export class FileOperationsCommand implements ICommand {
   async execute(params: any): Promise<any> {
@@ -143,7 +145,7 @@ export class FileOperationsCommand implements ICommand {
   }
 
   /**
-   * Copy a file from source to destination
+   * Copy a file or directory from source to destination
    */
   private async copyFile(
     sourcePath: string,
@@ -161,38 +163,81 @@ export class FileOperationsCommand implements ICommand {
 
     // Check if source exists
     if (!fs.existsSync(absoluteSource)) {
-      throw new Error(`Source file does not exist: ${absoluteSource}`);
+      throw new Error(`Source does not exist: ${absoluteSource}`);
     }
 
-    // Check if source is a file
     const sourceStats = await stat(absoluteSource);
-    if (!sourceStats.isFile()) {
-      throw new Error(`Source is not a file: ${absoluteSource}`);
+
+    if (sourceStats.isDirectory()) {
+      // Copy directory recursively
+      await this.copyDirectoryRecursive(absoluteSource, absoluteDestination);
+      return {
+        success: true,
+        operation: 'copy',
+        source: absoluteSource,
+        destination: absoluteDestination,
+        type: 'directory',
+        timestamp: new Date().toISOString(),
+      };
+    } else if (sourceStats.isFile()) {
+      // Create destination directory if it doesn't exist
+      const destDir = path.dirname(absoluteDestination);
+      if (!fs.existsSync(destDir)) {
+        await mkdir(destDir, { recursive: true });
+      }
+
+      // Copy the file
+      await copyFile(absoluteSource, absoluteDestination);
+
+      const destStats = await stat(absoluteDestination);
+
+      return {
+        success: true,
+        operation: 'copy',
+        source: absoluteSource,
+        destination: absoluteDestination,
+        size: destStats.size,
+        type: 'file',
+        timestamp: new Date().toISOString(),
+      };
+    } else {
+      throw new Error(
+        `Source is neither a file nor a directory: ${absoluteSource}`,
+      );
     }
-
-    // Create destination directory if it doesn't exist
-    const destDir = path.dirname(absoluteDestination);
-    if (!fs.existsSync(destDir)) {
-      await mkdir(destDir, { recursive: true });
-    }
-
-    // Copy the file
-    await copyFile(absoluteSource, absoluteDestination);
-
-    const destStats = await stat(absoluteDestination);
-
-    return {
-      success: true,
-      operation: 'copy',
-      source: absoluteSource,
-      destination: absoluteDestination,
-      size: destStats.size,
-      timestamp: new Date().toISOString(),
-    };
   }
 
   /**
-   * Move a file from source to destination
+   * Recursively copy a directory
+   */
+  private async copyDirectoryRecursive(
+    source: string,
+    destination: string,
+  ): Promise<void> {
+    // Create destination directory
+    if (!fs.existsSync(destination)) {
+      await mkdir(destination, { recursive: true });
+    }
+
+    // Read directory contents
+    const entries = await readdir(source, { withFileTypes: true });
+
+    for (const entry of entries) {
+      const sourcePath = path.join(source, entry.name);
+      const destPath = path.join(destination, entry.name);
+
+      if (entry.isDirectory()) {
+        // Recursively copy subdirectory
+        await this.copyDirectoryRecursive(sourcePath, destPath);
+      } else if (entry.isFile()) {
+        // Copy file
+        await copyFile(sourcePath, destPath);
+      }
+    }
+  }
+
+  /**
+   * Move a file or directory from source to destination
    */
   private async moveFile(
     sourcePath: string,
@@ -210,34 +255,85 @@ export class FileOperationsCommand implements ICommand {
 
     // Check if source exists
     if (!fs.existsSync(absoluteSource)) {
-      throw new Error(`Source file does not exist: ${absoluteSource}`);
+      throw new Error(`Source does not exist: ${absoluteSource}`);
     }
 
-    // Check if source is a file
     const sourceStats = await stat(absoluteSource);
-    if (!sourceStats.isFile()) {
-      throw new Error(`Source is not a file: ${absoluteSource}`);
-    }
 
-    // Create destination directory if it doesn't exist
+    // Create destination parent directory if it doesn't exist
     const destDir = path.dirname(absoluteDestination);
     if (!fs.existsSync(destDir)) {
       await mkdir(destDir, { recursive: true });
     }
 
-    // Move the file
-    await rename(absoluteSource, absoluteDestination);
+    // Use rename for both files and directories (works if on same filesystem)
+    try {
+      await rename(absoluteSource, absoluteDestination);
 
-    const destStats = await stat(absoluteDestination);
+      if (sourceStats.isDirectory()) {
+        return {
+          success: true,
+          operation: 'move',
+          source: absoluteSource,
+          destination: absoluteDestination,
+          type: 'directory',
+          timestamp: new Date().toISOString(),
+        };
+      } else {
+        const destStats = await stat(absoluteDestination);
+        return {
+          success: true,
+          operation: 'move',
+          source: absoluteSource,
+          destination: absoluteDestination,
+          size: destStats.size,
+          type: 'file',
+          timestamp: new Date().toISOString(),
+        };
+      }
+    } catch (error: any) {
+      // If rename fails (cross-filesystem), fall back to copy + delete
+      if (error.code === 'EXDEV') {
+        if (sourceStats.isDirectory()) {
+          await this.copyDirectoryRecursive(
+            absoluteSource,
+            absoluteDestination,
+          );
+          await this.deleteDirectoryRecursive(absoluteSource);
+        } else {
+          await copyFile(absoluteSource, absoluteDestination);
+          await unlink(absoluteSource);
+        }
 
-    return {
-      success: true,
-      operation: 'move',
-      source: absoluteSource,
-      destination: absoluteDestination,
-      size: destStats.size,
-      timestamp: new Date().toISOString(),
-    };
+        return {
+          success: true,
+          operation: 'move',
+          source: absoluteSource,
+          destination: absoluteDestination,
+          type: sourceStats.isDirectory() ? 'directory' : 'file',
+          timestamp: new Date().toISOString(),
+        };
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Recursively delete a directory
+   */
+  private async deleteDirectoryRecursive(dirPath: string): Promise<void> {
+    const entries = await readdir(dirPath, { withFileTypes: true });
+
+    for (const entry of entries) {
+      const fullPath = path.join(dirPath, entry.name);
+      if (entry.isDirectory()) {
+        await this.deleteDirectoryRecursive(fullPath);
+      } else {
+        await unlink(fullPath);
+      }
+    }
+
+    await rmdir(dirPath);
   }
 
   getDescription(): string {

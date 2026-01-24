@@ -752,14 +752,16 @@ export class Commander extends LitElement {
     if (pane.selectedIndices.size > 0) {
       pane.selectedIndices.forEach((index) => {
         const item = pane.items[index]
-        if (item && item.isFile) {
+        // Allow both files and directories
+        if (item && item.name !== '..') {
           files.push(item.path)
         }
       })
     } else {
       // If nothing selected, use focused item
       const item = pane.items[pane.focusedIndex]
-      if (item && item.isFile) {
+      // Allow both files and directories, but not parent directory
+      if (item && item.name !== '..') {
         files.push(item.path)
       }
     }

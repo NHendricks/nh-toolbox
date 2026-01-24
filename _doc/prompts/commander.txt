@@ -20,3 +20,7 @@ Prompts and costs
    (0,40)
 
 9. Die Fenster sind noch übereinander. Sie sollen nebeneineander sein. Eines links, eines rechts.
+   (0,09)
+
+10. Im Kopieren Dialog wird ENTER nicht erkannt. Ich will auch ganze Verzeichnisse kopieren / verschieben können.   
+  (0,30)
