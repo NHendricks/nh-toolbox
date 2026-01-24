@@ -6,7 +6,7 @@ export class Faq extends LitElement {
     :host {
       display: block;
       font-family: Arial, sans-serif;
-      color: #333;
+      color: #777;
     }
 
     /* Inhalt */
@@ -43,17 +43,17 @@ export class Faq extends LitElement {
     return html`
       <div class="content">
         <h1>FAQ</h1>
-        <h2>Simplify your life</h2>
+        <h2>Simplify all of your utility tasks in 1 app</h2>
 
-        <div class="columns">
-          <p>
-            Programmieren ist wie entrümpeln. Sauber und aufgeräumt steht nichts
-            im Weg.
-          </p>
-          <p>
-            Das Projekt wird nicht mittelfristig vergurkt und immer komplexer.
-          </p>
-        </div>
+        <p>Nutze cline in vscode.</p>
+        <p>
+          Erstelle einen command im backend Projekt. Cline (KI Claude-Sonnet)
+          wird die vorhandenen Strukturen erkennen und analoge Commands bauen.
+        </p>
+        <p>Das UI zeigt automatisch alle Tasks an.</p>
+        <p>Teste die Tasks eigentändig über die cmdline-Funktionalität.</p>
+        <p>Lies die readmes und schau in den Code.</p>
+        <p>Falls nötig, lass Dir komplexe UI Seite erstelle über Claude.</p>
       </div>
     `
   }

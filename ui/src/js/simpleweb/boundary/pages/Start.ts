@@ -259,6 +259,7 @@ export class ReisebusLayout extends LitElement {
       transition: all 0.2s;
       flex-shrink: 0;
       white-space: nowrap;
+      max-width: 14em;
     }
 
     .btn-toggle:hover {

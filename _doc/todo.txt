@@ -1,0 +1,4 @@
+Ideen:
+- eigene alte bestehende cmdline-Tools integrieren
+- total commander in wichtigen Teilen nachbauen (Dateien verschieben, kopieren, anschauen)
+- mac und linux unterstützen
