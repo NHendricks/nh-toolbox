@@ -14,6 +14,7 @@ export class HelpCommand implements ICommand {
     const commandsWithParams = this.registry.getAllCommandsWithParameters();
 
     return {
+      result: commands,
       availableCommands: commands,
       commandParameters: commandsWithParams,
       usage: 'node cli.js <toolname> [params]',

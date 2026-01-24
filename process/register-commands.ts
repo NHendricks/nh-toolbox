@@ -14,7 +14,7 @@ export function registerCommands(ipcMain: any, version: string) {
 
       return new Promise((resolve) => {
         const cliPath = path.join(__dirname, '../../backend/dist/cli.js');
-        const child = spawn('node', [cliPath, 'help']);
+        const child = spawn('node', [cliPath, 'help', '--json']);
 
         let stdout = '';
         let stderr = '';
@@ -73,6 +73,9 @@ export function registerCommands(ipcMain: any, version: string) {
               typeof params === 'string' ? params : JSON.stringify(params);
             args.push(paramString);
           }
+
+          // Add --json flag to get full response
+          args.push('--json');
 
           const child = spawn('node', args);
 

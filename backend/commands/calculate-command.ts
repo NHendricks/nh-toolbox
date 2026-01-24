@@ -57,10 +57,10 @@ export class CalculateCommand implements ICommand {
     }
 
     return {
+      result,
       operation,
       a,
       b,
-      result,
     };
   }
 

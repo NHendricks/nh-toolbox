@@ -25,7 +25,7 @@ async function main() {
   if (args.length < 1) {
     const response: CliResponse = {
       success: false,
-      error: 'Usage: node cli.js <toolname> [params]',
+      error: 'Usage: node cli.js <toolname> [params] [--json]',
       toolname: 'none',
       timestamp: new Date().toISOString(),
     };
@@ -33,8 +33,12 @@ async function main() {
     process.exit(1);
   }
 
-  const toolname = args[0];
-  const params = args.slice(1).join(' ');
+  // Check for --json flag
+  const jsonFlag = args.includes('--json');
+  const filteredArgs = args.filter((arg) => arg !== '--json');
+
+  const toolname = filteredArgs[0];
+  const params = filteredArgs.slice(1).join(' ');
 
   try {
     // Parse params as JSON if it looks like JSON, otherwise treat as string
@@ -58,7 +62,26 @@ async function main() {
       timestamp: new Date().toISOString(),
     };
 
-    console.log(JSON.stringify(response, null, 2));
+    // Output based on --json flag
+    if (jsonFlag) {
+      // Full JSON response with metadata
+      console.log(JSON.stringify(response, null, 2));
+    } else {
+      // Only the result field from the data
+      if (result && typeof result === 'object' && 'result' in result) {
+        // Output the result field
+        if (typeof result.result === 'object') {
+          console.log(JSON.stringify(result.result, null, 2));
+        } else {
+          console.log(result.result);
+        }
+      } else if (typeof result === 'object') {
+        // Fallback: output entire result if no result field exists
+        console.log(JSON.stringify(result, null, 2));
+      } else {
+        console.log(result);
+      }
+    }
     process.exit(0);
   } catch (error: any) {
     const response: CliResponse = {
@@ -68,7 +91,14 @@ async function main() {
       timestamp: new Date().toISOString(),
     };
 
-    console.log(JSON.stringify(response, null, 2));
+    // Output based on --json flag
+    if (jsonFlag) {
+      // Full JSON response with metadata
+      console.log(JSON.stringify(response, null, 2));
+    } else {
+      // Only the error message
+      console.error(`Error: ${error.message || 'Unknown error'}`);
+    }
     process.exit(1);
   }
 }

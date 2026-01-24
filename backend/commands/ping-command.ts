@@ -8,6 +8,7 @@ import { CommandParameter, ICommand } from './command-interface.js';
 export class PingCommand implements ICommand {
   async execute(params: any): Promise<any> {
     return {
+      result: 'Pong',
       message: 'Pong',
       params: params,
       timestamp: new Date().toISOString(),

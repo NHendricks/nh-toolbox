@@ -234,11 +234,35 @@ export class ReisebusLayout extends LitElement {
       padding: 1.5rem;
     }
 
+    .result-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+
     .result-title {
       font-size: 1.25rem;
       font-weight: bold;
-      margin-bottom: 1rem;
       color: #1e293b;
+    }
+
+    .btn-toggle {
+      padding: 0.375rem 0.75rem;
+      background: #667eea;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      flex-shrink: 0;
+      white-space: nowrap;
+    }
+
+    .btn-toggle:hover {
+      background: #5568d3;
     }
 
     .result-success {
@@ -301,6 +325,9 @@ export class ReisebusLayout extends LitElement {
 
   @property({ type: Boolean })
   executing = false
+
+  @property({ type: Boolean })
+  showFullJson = false
 
   async connectedCallback() {
     super.connectedCallback()
@@ -563,10 +590,38 @@ export class ReisebusLayout extends LitElement {
     }
   }
 
+  toggleJsonView() {
+    this.showFullJson = !this.showFullJson
+  }
+
   renderResult() {
     if (!this.lastResult) return ''
 
-    const jsonString = JSON.stringify(this.lastResult, null, 2)
+    // Get the content to display based on toggle state
+    let displayContent: string
+    if (this.showFullJson) {
+      // Show full JSON response
+      displayContent = JSON.stringify(this.lastResult, null, 2)
+    } else {
+      // Show only the result field
+      if (this.lastResult.success && this.lastResult.data) {
+        const data = this.lastResult.data
+        if (data && typeof data === 'object' && 'result' in data) {
+          // Display only the result field
+          if (typeof data.result === 'object') {
+            displayContent = JSON.stringify(data.result, null, 2)
+          } else {
+            displayContent = String(data.result)
+          }
+        } else {
+          // Fallback: display entire data if no result field
+          displayContent = JSON.stringify(data, null, 2)
+        }
+      } else {
+        // For errors, show the error message
+        displayContent = this.lastResult.error || 'Unknown error'
+      }
+    }
 
     return html`
       <div
@@ -574,11 +629,16 @@ export class ReisebusLayout extends LitElement {
           ? 'result-success'
           : 'result-error'}"
       >
-        <div class="result-title">
-          ${this.lastResult.success ? '✅ Erfolg' : '❌ Fehler'}
+        <div class="result-header">
+          <div class="result-title">
+            ${this.lastResult.success ? '✅ Erfolg' : '❌ Fehler'}
+          </div>
+          <button class="btn-toggle" @click=${this.toggleJsonView}>
+            ${this.showFullJson ? '📋 Nur Result' : '🔍 Vollständiges JSON'}
+          </button>
         </div>
-        <div class="result-content">${jsonString}</div>
-        ${this.lastResult.timestamp
+        <div class="result-content">${displayContent}</div>
+        ${this.lastResult.timestamp && this.showFullJson
           ? html`
               <div class="result-meta">
                 Timestamp: ${this.lastResult.timestamp}

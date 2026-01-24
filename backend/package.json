@@ -9,7 +9,6 @@
     "dev": "tsc --watch",
     "test": "node test.js",
     "test:ping": "node dist/cli.js ping",
-    "test:echo": "node dist/cli.js echo \"Hello World\"",
     "test:calculate": "node dist/cli.js calculate \"{\\\"operation\\\":\\\"add\\\",\\\"a\\\":5,\\\"b\\\":3}\"",
     "test:help": "node dist/cli.js help"
   },
