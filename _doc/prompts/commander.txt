@@ -12,3 +12,8 @@ Prompts and costs
    (0,53 !!!)
 6. Die Fenster sollen nebeneinander sein, der commander genau in den verfügbaren Bereich passen. Mit Enter oder Doppelklick soll in das Verzeichnis gewechselt werden, das gerade aktiv ist. Mit Pfeil rauf und runter soll man in einem Verzeichnis links und rechts (Tab wechselt den Fokus von links nach rechts und umgekehrt) die aktuell gewählte Datei ändern können. 
    (0,85 hä?)
+7. Die Fenster sollen links und rechts angezeigt werden.
+   In der Höhe soll der Commander den verfügbaren Platz ,maximal ausnutzen.
+   Ich sehe ich beiden Fenster d:\, kann aber nicht hineinnavigieren. weder mit ENTER noch mit Klick. Das musst Du fixen.
+   (0,30)
+8. Fehlermeldung aus Konsole reinkopert

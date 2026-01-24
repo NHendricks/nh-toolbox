@@ -27,7 +27,7 @@ export class Commander extends LitElement {
       color: #fff;
       background: #000;
       width: 100%;
-      height: 100%;
+      height: 100vh;
       overflow: hidden;
       box-sizing: border-box;
     }
@@ -36,7 +36,7 @@ export class Commander extends LitElement {
       display: flex;
       flex-direction: column;
       width: 100%;
-      height: 100%;
+      height: 100vh;
       box-sizing: border-box;
     }
 
@@ -413,6 +413,7 @@ export class Commander extends LitElement {
   async loadDirectory(pane: 'left' | 'right', path: string) {
     try {
       this.setStatus('Lade Verzeichnis...', 'normal')
+      console.log(`Loading directory for ${pane}: ${path}`)
 
       const response = await (window as any).electron.ipcRenderer.invoke(
         'cli-execute',
@@ -423,12 +424,14 @@ export class Commander extends LitElement {
         },
       )
 
+      console.log('Response:', response)
+
       if (response.success && response.data) {
         const data = response.data
         const items: FileItem[] = []
 
         // Add parent directory entry if not at root
-        if (path !== 'd:\\' && path !== '/') {
+        if (path !== 'd:\\' && path !== '/' && path !== 'd:') {
           items.push({
             name: '..',
             path: this.getParentPath(path),
@@ -443,6 +446,8 @@ export class Commander extends LitElement {
         // Add directories first, then files
         items.push(...data.directories)
         items.push(...data.files)
+
+        console.log(`Loaded ${items.length} items for ${pane}`)
 
         if (pane === 'left') {
           this.leftPane = {
@@ -466,9 +471,11 @@ export class Commander extends LitElement {
         )
       } else {
         this.setStatus(`Fehler: ${response.error}`, 'error')
+        console.error('Load directory error:', response.error)
       }
     } catch (error: any) {
       this.setStatus(`Fehler: ${error.message}`, 'error')
+      console.error('Load directory exception:', error)
     }
   }
 
@@ -539,15 +546,19 @@ export class Commander extends LitElement {
   async handleItemDoubleClick(index: number) {
     const pane = this.getActivePane()
     const item = pane.items[index]
+    console.log('Double-click on item:', item)
 
     if (item.isDirectory) {
+      console.log('Navigating to directory:', item.path)
       await this.navigateToDirectory(item.path)
     } else {
+      console.log('Viewing file:', item.path)
       await this.viewFile(item.path)
     }
   }
 
   async navigateToDirectory(path: string) {
+    console.log('navigateToDirectory called with:', path)
     await this.loadDirectory(this.activePane, path)
   }
 

@@ -24,7 +24,7 @@ export class CommandRegistry {
     this.register('ping', new PingCommand());
     this.register('calculate', new CalculateCommand());
     this.register('help', new HelpCommand(this));
-    this.register('file', new FileOperationsCommand());
+    this.register('file-operations', new FileOperationsCommand());
   }
 
   /**
