@@ -259,6 +259,55 @@ export class CompareDialog extends LitElement {
       font-size: 1.2rem;
       font-weight: bold;
     }
+
+    .regex-input-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex: 1;
+      min-width: 200px;
+    }
+
+    .regex-input {
+      flex: 1;
+      padding: 0.4rem 0.6rem;
+      background: #0f172a;
+      border: 2px solid #475569;
+      color: #fff;
+      font-family: 'Courier New', monospace;
+      font-size: 0.9rem;
+      border-radius: 4px;
+      transition: border-color 0.2s;
+    }
+
+    .regex-input:focus {
+      outline: none;
+      border-color: #0ea5e9;
+    }
+
+    .regex-input.error {
+      border-color: #ef4444;
+    }
+
+    .regex-button {
+      padding: 0.4rem 0.8rem;
+      background: #475569;
+      border: none;
+      color: #fff;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-weight: bold;
+      transition: background 0.2s;
+    }
+
+    .regex-button:hover {
+      background: #64748b;
+    }
+
+    .regex-button.active {
+      background: #0ea5e9;
+    }
   `
 
   @property({ type: Object })
@@ -285,11 +334,48 @@ export class CompareDialog extends LitElement {
   @property({ type: Boolean })
   showOnlyDifferent = false
 
+  @property({ type: String })
+  regexFilter = ''
+
+  @property({ type: Boolean })
+  regexFilterActive = false
+
+  @property({ type: Boolean })
+  showRegexDialog = false
+
   formatFileSize(bytes: number): string {
     if (bytes === 0) return ''
     const sizes = ['B', 'KB', 'MB', 'GB']
     const i = Math.floor(Math.log(bytes) / Math.log(1024))
     return Math.round((bytes / Math.pow(1024, i)) * 100) / 100 + ' ' + sizes[i]
+  }
+
+  isValidRegex(): boolean {
+    if (!this.regexFilter) return true
+    try {
+      new RegExp(this.regexFilter)
+      return true
+    } catch (e) {
+      return false
+    }
+  }
+
+  toggleRegexFilter() {
+    if (this.regexFilter && this.isValidRegex()) {
+      this.regexFilterActive = !this.regexFilterActive
+    } else if (!this.regexFilter) {
+      this.regexFilterActive = false
+    }
+  }
+
+  matchesRegexFilter(filename: string): boolean {
+    if (!this.regexFilterActive || !this.regexFilter) return true
+    try {
+      const regex = new RegExp(this.regexFilter)
+      return regex.test(filename)
+    } catch (e) {
+      return true
+    }
   }
 
   getFilteredItems() {
@@ -300,6 +386,7 @@ export class CompareDialog extends LitElement {
     this.result.onlyInLeft.forEach((item: any) => {
       if (this.hideDirectories && item.isDirectory) return
       if (this.showOnlyRight || this.showOnlyDifferent) return
+      if (!this.matchesRegexFilter(item.path)) return
       items.push({
         name: item.path,
         leftFile: item,
@@ -313,6 +400,7 @@ export class CompareDialog extends LitElement {
     this.result.onlyInRight.forEach((item: any) => {
       if (this.hideDirectories && item.isDirectory) return
       if (this.showOnlyLeft || this.showOnlyDifferent) return
+      if (!this.matchesRegexFilter(item.path)) return
       items.push({
         name: item.path,
         leftFile: null,
@@ -330,6 +418,7 @@ export class CompareDialog extends LitElement {
       )
         return
       if (this.showOnlyLeft || this.showOnlyRight) return
+      if (!this.matchesRegexFilter(item.path)) return
       items.push({
         name: item.path,
         leftFile: {
@@ -356,6 +445,7 @@ export class CompareDialog extends LitElement {
         if (this.hideDirectories && item.isDirectory) return
         if (this.showOnlyLeft || this.showOnlyRight || this.showOnlyDifferent)
           return
+        if (!this.matchesRegexFilter(item.path)) return
         items.push({
           name: item.path,
           leftFile: {
@@ -497,6 +587,16 @@ export class CompareDialog extends LitElement {
               />
               ≠
             </label>
+
+            <label
+              class=${this.regexFilterActive ? 'active' : ''}
+              title="Regex Filter"
+              @click=${() => (this.showRegexDialog = true)}
+              style="cursor: pointer;"
+            >
+              <input type="checkbox" .checked=${this.regexFilterActive} />
+              .*
+            </label>
           </div>
 
           <!-- Table & Summary Section same as your original code -->
@@ -636,6 +736,87 @@ export class CompareDialog extends LitElement {
           </button>
         </div>
       </simple-dialog>
+
+      ${this.showRegexDialog
+        ? html`
+            <simple-dialog
+              .open=${true}
+              .title=${'🔍 Regex Filter'}
+              .width=${'500px'}
+              @dialog-close=${() => (this.showRegexDialog = false)}
+            >
+              <div style="padding: 1rem;">
+                <div class="input-field">
+                  <label>Regex Muster (z.B. \\.txt$ für txt-Dateien):</label>
+                  <input
+                    type="text"
+                    class="regex-input ${this.regexFilter &&
+                    !this.isValidRegex()
+                      ? 'error'
+                      : ''}"
+                    placeholder="z.B. \\.txt$ oder ^test"
+                    .value=${this.regexFilter}
+                    @input=${(e: Event) =>
+                      (this.regexFilter = (e.target as HTMLInputElement).value)}
+                    @keydown=${(e: KeyboardEvent) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        if (this.regexFilter && this.isValidRegex()) {
+                          this.regexFilterActive = true
+                          this.showRegexDialog = false
+                        }
+                      } else if (e.key === 'Escape') {
+                        e.preventDefault()
+                        this.showRegexDialog = false
+                      }
+                    }}
+                    style="width: 100%; padding: 0.75rem; background: #0f172a; border: 2px solid ${this
+                      .regexFilter && !this.isValidRegex()
+                      ? '#ef4444'
+                      : '#475569'}; color: #fff; font-family: 'Courier New', monospace; font-size: 1rem; border-radius: 4px; box-sizing: border-box;"
+                  />
+                  ${this.regexFilter && !this.isValidRegex()
+                    ? html`<div
+                        style="color: #ef4444; font-size: 0.85rem; margin-top: 0.5rem;"
+                      >
+                        ⚠️ Ungültiger Regex-Ausdruck
+                      </div>`
+                    : ''}
+                </div>
+              </div>
+              <div slot="footer" class="dialog-buttons">
+                <button
+                  class="btn-cancel"
+                  @click=${() => {
+                    this.regexFilter = ''
+                    this.regexFilterActive = false
+                    this.showRegexDialog = false
+                  }}
+                >
+                  Deaktivieren
+                </button>
+                <button
+                  class="btn-cancel"
+                  @click=${() => (this.showRegexDialog = false)}
+                >
+                  Abbrechen (ESC)
+                </button>
+                <button
+                  class="btn-confirm"
+                  @click=${() => {
+                    if (this.regexFilter && this.isValidRegex()) {
+                      this.regexFilterActive = true
+                      this.showRegexDialog = false
+                    }
+                  }}
+                  ?disabled=${!this.regexFilter || !this.isValidRegex()}
+                >
+                  Anwenden (ENTER)
+                </button>
+              </div>
+            </simple-dialog>
+          `
+        : ''}
     `
   }
 }

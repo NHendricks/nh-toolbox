@@ -2,7 +2,7 @@
 
 ## changelog
 
-###
+### Coming soon
 
 - navigate to parent folder automatically if folder does not exist (any more)
 - execute a command in current directory
@@ -11,6 +11,7 @@
 - fix ESC and Enter keys in dialogs
 - compare directories
 - use page up/down for faster navigation
+- add regex filter for compare directory function
 
 ### v1.0.0 (25.01.2026)
 

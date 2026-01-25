@@ -1,8 +1,6 @@
 - add logo
 - zip files or folders
-- compare dirs recursive oder only at top Level. Binary compare.
-  - show compae in table
-  - add ability to ignore folders
+- add ability to ignore named folders for compare (regex)
 - page up / down for Navigation in files
 - support \\paths (Windows only) ? Or better map to drive … .
 - integrate more cmdline-Tools
