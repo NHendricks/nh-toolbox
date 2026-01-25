@@ -1,6 +1,6 @@
 import { LitElement, css, html } from 'lit'
 import { property } from 'lit/decorators.js'
-import '../navigation/ResponsiveMenu'
+import '../navigation/ResponsiveMenu.js'
 
 interface CommandParameter {
   name: string
@@ -661,4 +661,4 @@ export class NHStart extends LitElement {
   }
 }
 
-customElements.define('simple-start', NHStart)
+customElements.define('command-params', NHStart)

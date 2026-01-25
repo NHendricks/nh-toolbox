@@ -59,4 +59,4 @@ export class Faq extends LitElement {
   }
 }
 
-customElements.define('simple-faq', Faq)
+customElements.define('nh-faq', Faq)

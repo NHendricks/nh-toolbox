@@ -230,6 +230,7 @@ export class Commander extends LitElement {
       display: flex;
       gap: 0.5rem;
       flex-wrap: wrap;
+      justify-content: space-between;
     }
 
     .function-key {
@@ -1376,7 +1377,7 @@ export class Commander extends LitElement {
     return html`
       <div class="commander-container">
         <div class="toolbar">
-          <span class="toolbar-title">📁 File Commander</span>
+          <span class="toolbar-title">📁 NH Commander</span>
           <div
             class="function-key"
             @click=${() => this.openHelp()}

@@ -1,8 +1,8 @@
 import { Router } from '@vaadin/router'
 import './simpleweb/boundary/navigation/ResponsiveMenu'
 import './simpleweb/boundary/pages/Commander'
+import './simpleweb/boundary/pages/CommandParameter'
 import './simpleweb/boundary/pages/Faq'
-import './simpleweb/boundary/pages/Start'
 
 const outlet = document.querySelector('.view')
 outlet?.classList.add('view')
@@ -10,10 +10,10 @@ export const router = new Router(outlet)
 
 router.setRoutes([
   { path: '/', component: 'simple-commander' },
-  { path: '/faq', component: 'simple-faq' },
-  { path: '/backend', component: 'simple-start' },
+  { path: '/faq', component: 'nh-faq' },
+  { path: '/backend', component: 'command-params' },
   { path: '/commander', component: 'simple-commander' },
-  { path: '(.*)', component: 'simple-start' }, // fallback
+  { path: '(.*)', component: 'simple-commander' }, // fallback
 ])
 
 let basePath = ''

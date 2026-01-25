@@ -174,5 +174,5 @@ console.log('📂 Output directory:', outputDir);
 console.log('📦 App folder location:', appFolderPath);
 console.log('📄 version.txt location:', targetVersionFile);
 console.log('\n🚀 Run the app:');
-console.log(`   ${path.join(outputDir, 'x-tools.exe')}`);
+console.log(`   ${path.join(outputDir, 'nh-toolbox.exe')}`);
 console.log('\n💡 Note: App runs without ASAR packaging (direct file access)');

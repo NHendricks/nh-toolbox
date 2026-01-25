@@ -83,7 +83,7 @@ Nach dem Build:
 │   ├── ui/dist/
 │   └── package.json
 └── build-output/         # Fertige Electron-App
-    ├── x-tools.exe
+    ├── nh-toolbox.exe
     ├── resources/
     │   ├── app/          # Deine App als Ordner (kein ASAR!)
     │   │   ├── backend/

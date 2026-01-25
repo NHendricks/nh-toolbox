@@ -2,6 +2,15 @@
 
 A modular Electron-based utility application with an extensible command-line backend and interactive UI.
 
+## Motivation
+
+When i changed from Windows to Mac i needed to switch back to Windows because my Total Commander
+was not available :-) And i couldnt get used to the keyboard shortcuts.
+
+Additionaly i have built a lot of cmdline tools for my private use.
+
+So i thought why not build one app with many apps inside. Usable on all platforms. Beginning with the commander lets see how it grows. Felld free to contribute !
+
 ## Overview
 
 This is a desktop application that provides a flexible framework for running various utility commands through both a CLI interface and a modern web-based UI. Built with TypeScript, Electron, and Lit Elements, it offers a clean architecture for adding new tools and commands.
