@@ -176,7 +176,7 @@ export class Commander extends LitElement {
     }
 
     .file-item {
-      padding: 0.4rem 0.8rem;
+      padding: 0.05rem 0rem;
       cursor: pointer;
       display: grid;
       grid-template-columns: 20px 1fr auto;
@@ -555,6 +555,9 @@ export class Commander extends LitElement {
 
   @property({ type: Boolean })
   compareRecursive = false
+
+  @property({ type: Boolean })
+  compareWaiting = false
 
   async connectedCallback() {
     super.connectedCallback()
@@ -1598,6 +1601,9 @@ export class Commander extends LitElement {
         'normal',
       )
 
+      // Set waiting state
+      this.compareWaiting = true
+
       const response = await (window as any).electron.ipcRenderer.invoke(
         'cli-execute',
         'file-operations',
@@ -1609,6 +1615,9 @@ export class Commander extends LitElement {
         },
       )
 
+      // Clear waiting state
+      this.compareWaiting = false
+
       if (response.success && response.data) {
         this.compareDialog = {
           result: response.data,
@@ -1619,6 +1628,8 @@ export class Commander extends LitElement {
         this.setStatus(`Fehler: ${response.error}`, 'error')
       }
     } catch (error: any) {
+      // Clear waiting state on error
+      this.compareWaiting = false
       this.setStatus(`Fehler: ${error.message}`, 'error')
     }
   }
@@ -1627,12 +1638,17 @@ export class Commander extends LitElement {
     this.compareDialog = null
   }
 
-  toggleCompareRecursive() {
+  async toggleCompareRecursive() {
     this.compareRecursive = !this.compareRecursive
     this.setStatus(
       `Rekursiver Vergleich: ${this.compareRecursive ? 'An' : 'Aus'}`,
       'success',
     )
+
+    // If dialog is open, automatically start new comparison
+    if (this.compareDialog) {
+      await this.handleCompare()
+    }
   }
 
   formatFileSize(bytes: number): string {
@@ -1655,10 +1671,7 @@ export class Commander extends LitElement {
               : '#475569'};"
             title="Verzeichnisse vergleichen (Klicke mit Strg für rekursiven Modus)"
           >
-            <span class="function-key-label"
-              >${this.compareRecursive ? '📂' : '📁'}</span
-            >
-            <span class="function-key-action">🔍 Vergleichen</span>
+            <span class="function-key-label">📂 : 📂</span>
           </div>
           <div
             class="function-key-top"
@@ -1666,7 +1679,6 @@ export class Commander extends LitElement {
             style="margin-left: auto; min-width: 80px;"
           >
             <span class="function-key-label">F1</span>
-            <span class="function-key-action">❓ Hilfe</span>
           </div>
         </div>
 
@@ -1723,6 +1735,7 @@ export class Commander extends LitElement {
           ? html`<compare-dialog
               .result=${this.compareDialog.result}
               .recursive=${this.compareDialog.recursive}
+              .isWaiting=${this.compareWaiting}
               @close=${this.closeCompare}
               @toggle-recursive=${this.toggleCompareRecursive}
               @recompare=${this.handleCompare}

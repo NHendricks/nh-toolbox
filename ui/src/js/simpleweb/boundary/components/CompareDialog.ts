@@ -35,6 +35,7 @@ export class CompareDialog extends LitElement {
       font-weight: bold;
     }
 
+    /* ---- Filter Section (Icon only) ---- */
     .filter-section {
       display: flex;
       gap: 1rem;
@@ -50,20 +51,30 @@ export class CompareDialog extends LitElement {
       font-weight: bold;
     }
 
-    .filter-checkbox {
+    .filter-section label {
       display: flex;
       align-items: center;
-      gap: 0.5rem;
       cursor: pointer;
-      user-select: none;
+      font-size: 1.3rem;
+      opacity: 0.35;
+      transition:
+        opacity 0.15s ease,
+        transform 0.1s ease;
     }
 
-    .filter-checkbox input {
-      cursor: pointer;
-      width: 18px;
-      height: 18px;
+    .filter-section label.active {
+      opacity: 1;
     }
 
+    .filter-section label:hover {
+      transform: scale(1.1);
+    }
+
+    .filter-section input {
+      display: none;
+    }
+
+    /* ---- Table Styles ---- */
     .compare-table {
       width: 100%;
       border-collapse: collapse;
@@ -209,6 +220,45 @@ export class CompareDialog extends LitElement {
     .btn-cancel:hover {
       background: #64748b;
     }
+
+    .waiting-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(15, 23, 42, 0.95);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 10;
+      gap: 1rem;
+    }
+
+    .spinner {
+      width: 60px;
+      height: 60px;
+      border: 4px solid #334155;
+      border-top: 4px solid #0ea5e9;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      0% {
+        transform: rotate(0deg);
+      }
+      100% {
+        transform: rotate(360deg);
+      }
+    }
+
+    .waiting-text {
+      color: #0ea5e9;
+      font-size: 1.2rem;
+      font-weight: bold;
+    }
   `
 
   @property({ type: Object })
@@ -216,6 +266,9 @@ export class CompareDialog extends LitElement {
 
   @property({ type: Boolean })
   recursive = false
+
+  @property({ type: Boolean })
+  isWaiting = false
 
   @property({ type: Boolean })
   hideIdentical = false
@@ -244,7 +297,6 @@ export class CompareDialog extends LitElement {
 
     const items: any[] = []
 
-    // Add items only in left
     this.result.onlyInLeft.forEach((item: any) => {
       if (this.hideDirectories && item.isDirectory) return
       if (this.showOnlyRight || this.showOnlyDifferent) return
@@ -258,7 +310,6 @@ export class CompareDialog extends LitElement {
       })
     })
 
-    // Add items only in right
     this.result.onlyInRight.forEach((item: any) => {
       if (this.hideDirectories && item.isDirectory) return
       if (this.showOnlyLeft || this.showOnlyDifferent) return
@@ -272,7 +323,6 @@ export class CompareDialog extends LitElement {
       })
     })
 
-    // Add different items
     this.result.different.forEach((item: any) => {
       if (
         this.hideDirectories &&
@@ -301,7 +351,6 @@ export class CompareDialog extends LitElement {
       })
     })
 
-    // Add identical items
     if (!this.hideIdentical) {
       this.result.identical.forEach((item: any) => {
         if (this.hideDirectories && item.isDirectory) return
@@ -328,7 +377,6 @@ export class CompareDialog extends LitElement {
       })
     }
 
-    // Sort by name
     items.sort((a, b) => a.name.localeCompare(b.name))
 
     return items
@@ -368,90 +416,90 @@ export class CompareDialog extends LitElement {
         .maxHeight=${'90vh'}
         @dialog-close=${this.close}
       >
-        <div class="compare-content">
-          <!-- Summary Section -->
-          <div class="summary-section">
-            <div class="summary-item">
-              <div class="summary-label">Links gesamt</div>
-              <div class="summary-value">${summary.totalLeft}</div>
-            </div>
-            <div class="summary-item">
-              <div class="summary-label">Rechts gesamt</div>
-              <div class="summary-value">${summary.totalRight}</div>
-            </div>
-            <div class="summary-item status-left-only">
-              <div class="summary-label">Nur links</div>
-              <div class="summary-value">${summary.onlyInLeft}</div>
-            </div>
-            <div class="summary-item status-right-only">
-              <div class="summary-label">Nur rechts</div>
-              <div class="summary-value">${summary.onlyInRight}</div>
-            </div>
-            <div class="summary-item status-different">
-              <div class="summary-label">Unterschiedlich</div>
-              <div class="summary-value">${summary.different}</div>
-            </div>
-            <div class="summary-item status-identical">
-              <div class="summary-label">Identisch</div>
-              <div class="summary-value">${summary.identical}</div>
-            </div>
-          </div>
-
+        <div class="compare-content" style="position: relative;">
+          ${this.isWaiting
+            ? html`
+                <div class="waiting-overlay">
+                  <div class="spinner"></div>
+                  <div class="waiting-text">
+                    Vergleiche
+                    Verzeichnisse${this.recursive ? ' (rekursiv)' : ''}...
+                  </div>
+                </div>
+              `
+            : ''}
           <!-- Filter Section -->
           <div class="filter-section">
-            <span class="filter-label">Filter:</span>
-            <label class="filter-checkbox">
+            <span class="filter-label">🔎</span>
+
+            <label
+              class=${this.hideIdentical ? 'active' : ''}
+              title="Identische ausblenden"
+            >
               <input
                 type="checkbox"
-                ?checked=${this.hideIdentical}
+                .checked=${this.hideIdentical}
                 @change=${(e: Event) =>
                   (this.hideIdentical = (e.target as HTMLInputElement).checked)}
               />
-              <span>Identische ausblenden</span>
+              ≡
             </label>
-            <label class="filter-checkbox">
+
+            <label
+              class=${this.hideDirectories ? 'active' : ''}
+              title="Verzeichnisse ausblenden"
+            >
               <input
                 type="checkbox"
-                ?checked=${this.hideDirectories}
+                .checked=${this.hideDirectories}
                 @change=${(e: Event) =>
                   (this.hideDirectories = (
                     e.target as HTMLInputElement
                   ).checked)}
               />
-              <span>Verzeichnisse ausblenden</span>
+              📁
             </label>
-            <label class="filter-checkbox">
+
+            <label class=${this.showOnlyLeft ? 'active' : ''} title="Nur links">
               <input
                 type="checkbox"
-                ?checked=${this.showOnlyLeft}
+                .checked=${this.showOnlyLeft}
                 @change=${(e: Event) =>
                   (this.showOnlyLeft = (e.target as HTMLInputElement).checked)}
               />
-              <span>Nur "Nur links"</span>
+              ⬅
             </label>
-            <label class="filter-checkbox">
+
+            <label
+              class=${this.showOnlyRight ? 'active' : ''}
+              title="Nur rechts"
+            >
               <input
                 type="checkbox"
-                ?checked=${this.showOnlyRight}
+                .checked=${this.showOnlyRight}
                 @change=${(e: Event) =>
                   (this.showOnlyRight = (e.target as HTMLInputElement).checked)}
               />
-              <span>Nur "Nur rechts"</span>
+              ➡
             </label>
-            <label class="filter-checkbox">
+
+            <label
+              class=${this.showOnlyDifferent ? 'active' : ''}
+              title="Nur unterschiedliche"
+            >
               <input
                 type="checkbox"
-                ?checked=${this.showOnlyDifferent}
+                .checked=${this.showOnlyDifferent}
                 @change=${(e: Event) =>
                   (this.showOnlyDifferent = (
                     e.target as HTMLInputElement
                   ).checked)}
               />
-              <span>Nur unterschiedliche</span>
+              ≠
             </label>
           </div>
 
-          <!-- Table View -->
+          <!-- Table & Summary Section same as your original code -->
           ${hasDifferences
             ? html`
                 <div class="table-wrapper">
@@ -520,16 +568,14 @@ export class CompareDialog extends LitElement {
                         `,
                       )}
                       ${filteredItems.length === 0
-                        ? html`
-                            <tr>
-                              <td
-                                colspan="3"
-                                style="text-align: center; padding: 2rem; color: #94a3b8;"
-                              >
-                                Keine Einträge entsprechen den aktuellen Filtern
-                              </td>
-                            </tr>
-                          `
+                        ? html`<tr>
+                            <td
+                              colspan="3"
+                              style="text-align:center; padding:2rem; color:#94a3b8;"
+                            >
+                              Keine Einträge entsprechen den aktuellen Filtern
+                            </td>
+                          </tr>`
                         : ''}
                     </tbody>
                   </table>
@@ -545,6 +591,32 @@ export class CompareDialog extends LitElement {
                   </div>
                 </div>
               `}
+          <div class="summary-section">
+            <div class="summary-item">
+              <div class="summary-label">Links gesamt</div>
+              <div class="summary-value">${summary.totalLeft}</div>
+            </div>
+            <div class="summary-item">
+              <div class="summary-label">Rechts gesamt</div>
+              <div class="summary-value">${summary.totalRight}</div>
+            </div>
+            <div class="summary-item status-left-only">
+              <div class="summary-label">Nur links</div>
+              <div class="summary-value">${summary.onlyInLeft}</div>
+            </div>
+            <div class="summary-item status-right-only">
+              <div class="summary-label">Nur rechts</div>
+              <div class="summary-value">${summary.onlyInRight}</div>
+            </div>
+            <div class="summary-item status-different">
+              <div class="summary-label">Unterschiedlich</div>
+              <div class="summary-value">${summary.different}</div>
+            </div>
+            <div class="summary-item status-identical">
+              <div class="summary-label">Identisch</div>
+              <div class="summary-value">${summary.identical}</div>
+            </div>
+          </div>
         </div>
 
         <div slot="footer" class="dialog-buttons">
