@@ -59,7 +59,7 @@ console.log(`   ✅ To: ${outputDir}`);
 // Step 3: Prepare app content
 console.log('\n📋 Step 3: Preparing app content...');
 
-// Copy backend
+// Copy ^d
 const backendDist = path.join(rootDir, 'backend', 'dist');
 const appBackend = path.join(appDir, 'backend', 'dist');
 if (fs.existsSync(backendDist)) {
@@ -67,6 +67,14 @@ if (fs.existsSync(backendDist)) {
   console.log('   ✅ Backend copied');
 } else {
   console.log('   ⚠️  Backend dist not found - run buildBackend first!');
+}
+
+// Copy process node_modules (if needed)
+const backendNodeModules = path.join(rootDir, 'backend', 'node_modules');
+const appBackendNodeModules = path.join(appDir, 'backend', 'node_modules');
+if (fs.existsSync(backendNodeModules)) {
+  fs.copySync(backendNodeModules, appBackendNodeModules);
+  console.log('   ✅ Backend node_modules copied');
 }
 
 // Copy process
