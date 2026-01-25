@@ -110,8 +110,9 @@ export class Commander extends LitElement {
     /* Drive Selector */
     .drive-selector {
       width: 400px;
-      height: auto;
-      max-height: 500px;
+      max-height: 80vh;
+      display: flex;
+      flex-direction: column;
     }
 
     .drive-list {
@@ -119,6 +120,8 @@ export class Commander extends LitElement {
       display: flex;
       flex-direction: column;
       gap: 0.5rem;
+      overflow-y: auto;
+      flex: 1;
     }
 
     .drive-item {
@@ -527,6 +530,9 @@ export class Commander extends LitElement {
   @property({ type: Array })
   availableDrives: any[] = []
 
+  @property({ type: Array })
+  favoritePaths: string[] = []
+
   @property({ type: Boolean })
   showDriveSelector = false
 
@@ -569,8 +575,48 @@ export class Commander extends LitElement {
     // Load available drives
     await this.loadDrives()
 
+    // Load favorite paths from localStorage
+    this.loadFavorites()
+
     // Add global keyboard listeners
     window.addEventListener('keydown', this.handleGlobalKeydown.bind(this))
+  }
+
+  loadFavorites() {
+    const saved = localStorage.getItem('commander-favorites')
+    if (saved) {
+      try {
+        this.favoritePaths = JSON.parse(saved)
+      } catch (error) {
+        console.error('Failed to load favorites:', error)
+        this.favoritePaths = []
+      }
+    }
+  }
+
+  saveFavorites() {
+    localStorage.setItem(
+      'commander-favorites',
+      JSON.stringify(this.favoritePaths),
+    )
+  }
+
+  toggleFavorite(path: string) {
+    const index = this.favoritePaths.indexOf(path)
+    if (index >= 0) {
+      // Remove from favorites
+      this.favoritePaths = this.favoritePaths.filter((_, i) => i !== index)
+      this.setStatus(`Aus Favoriten entfernt: ${path}`, 'success')
+    } else {
+      // Add to favorites
+      this.favoritePaths = [...this.favoritePaths, path]
+      this.setStatus(`Zu Favoriten hinzugefügt: ${path}`, 'success')
+    }
+    this.saveFavorites()
+  }
+
+  isFavorite(path: string): boolean {
+    return this.favoritePaths.includes(path)
   }
 
   async loadDrives() {
@@ -1704,6 +1750,9 @@ export class Commander extends LitElement {
   }
 
   renderDriveSelector() {
+    const currentPath = this.getActivePane().currentPath
+    const isCurrentFavorite = this.isFavorite(currentPath)
+
     return html`
       <div class="dialog-overlay" @click=${this.closeDriveSelector}>
         <div
@@ -1711,12 +1760,57 @@ export class Commander extends LitElement {
           @click=${(e: Event) => e.stopPropagation()}
         >
           <div class="dialog-header">
-            <span class="dialog-title">💾 Laufwerk wählen</span>
+            <span class="dialog-title">💾 Laufwerk & Favoriten wählen</span>
             <button class="dialog-close" @click=${this.closeDriveSelector}>
               ESC - Schließen
             </button>
           </div>
+
           <div class="drive-list">
+            <!-- Favorites Section -->
+            ${this.favoritePaths.length > 0
+              ? html`
+                  <div
+                    style="padding: 0.5rem 0; color: #fbbf24; font-weight: bold; border-bottom: 1px solid #475569;"
+                  >
+                    ⭐ Favoriten
+                  </div>
+                  ${this.favoritePaths.map(
+                    (favPath) => html`
+                      <div class="drive-item" style="position: relative;">
+                        <span class="drive-icon">⭐</span>
+                        <div
+                          class="drive-info"
+                          @click=${() => this.selectDrive(favPath)}
+                          style="cursor: pointer;"
+                        >
+                          <div class="drive-label">
+                            ${favPath.split(/[/\\]/).pop() || favPath}
+                          </div>
+                          <div class="drive-path">${favPath}</div>
+                        </div>
+                        <button
+                          @click=${(e: Event) => {
+                            e.stopPropagation()
+                            this.toggleFavorite(favPath)
+                          }}
+                          style="background: #dc2626; border: none; color: white; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 1.2rem;"
+                          title="Aus Favoriten entfernen"
+                        >
+                          🗑️
+                        </button>
+                      </div>
+                    `,
+                  )}
+                  <div
+                    style="padding: 0.5rem 0; color: #fbbf24; font-weight: bold; border-bottom: 1px solid #475569; margin-top: 0.5rem;"
+                  >
+                    💾 Laufwerke
+                  </div>
+                `
+              : ''}
+
+            <!-- Drives Section -->
             ${this.availableDrives.map(
               (drive) => html`
                 <div
@@ -1732,6 +1826,31 @@ export class Commander extends LitElement {
               `,
             )}
           </div>
+
+          <!-- Add Favorite Button at Bottom -->
+          ${!isCurrentFavorite
+            ? html`
+                <div
+                  class="dialog-footer"
+                  style="padding: 1rem; border-top: 2px solid #475569;"
+                >
+                  <button
+                    class="btn-confirm"
+                    style="width: 100%; padding: 0.75rem;"
+                    @click=${(e: Event) => {
+                      e.stopPropagation()
+                      this.toggleFavorite(currentPath)
+                    }}
+                  >
+                    ☆ Aktuelles Verzeichnis zu Favoriten hinzufügen
+                    <br />
+                    <span style="font-size: 0.85rem; opacity: 0.8;"
+                      >${currentPath}</span
+                    >
+                  </button>
+                </div>
+              `
+            : ''}
         </div>
       </div>
     `
