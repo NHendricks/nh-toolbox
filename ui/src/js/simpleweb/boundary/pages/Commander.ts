@@ -1,5 +1,6 @@
 import { LitElement, css, html } from 'lit'
 import { property } from 'lit/decorators.js'
+import '../components/SimpleDialog'
 import '../navigation/ResponsiveMenu'
 
 interface FileItem {
@@ -1107,6 +1108,10 @@ export class Commander extends LitElement {
         this.cancelOperation()
         return
       }
+      if (this.deleteDialog) {
+        this.cancelDelete()
+        return
+      }
       if (this.showDriveSelector) {
         this.closeDriveSelector()
         return
@@ -1115,6 +1120,13 @@ export class Commander extends LitElement {
         this.cancelCommand()
         return
       }
+    }
+
+    // Handle ENTER for delete dialog
+    if (event.key === 'Enter' && this.deleteDialog) {
+      event.preventDefault()
+      this.executeDelete()
+      return
     }
 
     // Handle arrow keys in image viewer
@@ -1648,104 +1660,95 @@ export class Commander extends LitElement {
 
   renderHelp() {
     return html`
-      <div class="dialog-overlay" @click=${this.closeHelp}>
-        <div
-          class="dialog help-dialog"
-          @click=${(e: Event) => e.stopPropagation()}
-        >
-          <div class="dialog-header">
-            <span class="dialog-title">❓ Tastenkürzel</span>
-            <button class="dialog-close" @click=${this.closeHelp}>
-              ESC - Schließen
-            </button>
+      <simple-dialog
+        .open=${this.showHelp}
+        .title=${'❓ Tastenkürzel'}
+        .width=${'700px'}
+        .maxHeight=${'80vh'}
+        @dialog-close=${this.closeHelp}
+      >
+        <div class="help-content">
+          <div class="help-section">
+            <h3>Navigation</h3>
+            <div class="help-item">
+              <div class="help-key">↑ / ↓</div>
+              <div class="help-description">Fokus verschieben</div>
+            </div>
+            <div class="help-item">
+              <div class="help-key">Enter</div>
+              <div class="help-description">Verzeichnis öffnen</div>
+            </div>
+            <div class="help-item">
+              <div class="help-key">Tab</div>
+              <div class="help-description">Zwischen Panels wechseln</div>
+            </div>
+            <div class="help-item">
+              <div class="help-key">Alt+1 / Alt+2</div>
+              <div class="help-description">Laufwerk wählen (links/rechts)</div>
+            </div>
           </div>
-          <div class="help-content">
-            <div class="help-section">
-              <h3>Navigation</h3>
-              <div class="help-item">
-                <div class="help-key">↑ / ↓</div>
-                <div class="help-description">Fokus verschieben</div>
-              </div>
-              <div class="help-item">
-                <div class="help-key">Enter</div>
-                <div class="help-description">Verzeichnis öffnen</div>
-              </div>
-              <div class="help-item">
-                <div class="help-key">Tab</div>
-                <div class="help-description">Zwischen Panels wechseln</div>
-              </div>
-              <div class="help-item">
-                <div class="help-key">Alt+1 / Alt+2</div>
-                <div class="help-description">
-                  Laufwerk wählen (links/rechts)
-                </div>
+          <div class="help-section">
+            <h3>Dateien</h3>
+            <div class="help-item">
+              <div class="help-key">F3</div>
+              <div class="help-description">Datei/Bild ansehen</div>
+            </div>
+            <div class="help-item">
+              <div class="help-key">← / →</div>
+              <div class="help-description">Zwischen Bildern navigieren</div>
+            </div>
+            <div class="help-item">
+              <div class="help-key">Doppelklick</div>
+              <div class="help-description">
+                Datei öffnen/Verzeichnis betreten
               </div>
             </div>
-            <div class="help-section">
-              <h3>Dateien</h3>
-              <div class="help-item">
-                <div class="help-key">F3</div>
-                <div class="help-description">Datei/Bild ansehen</div>
-              </div>
-              <div class="help-item">
-                <div class="help-key">← / →</div>
-                <div class="help-description">Zwischen Bildern navigieren</div>
-              </div>
-              <div class="help-item">
-                <div class="help-key">Doppelklick</div>
-                <div class="help-description">
-                  Datei öffnen/Verzeichnis betreten
-                </div>
+          </div>
+          <div class="help-section">
+            <h3>Selektion</h3>
+            <div class="help-item">
+              <div class="help-key">Strg+Click</div>
+              <div class="help-description">Datei markieren/entmarkieren</div>
+            </div>
+            <div class="help-item">
+              <div class="help-key">Strg+↑ / Strg+↓</div>
+              <div class="help-description">
+                Fokussierte Datei markieren + bewegen
               </div>
             </div>
-            <div class="help-section">
-              <h3>Selektion</h3>
-              <div class="help-item">
-                <div class="help-key">Strg+Click</div>
-                <div class="help-description">Datei markieren/entmarkieren</div>
-              </div>
-              <div class="help-item">
-                <div class="help-key">Strg+↑ / Strg+↓</div>
-                <div class="help-description">
-                  Fokussierte Datei markieren + bewegen
-                </div>
-              </div>
-              <div class="help-item">
-                <div class="help-key">Strg+Leertaste</div>
-                <div class="help-description">Datei markieren/entmarkieren</div>
-              </div>
+            <div class="help-item">
+              <div class="help-key">Strg+Leertaste</div>
+              <div class="help-description">Datei markieren/entmarkieren</div>
             </div>
-            <div class="help-section">
-              <h3>Operationen</h3>
-              <div class="help-item">
-                <div class="help-key">F5</div>
-                <div class="help-description">Kopieren zum anderen Panel</div>
-              </div>
-              <div class="help-item">
-                <div class="help-key">F6</div>
-                <div class="help-description">
-                  Verschieben zum anderen Panel
-                </div>
-              </div>
-              <div class="help-item">
-                <div class="help-key">F7</div>
-                <div class="help-description">Verzeichnis aktualisieren</div>
-              </div>
+          </div>
+          <div class="help-section">
+            <h3>Operationen</h3>
+            <div class="help-item">
+              <div class="help-key">F5</div>
+              <div class="help-description">Kopieren zum anderen Panel</div>
             </div>
-            <div class="help-section">
-              <h3>Allgemein</h3>
-              <div class="help-item">
-                <div class="help-key">F1</div>
-                <div class="help-description">Diese Hilfe anzeigen</div>
-              </div>
-              <div class="help-item">
-                <div class="help-key">ESC</div>
-                <div class="help-description">Dialog schließen</div>
-              </div>
+            <div class="help-item">
+              <div class="help-key">F6</div>
+              <div class="help-description">Verschieben zum anderen Panel</div>
+            </div>
+            <div class="help-item">
+              <div class="help-key">F7</div>
+              <div class="help-description">Verzeichnis aktualisieren</div>
+            </div>
+          </div>
+          <div class="help-section">
+            <h3>Allgemein</h3>
+            <div class="help-item">
+              <div class="help-key">F1</div>
+              <div class="help-description">Diese Hilfe anzeigen</div>
+            </div>
+            <div class="help-item">
+              <div class="help-key">ESC</div>
+              <div class="help-description">Dialog schließen</div>
             </div>
           </div>
         </div>
-      </div>
+      </simple-dialog>
     `
   }
 
@@ -1959,52 +1962,49 @@ export class Commander extends LitElement {
     }, 100)
 
     return html`
-      <div class="dialog-overlay">
-        <div
-          class="dialog input-dialog"
-          @click=${(e: Event) => e.stopPropagation()}
-        >
-          <div class="dialog-header">
-            <span class="dialog-title">${operation}</span>
+      <simple-dialog
+        .open=${true}
+        .title=${operation}
+        .width=${'600px'}
+        @dialog-close=${this.cancelOperation}
+      >
+        <div style="padding: 1rem;">
+          <div class="input-field">
+            <label
+              >${files.length} Datei(en)
+              ${type === 'copy' ? 'kopieren' : 'verschieben'} nach:</label
+            >
+            <input
+              type="text"
+              .value=${destination}
+              @input=${(e: Event) =>
+                this.updateDestination((e.target as HTMLInputElement).value)}
+              @keydown=${(e: KeyboardEvent) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  this.executeOperation()
+                } else if (e.key === 'Escape') {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  this.cancelOperation()
+                }
+              }}
+            />
           </div>
-          <div style="padding: 1rem;">
-            <div class="input-field">
-              <label
-                >${files.length} Datei(en)
-                ${type === 'copy' ? 'kopieren' : 'verschieben'} nach:</label
-              >
-              <input
-                type="text"
-                .value=${destination}
-                @input=${(e: Event) =>
-                  this.updateDestination((e.target as HTMLInputElement).value)}
-                @keydown=${(e: KeyboardEvent) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault()
-                    e.stopPropagation()
-                    this.executeOperation()
-                  } else if (e.key === 'Escape') {
-                    e.preventDefault()
-                    e.stopPropagation()
-                    this.cancelOperation()
-                  }
-                }}
-              />
-            </div>
-            <div style="margin-top: 1rem; color: #94a3b8; font-size: 0.9rem;">
-              ${files.map((f) => html`<div>• ${f.split(/[/\\]/).pop()}</div>`)}
-            </div>
-          </div>
-          <div class="dialog-buttons">
-            <button class="btn-cancel" @click=${this.cancelOperation}>
-              Abbrechen (ESC)
-            </button>
-            <button class="btn-confirm" @click=${this.executeOperation}>
-              ${operation} (ENTER)
-            </button>
+          <div style="margin-top: 1rem; color: #94a3b8; font-size: 0.9rem;">
+            ${files.map((f) => html`<div>• ${f.split(/[/\\]/).pop()}</div>`)}
           </div>
         </div>
-      </div>
+        <div slot="footer" class="dialog-buttons">
+          <button class="btn-cancel" @click=${this.cancelOperation}>
+            Abbrechen (ESC)
+          </button>
+          <button class="btn-confirm" @click=${this.executeOperation}>
+            ${operation} (ENTER)
+          </button>
+        </div>
+      </simple-dialog>
     `
   }
 
@@ -2013,39 +2013,59 @@ export class Commander extends LitElement {
 
     const { files } = this.deleteDialog
 
+    // Auto-focus the delete button when dialog opens
+    setTimeout(() => {
+      const deleteBtn = this.shadowRoot?.querySelector(
+        '.btn-confirm',
+      ) as HTMLButtonElement
+      if (deleteBtn) {
+        deleteBtn.focus()
+      }
+    }, 100)
+
     return html`
-      <div class="dialog-overlay">
-        <div
-          class="dialog input-dialog"
-          @click=${(e: Event) => e.stopPropagation()}
-        >
-          <div class="dialog-header">
-            <span class="dialog-title">🗑️ Löschen bestätigen</span>
+      <simple-dialog
+        .open=${true}
+        .title=${'🗑️ Löschen bestätigen'}
+        .width=${'600px'}
+        @dialog-close=${this.cancelDelete}
+      >
+        <div style="padding: 1rem;">
+          <div style="margin-bottom: 1rem; color: #fbbf24; font-weight: bold;">
+            ⚠️ Wirklich ${files.length} Datei(en) löschen?
           </div>
-          <div style="padding: 1rem;">
-            <div
-              style="margin-bottom: 1rem; color: #fbbf24; font-weight: bold;"
-            >
-              ⚠️ Wirklich ${files.length} Datei(en) löschen?
-            </div>
-            <div style="margin-top: 1rem; color: #94a3b8; font-size: 0.9rem;">
-              ${files.map((f) => html`<div>• ${f.split(/[/\\]/).pop()}</div>`)}
-            </div>
-          </div>
-          <div class="dialog-buttons">
-            <button class="btn-cancel" @click=${this.cancelDelete}>
-              Abbrechen (ESC)
-            </button>
-            <button
-              class="btn-confirm"
-              @click=${this.executeDelete}
-              style="background: #dc2626;"
-            >
-              Löschen (ENTER)
-            </button>
+          <div style="margin-top: 1rem; color: #94a3b8; font-size: 0.9rem;">
+            ${files.map((f) => html`<div>• ${f.split(/[/\\]/).pop()}</div>`)}
           </div>
         </div>
-      </div>
+        <div slot="footer" class="dialog-buttons">
+          <button
+            class="btn-cancel"
+            @click=${this.cancelDelete}
+            @keydown=${(e: KeyboardEvent) => {
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                this.cancelDelete()
+              }
+            }}
+          >
+            Abbrechen (ESC)
+          </button>
+          <button
+            class="btn-confirm"
+            @click=${this.executeDelete}
+            @keydown=${(e: KeyboardEvent) => {
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                this.executeDelete()
+              }
+            }}
+            style="background: #dc2626;"
+          >
+            Löschen (ENTER)
+          </button>
+        </div>
+      </simple-dialog>
     `
   }
 
@@ -2065,47 +2085,44 @@ export class Commander extends LitElement {
     }, 100)
 
     return html`
-      <div class="dialog-overlay">
-        <div
-          class="dialog input-dialog"
-          @click=${(e: Event) => e.stopPropagation()}
-        >
-          <div class="dialog-header">
-            <span class="dialog-title">⚡ Befehl ausführen</span>
-          </div>
-          <div style="padding: 1rem;">
-            <div class="input-field">
-              <label>Befehl im Verzeichnis: ${workingDir}</label>
-              <input
-                type="text"
-                .value=${command}
-                placeholder="z.B. dir, ls, git status..."
-                @input=${(e: Event) =>
-                  this.updateCommand((e.target as HTMLInputElement).value)}
-                @keydown=${(e: KeyboardEvent) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault()
-                    e.stopPropagation()
-                    this.executeCommand()
-                  } else if (e.key === 'Escape') {
-                    e.preventDefault()
-                    e.stopPropagation()
-                    this.cancelCommand()
-                  }
-                }}
-              />
-            </div>
-          </div>
-          <div class="dialog-buttons">
-            <button class="btn-cancel" @click=${this.cancelCommand}>
-              Abbrechen (ESC)
-            </button>
-            <button class="btn-confirm" @click=${this.executeCommand}>
-              Ausführen (ENTER)
-            </button>
+      <simple-dialog
+        .open=${true}
+        .title=${'⚡ Befehl ausführen'}
+        .width=${'600px'}
+        @dialog-close=${this.cancelCommand}
+      >
+        <div style="padding: 1rem;">
+          <div class="input-field">
+            <label>Befehl im Verzeichnis: ${workingDir}</label>
+            <input
+              type="text"
+              .value=${command}
+              placeholder="z.B. dir, ls, git status..."
+              @input=${(e: Event) =>
+                this.updateCommand((e.target as HTMLInputElement).value)}
+              @keydown=${(e: KeyboardEvent) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  this.executeCommand()
+                } else if (e.key === 'Escape') {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  this.cancelCommand()
+                }
+              }}
+            />
           </div>
         </div>
-      </div>
+        <div slot="footer" class="dialog-buttons">
+          <button class="btn-cancel" @click=${this.cancelCommand}>
+            Abbrechen (ESC)
+          </button>
+          <button class="btn-confirm" @click=${this.executeCommand}>
+            Ausführen (ENTER)
+          </button>
+        </div>
+      </simple-dialog>
     `
   }
 }
