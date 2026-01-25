@@ -1,15 +1,17 @@
-# nh-toolbox ((https://github.com/NHendricks/nh-toolbox))
+# nh-toolbox (https://github.com/NHendricks/nh-toolbox)
 
 A modular Electron-based utility application with an extensible command-line backend and interactive UI.
+
+_Changelog_ see https://github.com/NHendricks/nh-toolbox/version/changelog.md
 
 ## Motivation
 
 When i changed from Windows to Mac i needed to switch back to Windows because my Total Commander
 was not available :-) And i couldnt get used to the keyboard shortcuts.
 
-Additionaly i have built a lot of cmdline tools for my private use.
+Additionaly i have built a lot of cmdline tools for my private use and i wantred to have one place to manage them.
 
-So i thought why not build one app with many apps inside. Usable on all platforms. Beginning with the commander lets see how it grows. Felld free to contribute !
+So i thought why not build one app with many apps inside. Usable on all platforms. Beginning with the commander lets see how it grows. Feel free to contribute !
 
 ## Overview
 
@@ -39,20 +41,22 @@ This is a desktop application that provides a flexible framework for running var
 
 ### Development Mode
 
-**Terminal 1 - Start UI:**
+**Terminal - Install dependencies**
 
 ```bash
-cd ui
-npm install
-npm run dev
+npm run installDependencies
 ```
 
-**Terminal 2 - Start Electron:**
+**Terminal - Start UI:**
 
 ```bash
-cd process
-npm install
-npm run start
+npm run ui
+```
+
+**Terminal - Start Electron:**
+
+```bash
+npm run main
 ```
 
 ### CLI Usage
@@ -63,18 +67,16 @@ npm run buildBackend
 
 # Run commands directly
 node backend/dist/cli.js ping
-node backend/dist/cli.js echo "Hello World"
 node backend/dist/cli.js calculate '{"operation":"add","a":5,"b":3}'
 ```
 
 ## Building for Production
 
 ```bash
-npm install
-npm run buildElectron
+npm run buildWindowsApp
 ```
 
-The executable will be created in the `dist/` directory.
+The executable will be created in the `build-output` directory.
 
 ## Technology Stack
 
