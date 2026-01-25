@@ -3,6 +3,7 @@
  * Provides file system operations: list files, copy, and move files
  */
 
+import { exec } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import { promisify } from 'util';
@@ -16,11 +17,19 @@ const mkdir = promisify(fs.mkdir);
 const readFile = promisify(fs.readFile);
 const rmdir = promisify(fs.rmdir);
 const unlink = promisify(fs.unlink);
+const execPromise = promisify(exec);
 
 export class FileOperationsCommand implements ICommand {
   async execute(params: any): Promise<any> {
-    const { operation, folderPath, sourcePath, destinationPath, filePath } =
-      params;
+    const {
+      operation,
+      folderPath,
+      sourcePath,
+      destinationPath,
+      filePath,
+      command,
+      workingDir,
+    } = params;
 
     try {
       switch (operation) {
@@ -36,6 +45,8 @@ export class FileOperationsCommand implements ICommand {
           return await this.moveFile(sourcePath, destinationPath);
         case 'delete':
           return await this.deleteFile(sourcePath);
+        case 'execute-command':
+          return await this.executeCommand(command, workingDir);
         default:
           return {
             success: false,
@@ -626,6 +637,68 @@ export class FileOperationsCommand implements ICommand {
     }
 
     await rmdir(dirPath);
+  }
+
+  /**
+   * Execute a command in a specific working directory
+   */
+  private async executeCommand(
+    command: string,
+    workingDir: string,
+  ): Promise<any> {
+    if (!command) {
+      throw new Error('command is required for execute-command operation');
+    }
+    if (!workingDir) {
+      throw new Error('workingDir is required for execute-command operation');
+    }
+
+    const absoluteWorkingDir = path.resolve(workingDir);
+
+    // Check if working directory exists
+    if (!fs.existsSync(absoluteWorkingDir)) {
+      throw new Error(
+        `Working directory does not exist: ${absoluteWorkingDir}`,
+      );
+    }
+
+    try {
+      // Execute the command with a timeout of 30 seconds
+      const { stdout, stderr } = await execPromise(command, {
+        cwd: absoluteWorkingDir,
+        timeout: 30000,
+        maxBuffer: 1024 * 1024 * 10, // 10MB buffer
+        encoding: 'utf8',
+      });
+
+      // Combine stdout and stderr
+      const output = stdout + (stderr ? '\n--- STDERR ---\n' + stderr : '');
+
+      return {
+        success: true,
+        operation: 'execute-command',
+        command: command,
+        workingDir: absoluteWorkingDir,
+        output: output || '(Kein Output)',
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error: any) {
+      // Command failed or timed out
+      const output =
+        (error.stdout || '') +
+        (error.stderr ? '\n--- STDERR ---\n' + error.stderr : '');
+
+      return {
+        success: false,
+        operation: 'execute-command',
+        command: command,
+        workingDir: absoluteWorkingDir,
+        output: output || error.message,
+        error: error.message,
+        exitCode: error.code,
+        timestamp: new Date().toISOString(),
+      };
+    }
   }
 
   getDescription(): string {

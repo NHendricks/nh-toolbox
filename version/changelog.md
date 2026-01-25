@@ -5,6 +5,8 @@
 ###
 
 - navigate to parent folder automatically if folder does not exist (any more)
+- execute a command in current directory
+- copy path to clipboard
 
 ### v1.0.0 (25.01.2026)
 

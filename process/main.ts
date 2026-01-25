@@ -8,6 +8,7 @@ const {
   shell,
   screen,
   globalShortcut,
+  clipboard,
 } = require('electron');
 const path = require('path');
 const installExtension = require('electron-devtools-installer').default;
@@ -68,6 +69,26 @@ async function createWindow() {
 
 const { ipcMain } = require('electron');
 registerCommands(ipcMain, version);
+
+// Clipboard IPC handler
+ipcMain.handle('clipboard-write-text', (_event: any, text: string) => {
+  try {
+    clipboard.writeText(text);
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('clipboard-read-text', () => {
+  try {
+    const text = clipboard.readText();
+    return { success: true, text };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+});
+
 app.whenReady().then(createWindow);
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {

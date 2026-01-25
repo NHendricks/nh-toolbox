@@ -233,7 +233,8 @@ export class Commander extends LitElement {
       justify-content: space-between;
     }
 
-    .function-key {
+    .function-key,
+    .function-key-top {
       flex: 1;
       min-width: 120px;
       background: #475569;
@@ -244,9 +245,11 @@ export class Commander extends LitElement {
       cursor: pointer;
       transition: all 0.2s;
       max-width: 7em;
-      margin-right: 4em;
     }
 
+    .function-key-top {
+      margin-right: 4em;
+    }
     .function-key:hover {
       background: #0ea5e9;
       transform: translateY(-2px);
@@ -532,6 +535,9 @@ export class Commander extends LitElement {
 
   @property({ type: Object })
   deleteDialog: { files: string[] } | null = null
+
+  @property({ type: Object })
+  commandDialog: { command: string; workingDir: string } | null = null
 
   async connectedCallback() {
     super.connectedCallback()
@@ -1059,6 +1065,10 @@ export class Commander extends LitElement {
         this.closeDriveSelector()
         return
       }
+      if (this.commandDialog) {
+        this.cancelCommand()
+        return
+      }
     }
 
     // Handle arrow keys in image viewer
@@ -1114,6 +1124,16 @@ export class Commander extends LitElement {
       case 'F8':
         event.preventDefault()
         this.handleF8()
+        break
+
+      case 'F9':
+        event.preventDefault()
+        this.handleF9()
+        break
+
+      case 'F10':
+        event.preventDefault()
+        this.handleF10()
         break
 
       case 'Enter':
@@ -1407,6 +1427,102 @@ export class Commander extends LitElement {
     this.deleteDialog = null
   }
 
+  handleF9() {
+    const pane = this.getActivePane()
+    this.commandDialog = {
+      command: '',
+      workingDir: pane.currentPath,
+    }
+  }
+
+  async handleF10() {
+    const pane = this.getActivePane()
+    const item = pane.items[pane.focusedIndex]
+
+    if (!item || item.name === '..') {
+      this.setStatus('Keine gültige Datei ausgewählt', 'error')
+      return
+    }
+
+    try {
+      // Use IPC to write to clipboard
+      const response = await (window as any).electron.ipcRenderer.invoke(
+        'clipboard-write-text',
+        item.path,
+      )
+
+      if (response.success) {
+        this.setStatus(`Pfad kopiert: ${item.path}`, 'success')
+      } else {
+        this.setStatus(`Fehler beim Kopieren: ${response.error}`, 'error')
+      }
+    } catch (error: any) {
+      this.setStatus(`Fehler beim Kopieren: ${error.message}`, 'error')
+      console.error('Clipboard error:', error)
+    }
+  }
+
+  updateCommand(value: string) {
+    if (this.commandDialog) {
+      this.commandDialog = {
+        ...this.commandDialog,
+        command: value,
+      }
+    }
+  }
+
+  async executeCommand() {
+    if (!this.commandDialog || !this.commandDialog.command.trim()) return
+
+    const { command, workingDir } = this.commandDialog
+
+    try {
+      this.setStatus(`Führe Befehl aus: ${command}`, 'normal')
+
+      // Use Node.js child_process via IPC to execute command
+      const response = await (window as any).electron.ipcRenderer.invoke(
+        'cli-execute',
+        'file-operations',
+        {
+          operation: 'execute-command',
+          command: command,
+          workingDir: workingDir,
+        },
+      )
+
+      if (response.success && response.data) {
+        // Show output in viewer
+        this.viewerFile = {
+          path: `Befehl: ${command}`,
+          content: response.data.output || 'Befehl erfolgreich ausgeführt.',
+          size: 0,
+          isImage: false,
+        }
+        this.setStatus('Befehl erfolgreich ausgeführt', 'success')
+      } else {
+        this.setStatus(
+          `Fehler: ${response.error || 'Unbekannter Fehler'}`,
+          'error',
+        )
+      }
+
+      this.commandDialog = null
+
+      // Refresh active pane in case files changed
+      await this.loadDirectory(
+        this.activePane,
+        this.getActivePane().currentPath,
+      )
+    } catch (error: any) {
+      this.setStatus(`Fehler: ${error.message}`, 'error')
+      this.commandDialog = null
+    }
+  }
+
+  cancelCommand() {
+    this.commandDialog = null
+  }
+
   formatFileSize(bytes: number): string {
     if (bytes === 0) return ''
     const sizes = ['B', 'KB', 'MB', 'GB']
@@ -1420,7 +1536,7 @@ export class Commander extends LitElement {
         <div class="toolbar">
           <span class="toolbar-title">📁 NH Commander</span>
           <div
-            class="function-key"
+            class="function-key-top"
             @click=${() => this.openHelp()}
             style="margin-left: auto; min-width: 80px;"
           >
@@ -1462,6 +1578,14 @@ export class Commander extends LitElement {
             <span class="function-key-label">F8</span>
             <span class="function-key-action">Löschen</span>
           </div>
+          <div class="function-key" @click=${() => this.handleF9()}>
+            <span class="function-key-label">F9</span>
+            <span class="function-key-action">CMD</span>
+          </div>
+          <div class="function-key" @click=${() => this.handleF10()}>
+            <span class="function-key-label">F10</span>
+            <span class="function-key-action">📋 Pfad</span>
+          </div>
         </div>
 
         <div class="status-bar ${this.statusType}">${this.statusMessage}</div>
@@ -1469,6 +1593,7 @@ export class Commander extends LitElement {
         ${this.viewerFile ? this.renderViewer() : ''}
         ${this.operationDialog ? this.renderOperationDialog() : ''}
         ${this.deleteDialog ? this.renderDeleteDialog() : ''}
+        ${this.commandDialog ? this.renderCommandDialog() : ''}
         ${this.showDriveSelector ? this.renderDriveSelector() : ''}
         ${this.showHelp ? this.renderHelp() : ''}
       </div>
@@ -1798,6 +1923,66 @@ export class Commander extends LitElement {
               style="background: #dc2626;"
             >
               Löschen (ENTER)
+            </button>
+          </div>
+        </div>
+      </div>
+    `
+  }
+
+  renderCommandDialog() {
+    if (!this.commandDialog) return ''
+
+    const { command, workingDir } = this.commandDialog
+
+    // Auto-focus input field when dialog opens
+    setTimeout(() => {
+      const input = this.shadowRoot?.querySelector(
+        '.input-field input',
+      ) as HTMLInputElement
+      if (input) {
+        input.focus()
+      }
+    }, 100)
+
+    return html`
+      <div class="dialog-overlay">
+        <div
+          class="dialog input-dialog"
+          @click=${(e: Event) => e.stopPropagation()}
+        >
+          <div class="dialog-header">
+            <span class="dialog-title">⚡ Befehl ausführen</span>
+          </div>
+          <div style="padding: 1rem;">
+            <div class="input-field">
+              <label>Befehl im Verzeichnis: ${workingDir}</label>
+              <input
+                type="text"
+                .value=${command}
+                placeholder="z.B. dir, ls, git status..."
+                @input=${(e: Event) =>
+                  this.updateCommand((e.target as HTMLInputElement).value)}
+                @keydown=${(e: KeyboardEvent) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    this.executeCommand()
+                  } else if (e.key === 'Escape') {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    this.cancelCommand()
+                  }
+                }}
+              />
+            </div>
+          </div>
+          <div class="dialog-buttons">
+            <button class="btn-cancel" @click=${this.cancelCommand}>
+              Abbrechen (ESC)
+            </button>
+            <button class="btn-confirm" @click=${this.executeCommand}>
+              Ausführen (ENTER)
             </button>
           </div>
         </div>

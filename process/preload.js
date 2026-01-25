@@ -1,4 +1,4 @@
-const { contextBridge, ipcRenderer } = require('electron');
+const { contextBridge, ipcRenderer, clipboard } = require('electron');
 
 // Expose versions safely in sandbox mode
 const versions = process.versions || {};
@@ -29,6 +29,14 @@ contextBridge.exposeInMainWorld('electron', {
     },
     onFromMain: (channel, callback) => {
       ipcRenderer.on(channel, (_, data) => callback(data));
+    },
+  },
+  clipboard: {
+    writeText: (text) => {
+      clipboard.writeText(text);
+    },
+    readText: () => {
+      return clipboard.readText();
     },
   },
 });

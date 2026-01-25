@@ -1,8 +1,4 @@
-- missing folder => open parent or root if too complicated
 - favorites
-- open cmdline
-- copy path
-- execute command
 - zip files or folders
 - compare dirs recursive oder only at top Level. Binary compare.
 - integrate more cmdline-Tools
