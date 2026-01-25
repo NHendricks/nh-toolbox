@@ -9,8 +9,9 @@ outlet?.classList.add('view')
 export const router = new Router(outlet)
 
 router.setRoutes([
-  { path: '/', component: 'simple-start' },
+  { path: '/', component: 'simple-commander' },
   { path: '/faq', component: 'simple-faq' },
+  { path: '/backend', component: 'simple-start' },
   { path: '/commander', component: 'simple-commander' },
   { path: '(.*)', component: 'simple-start' }, // fallback
 ])

@@ -1,16 +1,16 @@
 {
   "mainNavigation": [
     {
-      "label": "Start",
+      "label": "Commander",
       "path": "/"
+    },
+    {
+      "label": "Backend",
+      "path": "/backend"
     },
     {
       "label": "FAQ",
       "path": "/faq"
-    },
-    {
-      "label": "Commander",
-      "path": "/commander"
     }
   ],
   "bonusActions": [
