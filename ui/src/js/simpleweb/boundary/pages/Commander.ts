@@ -176,7 +176,7 @@ export class Commander extends LitElement {
     }
 
     .file-item {
-      padding: 0.05rem 0rem;
+      padding: 0rem 0rem;
       cursor: pointer;
       display: grid;
       grid-template-columns: 20px 1fr auto;
@@ -184,6 +184,7 @@ export class Commander extends LitElement {
       align-items: center;
       border-radius: 4px;
       white-space: nowrap;
+      font-size: 0.8rem;
     }
 
     .file-item:hover {
@@ -206,10 +207,6 @@ export class Commander extends LitElement {
     .file-item.selected .file-name,
     .file-item.selected.focused .file-name {
       color: #fbbf24;
-    }
-
-    .file-icon {
-      font-size: 1rem;
     }
 
     .file-name {

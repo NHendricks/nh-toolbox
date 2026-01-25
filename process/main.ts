@@ -31,14 +31,19 @@ if (!isDev) {
 async function createWindow() {
   const primaryDisplay = screen.getPrimaryDisplay();
   const { width, height } = primaryDisplay.workAreaSize;
-  let path2Icon = '../../../public/';
+
+  // Set icon path based on environment
+  let iconPath: string;
   if (isDev) {
-    path2Icon = '../../renderer/src/public/';
+    iconPath = path.join(__dirname, '../../assets/icons/icon.ico');
+  } else {
+    iconPath = path.join(process.resourcesPath, '../icon.ico');
   }
 
   const win = new BrowserWindow({
     width: width,
     height: height,
+    icon: iconPath,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,

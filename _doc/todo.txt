@@ -1,7 +1,4 @@
-- add logo
 - zip files or folders
-- add ability to ignore named folders for compare (regex)
-- page up / down for Navigation in files
 - support \\paths (Windows only) ? Or better map to drive … .
 - integrate more cmdline-Tools
   - dirsorter for jpegs

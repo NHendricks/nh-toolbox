@@ -12,6 +12,8 @@
 - compare directories
 - use page up/down for faster navigation
 - add regex filter for compare directory function
+- use smaller font for files
+- add icon to app
 
 ### v1.0.0 (25.01.2026)
 
