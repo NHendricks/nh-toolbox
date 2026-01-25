@@ -1,0 +1,571 @@
+import { LitElement, css, html } from 'lit'
+import { property } from 'lit/decorators.js'
+import './SimpleDialog'
+
+export class CompareDialog extends LitElement {
+  static styles = css`
+    .compare-content {
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .summary-section {
+      background: #1e293b;
+      padding: 1rem;
+      border-radius: 8px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 1rem;
+    }
+
+    .summary-item {
+      text-align: center;
+    }
+
+    .summary-label {
+      color: #94a3b8;
+      font-size: 0.85rem;
+      margin-bottom: 0.25rem;
+    }
+
+    .summary-value {
+      font-size: 1.5rem;
+      font-weight: bold;
+    }
+
+    .filter-section {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      align-items: center;
+      padding: 1rem;
+      background: #1e293b;
+      border-radius: 8px;
+    }
+
+    .filter-label {
+      color: #fbbf24;
+      font-weight: bold;
+    }
+
+    .filter-checkbox {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .filter-checkbox input {
+      cursor: pointer;
+      width: 18px;
+      height: 18px;
+    }
+
+    .compare-table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #0f172a;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .compare-table thead {
+      background: #1e293b;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+
+    .compare-table th {
+      padding: 0.75rem;
+      text-align: left;
+      color: #fbbf24;
+      font-weight: bold;
+      border-bottom: 2px solid #475569;
+    }
+
+    .compare-table th.status-col {
+      width: 80px;
+      text-align: center;
+    }
+
+    .compare-table tbody tr {
+      border-bottom: 1px solid #334155;
+    }
+
+    .compare-table tbody tr:hover {
+      background: #1e293b;
+    }
+
+    .compare-table td {
+      padding: 0.5rem 0.75rem;
+      color: #cbd5e1;
+      font-family: 'Courier New', monospace;
+      font-size: 0.9rem;
+    }
+
+    .compare-table td.status-col {
+      text-align: center;
+      font-size: 1.2rem;
+    }
+
+    .file-name {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .file-size {
+      color: #64748b;
+      font-size: 0.85rem;
+      margin-left: 0.5rem;
+    }
+
+    .status-identical {
+      color: #10b981;
+    }
+
+    .status-different {
+      color: #ef4444;
+    }
+
+    .status-left-only {
+      color: #3b82f6;
+    }
+
+    .status-right-only {
+      color: #f59e0b;
+    }
+
+    .empty-cell {
+      color: #475569;
+      font-style: italic;
+    }
+
+    .table-wrapper {
+      max-height: 500px;
+      overflow-y: auto;
+      border: 1px solid #334155;
+      border-radius: 8px;
+    }
+
+    .success-message {
+      background: #064e3b;
+      padding: 1.5rem;
+      border-radius: 8px;
+      border: 2px solid #10b981;
+      text-align: center;
+    }
+
+    .success-icon {
+      font-size: 3rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .success-title {
+      font-size: 1.2rem;
+      font-weight: bold;
+      color: #10b981;
+    }
+
+    .success-subtitle {
+      color: #94a3b8;
+      margin-top: 0.5rem;
+    }
+
+    .dialog-buttons {
+      display: flex;
+      gap: 1rem;
+      padding: 1rem;
+      justify-content: flex-end;
+    }
+
+    .dialog-buttons button {
+      padding: 0.75rem 1.5rem;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+      font-size: 0.9rem;
+    }
+
+    .btn-confirm {
+      background: #059669;
+      color: #fff;
+    }
+
+    .btn-confirm:hover {
+      background: #047857;
+    }
+
+    .btn-cancel {
+      background: #475569;
+      color: #fff;
+    }
+
+    .btn-cancel:hover {
+      background: #64748b;
+    }
+  `
+
+  @property({ type: Object })
+  result: any = null
+
+  @property({ type: Boolean })
+  recursive = false
+
+  @property({ type: Boolean })
+  hideIdentical = false
+
+  @property({ type: Boolean })
+  hideDirectories = false
+
+  @property({ type: Boolean })
+  showOnlyLeft = false
+
+  @property({ type: Boolean })
+  showOnlyRight = false
+
+  @property({ type: Boolean })
+  showOnlyDifferent = false
+
+  formatFileSize(bytes: number): string {
+    if (bytes === 0) return ''
+    const sizes = ['B', 'KB', 'MB', 'GB']
+    const i = Math.floor(Math.log(bytes) / Math.log(1024))
+    return Math.round((bytes / Math.pow(1024, i)) * 100) / 100 + ' ' + sizes[i]
+  }
+
+  getFilteredItems() {
+    if (!this.result) return []
+
+    const items: any[] = []
+
+    // Add items only in left
+    this.result.onlyInLeft.forEach((item: any) => {
+      if (this.hideDirectories && item.isDirectory) return
+      if (this.showOnlyRight || this.showOnlyDifferent) return
+      items.push({
+        name: item.path,
+        leftFile: item,
+        rightFile: null,
+        status: 'left-only',
+        statusSymbol: '←',
+        statusClass: 'status-left-only',
+      })
+    })
+
+    // Add items only in right
+    this.result.onlyInRight.forEach((item: any) => {
+      if (this.hideDirectories && item.isDirectory) return
+      if (this.showOnlyLeft || this.showOnlyDifferent) return
+      items.push({
+        name: item.path,
+        leftFile: null,
+        rightFile: item,
+        status: 'right-only',
+        statusSymbol: '→',
+        statusClass: 'status-right-only',
+      })
+    })
+
+    // Add different items
+    this.result.different.forEach((item: any) => {
+      if (
+        this.hideDirectories &&
+        (item.leftIsDirectory || item.rightIsDirectory)
+      )
+        return
+      if (this.showOnlyLeft || this.showOnlyRight) return
+      items.push({
+        name: item.path,
+        leftFile: {
+          path: item.leftPath,
+          size: item.leftSize,
+          modified: item.leftModified,
+          isDirectory: item.leftIsDirectory,
+        },
+        rightFile: {
+          path: item.rightPath,
+          size: item.rightSize,
+          modified: item.rightModified,
+          isDirectory: item.rightIsDirectory,
+        },
+        status: 'different',
+        statusSymbol: '≠',
+        statusClass: 'status-different',
+        reason: item.reason,
+      })
+    })
+
+    // Add identical items
+    if (!this.hideIdentical) {
+      this.result.identical.forEach((item: any) => {
+        if (this.hideDirectories && item.isDirectory) return
+        if (this.showOnlyLeft || this.showOnlyRight || this.showOnlyDifferent)
+          return
+        items.push({
+          name: item.path,
+          leftFile: {
+            path: item.leftPath,
+            size: item.size,
+            modified: item.modified,
+            isDirectory: item.isDirectory,
+          },
+          rightFile: {
+            path: item.rightPath,
+            size: item.size,
+            modified: item.modified,
+            isDirectory: item.isDirectory,
+          },
+          status: 'identical',
+          statusSymbol: '=',
+          statusClass: 'status-identical',
+        })
+      })
+    }
+
+    // Sort by name
+    items.sort((a, b) => a.name.localeCompare(b.name))
+
+    return items
+  }
+
+  toggleRecursive() {
+    this.dispatchEvent(
+      new CustomEvent('toggle-recursive', { bubbles: true, composed: true }),
+    )
+  }
+
+  recompare() {
+    this.dispatchEvent(
+      new CustomEvent('recompare', { bubbles: true, composed: true }),
+    )
+  }
+
+  close() {
+    this.dispatchEvent(
+      new CustomEvent('close', { bubbles: true, composed: true }),
+    )
+  }
+
+  render() {
+    if (!this.result) return html``
+
+    const { summary } = this.result
+    const filteredItems = this.getFilteredItems()
+    const hasDifferences =
+      summary.onlyInLeft > 0 || summary.onlyInRight > 0 || summary.different > 0
+
+    return html`
+      <simple-dialog
+        .open=${true}
+        .title=${`🔍 Verzeichnisvergleich ${this.recursive ? '(Rekursiv)' : '(Aktuell)'}`}
+        .width=${'95%'}
+        .maxHeight=${'90vh'}
+        @dialog-close=${this.close}
+      >
+        <div class="compare-content">
+          <!-- Summary Section -->
+          <div class="summary-section">
+            <div class="summary-item">
+              <div class="summary-label">Links gesamt</div>
+              <div class="summary-value">${summary.totalLeft}</div>
+            </div>
+            <div class="summary-item">
+              <div class="summary-label">Rechts gesamt</div>
+              <div class="summary-value">${summary.totalRight}</div>
+            </div>
+            <div class="summary-item status-left-only">
+              <div class="summary-label">Nur links</div>
+              <div class="summary-value">${summary.onlyInLeft}</div>
+            </div>
+            <div class="summary-item status-right-only">
+              <div class="summary-label">Nur rechts</div>
+              <div class="summary-value">${summary.onlyInRight}</div>
+            </div>
+            <div class="summary-item status-different">
+              <div class="summary-label">Unterschiedlich</div>
+              <div class="summary-value">${summary.different}</div>
+            </div>
+            <div class="summary-item status-identical">
+              <div class="summary-label">Identisch</div>
+              <div class="summary-value">${summary.identical}</div>
+            </div>
+          </div>
+
+          <!-- Filter Section -->
+          <div class="filter-section">
+            <span class="filter-label">Filter:</span>
+            <label class="filter-checkbox">
+              <input
+                type="checkbox"
+                ?checked=${this.hideIdentical}
+                @change=${(e: Event) =>
+                  (this.hideIdentical = (e.target as HTMLInputElement).checked)}
+              />
+              <span>Identische ausblenden</span>
+            </label>
+            <label class="filter-checkbox">
+              <input
+                type="checkbox"
+                ?checked=${this.hideDirectories}
+                @change=${(e: Event) =>
+                  (this.hideDirectories = (
+                    e.target as HTMLInputElement
+                  ).checked)}
+              />
+              <span>Verzeichnisse ausblenden</span>
+            </label>
+            <label class="filter-checkbox">
+              <input
+                type="checkbox"
+                ?checked=${this.showOnlyLeft}
+                @change=${(e: Event) =>
+                  (this.showOnlyLeft = (e.target as HTMLInputElement).checked)}
+              />
+              <span>Nur "Nur links"</span>
+            </label>
+            <label class="filter-checkbox">
+              <input
+                type="checkbox"
+                ?checked=${this.showOnlyRight}
+                @change=${(e: Event) =>
+                  (this.showOnlyRight = (e.target as HTMLInputElement).checked)}
+              />
+              <span>Nur "Nur rechts"</span>
+            </label>
+            <label class="filter-checkbox">
+              <input
+                type="checkbox"
+                ?checked=${this.showOnlyDifferent}
+                @change=${(e: Event) =>
+                  (this.showOnlyDifferent = (
+                    e.target as HTMLInputElement
+                  ).checked)}
+              />
+              <span>Nur unterschiedliche</span>
+            </label>
+          </div>
+
+          <!-- Table View -->
+          ${hasDifferences
+            ? html`
+                <div class="table-wrapper">
+                  <table class="compare-table">
+                    <thead>
+                      <tr>
+                        <th>Links</th>
+                        <th class="status-col">Status</th>
+                        <th>Rechts</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      ${filteredItems.map(
+                        (item) => html`
+                          <tr>
+                            <td>
+                              ${item.leftFile
+                                ? html`
+                                    <div class="file-name">
+                                      <span
+                                        >${item.leftFile.isDirectory
+                                          ? '📁'
+                                          : '📄'}</span
+                                      >
+                                      <span>${item.name}</span>
+                                      ${!item.leftFile.isDirectory
+                                        ? html`<span class="file-size"
+                                            >${this.formatFileSize(
+                                              item.leftFile.size,
+                                            )}</span
+                                          >`
+                                        : ''}
+                                    </div>
+                                  `
+                                : html`<span class="empty-cell"
+                                    >nicht vorhanden</span
+                                  >`}
+                            </td>
+                            <td class="status-col ${item.statusClass}">
+                              ${item.statusSymbol}
+                            </td>
+                            <td>
+                              ${item.rightFile
+                                ? html`
+                                    <div class="file-name">
+                                      <span
+                                        >${item.rightFile.isDirectory
+                                          ? '📁'
+                                          : '📄'}</span
+                                      >
+                                      <span>${item.name}</span>
+                                      ${!item.rightFile.isDirectory
+                                        ? html`<span class="file-size"
+                                            >${this.formatFileSize(
+                                              item.rightFile.size,
+                                            )}</span
+                                          >`
+                                        : ''}
+                                    </div>
+                                  `
+                                : html`<span class="empty-cell"
+                                    >nicht vorhanden</span
+                                  >`}
+                            </td>
+                          </tr>
+                        `,
+                      )}
+                      ${filteredItems.length === 0
+                        ? html`
+                            <tr>
+                              <td
+                                colspan="3"
+                                style="text-align: center; padding: 2rem; color: #94a3b8;"
+                              >
+                                Keine Einträge entsprechen den aktuellen Filtern
+                              </td>
+                            </tr>
+                          `
+                        : ''}
+                    </tbody>
+                  </table>
+                </div>
+              `
+            : html`
+                <div class="success-message">
+                  <div class="success-icon">✅</div>
+                  <div class="success-title">Verzeichnisse sind identisch!</div>
+                  <div class="success-subtitle">
+                    ${summary.identical} identische
+                    ${summary.identical === 1 ? 'Element' : 'Elemente'}
+                  </div>
+                </div>
+              `}
+        </div>
+
+        <div slot="footer" class="dialog-buttons">
+          <button
+            class="btn-cancel"
+            @click=${this.toggleRecursive}
+            style="margin-right: auto;"
+          >
+            ${this.recursive ? '📂' : '📁'} Modus:
+            ${this.recursive ? 'Rekursiv' : 'Aktuell'}
+          </button>
+          <button class="btn-confirm" @click=${this.recompare}>
+            🔄 Erneut vergleichen
+          </button>
+          <button class="btn-cancel" @click=${this.close}>
+            Schließen (ESC)
+          </button>
+        </div>
+      </simple-dialog>
+    `
+  }
+}
+
+customElements.define('compare-dialog', CompareDialog)
