@@ -14,8 +14,8 @@ const electronDistPath = path.join(
   'electron',
   'dist',
 );
-const outputDir = path.join(rootDir, 'build-output');
-const appDir = path.join(rootDir, 'app-content');
+const outputDir = path.join(rootDir, 'target/build-output');
+const appDir = path.join(rootDir, 'target/app-content');
 const versionFile = path.join(rootDir, 'version', 'version.txt');
 
 console.log('🚀 Starting manual Electron build for Mac (without ASAR)...\n');
@@ -131,7 +131,7 @@ if (fs.existsSync(oldAsarPath)) {
   console.log('   🗑️  Removed old app.asar');
 }
 
-// Copy app-content to resources/app
+// Copy ccontent to resources/app
 fs.copySync(appDir, appFolderPath);
 console.log('   ✅ App folder copied successfully!');
 
