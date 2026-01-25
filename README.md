@@ -2,7 +2,7 @@
 
 A modular Electron-based utility application with an extensible command-line backend and interactive UI.
 
-_Changelog_ see https://github.com/NHendricks/nh-toolbox/version/changelog.md
+**Changelog** see https://github.com/NHendricks/nh-toolbox/blob/main/version/changelog.md
 
 ## Motivation
 
