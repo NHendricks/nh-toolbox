@@ -2,6 +2,6 @@
 
 ## changelog
 
-### 1.0.0 (25.01.2026)
+### v1.0.0 (25.01.2026)
 
 - base app with file commander utility
