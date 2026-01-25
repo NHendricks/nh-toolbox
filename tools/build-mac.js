@@ -146,13 +146,13 @@ const calculateDirSize = (dirPath) => {
 const appSize = calculateDirSize(appFolderPath);
 console.log(`   📊 Size: ${(appSize / 1024 / 1024).toFixed(2)} MB`);
 
-// Step 5: Rename Electron.app to nh-tools.app (do this before version.txt)
-console.log('\n🏷️  Step 5: Renaming Electron.app to nh-tools.app...');
-const nhToolsAppPath = path.join(outputDir, 'nh-tools.app');
+// Step 5: Rename Electron.app to nh-toolbox.app (do this before version.txt)
+console.log('\n🏷️  Step 5: Renaming Electron.app to nh-toolbox.app...');
+const nhToolsAppPath = path.join(outputDir, 'nh-toolbox.app');
 
 if (fs.existsSync(electronAppPath)) {
   fs.renameSync(electronAppPath, nhToolsAppPath);
-  console.log('   ✅ Renamed Electron.app → nh-tools.app');
+  console.log('   ✅ Renamed Electron.app → nh-toolbox.app');
 } else {
   console.log('   ⚠️  Electron.app not found!');
 }
@@ -173,11 +173,11 @@ if (fs.existsSync(versionFile)) {
 console.log('\n🏷️  Step 7: Renaming executable inside MacOS folder...');
 const macosDir = path.join(nhToolsAppPath, 'Contents', 'MacOS');
 const electronBinary = path.join(macosDir, 'Electron');
-const nhToolsBinary = path.join(macosDir, 'nh-tools');
+const nhToolsBinary = path.join(macosDir, 'nh-toolbox');
 
 if (fs.existsSync(electronBinary)) {
   fs.renameSync(electronBinary, nhToolsBinary);
-  console.log('   ✅ Renamed Electron → nh-tools');
+  console.log('   ✅ Renamed Electron → nh-toolbox');
 } else {
   console.log('   ⚠️  Electron binary not found!');
 }
@@ -189,19 +189,19 @@ const infoPlistPath = path.join(nhToolsAppPath, 'Contents', 'Info.plist');
 if (fs.existsSync(infoPlistPath)) {
   let plistContent = fs.readFileSync(infoPlistPath, 'utf8');
 
-  // Replace Electron with nh-tools in various plist keys
+  // Replace Electron with nh-toolbox in various plist keys
   plistContent = plistContent
     .replace(
       /<key>CFBundleExecutable<\/key>\s*<string>Electron<\/string>/g,
-      '<key>CFBundleExecutable</key>\n\t<string>nh-tools</string>',
+      '<key>CFBundleExecutable</key>\n\t<string>nh-toolbox</string>',
     )
     .replace(
       /<key>CFBundleName<\/key>\s*<string>Electron<\/string>/g,
-      '<key>CFBundleName</key>\n\t<string>nh-tools</string>',
+      '<key>CFBundleName</key>\n\t<string>nh-toolbox</string>',
     )
     .replace(
       /<key>CFBundleDisplayName<\/key>\s*<string>Electron<\/string>/g,
-      '<key>CFBundleDisplayName</key>\n\t<string>nh-tools</string>',
+      '<key>CFBundleDisplayName</key>\n\t<string>nh-toolbox</string>',
     );
 
   fs.writeFileSync(infoPlistPath, plistContent, 'utf8');
@@ -217,5 +217,5 @@ console.log('📦 App bundle location:', nhToolsAppPath);
 console.log('📄 version.txt location:', targetVersionFile);
 console.log('\n🚀 Run the app:');
 console.log(`   open ${nhToolsAppPath}`);
-console.log('   or double-click nh-tools.app in Finder');
+console.log('   or double-click nh-toolbox.app in Finder');
 console.log('\n💡 Note: App runs without ASAR packaging (direct file access)');

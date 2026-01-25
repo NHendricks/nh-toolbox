@@ -191,13 +191,16 @@ export class Commander extends LitElement {
     }
 
     .file-item.selected {
-      background: #fbbf24;
-      color: #000;
+      color: #fbbf24;
     }
 
     .file-item.selected.focused {
-      background: #f59e0b;
-      color: #000;
+      color: #fbbf24;
+    }
+
+    .file-item.selected .file-name,
+    .file-item.selected.focused .file-name {
+      color: #fbbf24;
     }
 
     .file-icon {
@@ -210,7 +213,8 @@ export class Commander extends LitElement {
     }
 
     .file-name.directory {
-      color: #fbbf24;
+      /* color: #fbbf24; */
+      color: #6aa9e9;
     }
 
     .file-size {

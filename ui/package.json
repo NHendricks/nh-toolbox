@@ -1,7 +1,7 @@
 {
   "name": "ui",
   "version": "1.0.0",
-  "description": "ui for nh-tools",
+  "description": "ui for nh-toolbox",
   "type": "module",
   "keywords": [
     "mobile"

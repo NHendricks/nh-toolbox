@@ -1,4 +1,4 @@
-# NH-Tools ((https://github.com/NHendricks/nh-tools))
+# nh-toolbox ((https://github.com/NHendricks/nh-toolbox))
 
 A modular Electron-based utility application with an extensible command-line backend and interactive UI.
 

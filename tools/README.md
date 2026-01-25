@@ -56,14 +56,14 @@ npm run build:asar
 
 ```bash
 # Aus build-output
-d:\dev\_nas\test\build-output\nh-tools.exe
+d:\dev\_nas\test\build-output\nh-toolbox.exe
 ```
 
 **Mac:**
 
 ```bash
 # Aus build-output
-open build-output/nh-tools.app
+open build-output/nh-toolbox.app
 ```
 
 ## 📂 Struktur
@@ -132,7 +132,7 @@ Nach dem Build:
    └── version/version.txt → build-output/resources/version.txt
 
 6. 🏷️ Rename executable
-   └── electron.exe → nh-tools.exe
+   └── electron.exe → nh-toolbox.exe
 
 7. ✅ Done!
 ```
@@ -160,13 +160,13 @@ Nach dem Build:
    └── version/version.txt → build-output/Electron.app/Contents/Resources/version.txt
 
 6. 🏷️ Rename app bundle
-   └── Electron.app → nh-tools.app
+   └── Electron.app → nh-toolbox.app
 
 7. 🏷️ Rename executable
-   └── Contents/MacOS/Electron → Contents/MacOS/nh-tools
+   └── Contents/MacOS/Electron → Contents/MacOS/nh-toolbox
 
 8. 📝 Update Info.plist
-   └── CFBundleExecutable, CFBundleName, CFBundleDisplayName → nh-tools
+   └── CFBundleExecutable, CFBundleName, CFBundleDisplayName → nh-toolbox
 
 9. ✅ Done!
 ```
