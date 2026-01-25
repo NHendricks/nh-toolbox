@@ -652,8 +652,22 @@ export class Commander extends LitElement {
 
         // Check if the data itself indicates an error
         if (data.success === false) {
-          this.setStatus(`Fehler: ${data.error}`, 'error')
-          console.error('Backend error:', data.error)
+          // Directory doesn't exist - go up one level and retry
+          console.log('Directory does not exist, going up one level...')
+          const parentPath = this.getParentPath(path)
+
+          // If we're already at the root or parent is the same as current, stop
+          if (parentPath === path) {
+            this.setStatus(
+              `Fehler: Kein gültiges Verzeichnis gefunden`,
+              'error',
+            )
+            console.error('Already at root, cannot go higher')
+            return
+          }
+
+          // Recursively try the parent directory
+          await this.loadDirectory(pane, parentPath, previousPath)
           return
         }
         const items: FileItem[] = []
@@ -725,12 +739,39 @@ export class Commander extends LitElement {
         const fileCount = data.summary?.totalFiles ?? 0
         this.setStatus(`${dirCount} Ordner, ${fileCount} Dateien`, 'success')
       } else {
-        this.setStatus(`Fehler: ${response.error}`, 'error')
-        console.error('Load directory error:', response.error)
+        // Request failed - go up one level and retry
+        console.log('Failed to load directory, going up one level...')
+        const parentPath = this.getParentPath(path)
+
+        // If we're already at the root or parent is the same as current, stop
+        if (parentPath === path) {
+          this.setStatus(`Fehler: ${response.error}`, 'error')
+          console.error('Load directory error:', response.error)
+          return
+        }
+
+        // Recursively try the parent directory
+        await this.loadDirectory(pane, parentPath, previousPath)
       }
     } catch (error: any) {
-      this.setStatus(`Fehler: ${error.message}`, 'error')
-      console.error('Load directory exception:', error)
+      // Exception occurred - go up one level and retry
+      console.log('Exception loading directory, going up one level...')
+      const parentPath = this.getParentPath(path)
+
+      // If we're already at the root or parent is the same as current, stop
+      if (parentPath === path) {
+        this.setStatus(`Fehler: ${error.message}`, 'error')
+        console.error('Load directory exception:', error)
+        return
+      }
+
+      // Recursively try the parent directory
+      try {
+        await this.loadDirectory(pane, parentPath, previousPath)
+      } catch (retryError: any) {
+        this.setStatus(`Fehler: ${retryError.message}`, 'error')
+        console.error('Failed to load parent directory:', retryError)
+      }
     }
   }
 
