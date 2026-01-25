@@ -242,6 +242,8 @@ export class Commander extends LitElement {
       border-radius: 4px;
       cursor: pointer;
       transition: all 0.2s;
+      max-width: 7em;
+      margin-right: 4em;
     }
 
     .function-key:hover {
@@ -364,6 +366,47 @@ export class Commander extends LitElement {
       color: #94a3b8;
     }
 
+    /* Help Dialog */
+    .help-dialog {
+      width: 700px;
+      max-height: 80vh;
+    }
+
+    .help-content {
+      padding: 1.5rem;
+      overflow-y: auto;
+    }
+
+    .help-section {
+      margin-bottom: 1.5rem;
+    }
+
+    .help-section h3 {
+      color: #fbbf24;
+      margin: 0 0 0.75rem 0;
+      font-size: 1.1rem;
+      border-bottom: 2px solid #475569;
+      padding-bottom: 0.5rem;
+    }
+
+    .help-item {
+      display: grid;
+      grid-template-columns: 150px 1fr;
+      gap: 1rem;
+      padding: 0.5rem 0;
+      border-bottom: 1px solid #334155;
+    }
+
+    .help-key {
+      color: #0ea5e9;
+      font-weight: bold;
+      font-family: 'Courier New', monospace;
+    }
+
+    .help-description {
+      color: #cbd5e1;
+    }
+
     /* Copy/Move Dialog */
     .input-dialog {
       width: 600px;
@@ -483,6 +526,9 @@ export class Commander extends LitElement {
   @property({ type: Boolean })
   showDriveSelector = false
 
+  @property({ type: Boolean })
+  showHelp = false
+
   async connectedCallback() {
     super.connectedCallback()
 
@@ -552,6 +598,14 @@ export class Commander extends LitElement {
 
   closeDriveSelector() {
     this.showDriveSelector = false
+  }
+
+  openHelp() {
+    this.showHelp = true
+  }
+
+  closeHelp() {
+    this.showHelp = false
   }
 
   disconnectedCallback() {
@@ -911,6 +965,10 @@ export class Commander extends LitElement {
     // Handle ESC for dialogs first
     if (event.key === 'Escape') {
       event.preventDefault()
+      if (this.showHelp) {
+        this.closeHelp()
+        return
+      }
       if (this.viewerFile) {
         this.closeViewer()
         return
@@ -963,6 +1021,11 @@ export class Commander extends LitElement {
     }
 
     switch (event.key) {
+      case 'F1':
+        event.preventDefault()
+        this.openHelp()
+        break
+
       case 'F3':
         event.preventDefault()
         this.handleF3()
@@ -1211,6 +1274,14 @@ export class Commander extends LitElement {
       <div class="commander-container">
         <div class="toolbar">
           <span class="toolbar-title">📁 File Commander</span>
+          <div
+            class="function-key"
+            @click=${() => this.openHelp()}
+            style="margin-left: auto; min-width: 80px;"
+          >
+            <span class="function-key-label">F1</span>
+            <span class="function-key-action">❓ Hilfe</span>
+          </div>
         </div>
 
         <div class="panes-container">
@@ -1249,6 +1320,110 @@ export class Commander extends LitElement {
         ${this.viewerFile ? this.renderViewer() : ''}
         ${this.operationDialog ? this.renderOperationDialog() : ''}
         ${this.showDriveSelector ? this.renderDriveSelector() : ''}
+        ${this.showHelp ? this.renderHelp() : ''}
+      </div>
+    `
+  }
+
+  renderHelp() {
+    return html`
+      <div class="dialog-overlay" @click=${this.closeHelp}>
+        <div
+          class="dialog help-dialog"
+          @click=${(e: Event) => e.stopPropagation()}
+        >
+          <div class="dialog-header">
+            <span class="dialog-title">❓ Tastenkürzel</span>
+            <button class="dialog-close" @click=${this.closeHelp}>
+              ESC - Schließen
+            </button>
+          </div>
+          <div class="help-content">
+            <div class="help-section">
+              <h3>Navigation</h3>
+              <div class="help-item">
+                <div class="help-key">↑ / ↓</div>
+                <div class="help-description">Fokus verschieben</div>
+              </div>
+              <div class="help-item">
+                <div class="help-key">Enter</div>
+                <div class="help-description">Verzeichnis öffnen</div>
+              </div>
+              <div class="help-item">
+                <div class="help-key">Tab</div>
+                <div class="help-description">Zwischen Panels wechseln</div>
+              </div>
+              <div class="help-item">
+                <div class="help-key">Alt+1 / Alt+2</div>
+                <div class="help-description">
+                  Laufwerk wählen (links/rechts)
+                </div>
+              </div>
+            </div>
+            <div class="help-section">
+              <h3>Dateien</h3>
+              <div class="help-item">
+                <div class="help-key">F3</div>
+                <div class="help-description">Datei/Bild ansehen</div>
+              </div>
+              <div class="help-item">
+                <div class="help-key">← / →</div>
+                <div class="help-description">Zwischen Bildern navigieren</div>
+              </div>
+              <div class="help-item">
+                <div class="help-key">Doppelklick</div>
+                <div class="help-description">
+                  Datei öffnen/Verzeichnis betreten
+                </div>
+              </div>
+            </div>
+            <div class="help-section">
+              <h3>Selektion</h3>
+              <div class="help-item">
+                <div class="help-key">Strg+Click</div>
+                <div class="help-description">Datei markieren/entmarkieren</div>
+              </div>
+              <div class="help-item">
+                <div class="help-key">Strg+↑ / Strg+↓</div>
+                <div class="help-description">
+                  Fokussierte Datei markieren + bewegen
+                </div>
+              </div>
+              <div class="help-item">
+                <div class="help-key">Strg+Leertaste</div>
+                <div class="help-description">Datei markieren/entmarkieren</div>
+              </div>
+            </div>
+            <div class="help-section">
+              <h3>Operationen</h3>
+              <div class="help-item">
+                <div class="help-key">F5</div>
+                <div class="help-description">Kopieren zum anderen Panel</div>
+              </div>
+              <div class="help-item">
+                <div class="help-key">F6</div>
+                <div class="help-description">
+                  Verschieben zum anderen Panel
+                </div>
+              </div>
+              <div class="help-item">
+                <div class="help-key">F7</div>
+                <div class="help-description">Verzeichnis aktualisieren</div>
+              </div>
+            </div>
+            <div class="help-section">
+              <h3>Allgemein</h3>
+              <div class="help-item">
+                <div class="help-key">F1</div>
+                <div class="help-description">Diese Hilfe anzeigen</div>
+              </div>
+              <div class="help-item">
+                <div class="help-key">ESC</div>
+                <div class="help-description">Dialog schließen</div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     `
   }
