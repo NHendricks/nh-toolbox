@@ -9,6 +9,7 @@
 - copy path to clipboard
 - add feature for favorites in drive selection overview
 - fix ESC and Enter keys in dialogs
+- compare directories
 
 ### v1.0.0 (25.01.2026)
 

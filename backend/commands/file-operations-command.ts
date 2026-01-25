@@ -47,6 +47,12 @@ export class FileOperationsCommand implements ICommand {
           return await this.deleteFile(sourcePath);
         case 'execute-command':
           return await this.executeCommand(command, workingDir);
+        case 'compare':
+          return await this.compareDirectories(
+            params.leftPath,
+            params.rightPath,
+            params.recursive || false,
+          );
         default:
           return {
             success: false,
@@ -637,6 +643,255 @@ export class FileOperationsCommand implements ICommand {
     }
 
     await rmdir(dirPath);
+  }
+
+  /**
+   * Compare two directories and return differences
+   */
+  private async compareDirectories(
+    leftPath: string,
+    rightPath: string,
+    recursive: boolean,
+  ): Promise<any> {
+    if (!leftPath) {
+      throw new Error('leftPath is required for compare operation');
+    }
+    if (!rightPath) {
+      throw new Error('rightPath is required for compare operation');
+    }
+
+    const absoluteLeft = path.resolve(leftPath);
+    const absoluteRight = path.resolve(rightPath);
+
+    // Check if both directories exist
+    if (!fs.existsSync(absoluteLeft)) {
+      throw new Error(`Left directory does not exist: ${absoluteLeft}`);
+    }
+    if (!fs.existsSync(absoluteRight)) {
+      throw new Error(`Right directory does not exist: ${absoluteRight}`);
+    }
+
+    const leftStats = await stat(absoluteLeft);
+    const rightStats = await stat(absoluteRight);
+
+    if (!leftStats.isDirectory()) {
+      throw new Error(`Left path is not a directory: ${absoluteLeft}`);
+    }
+    if (!rightStats.isDirectory()) {
+      throw new Error(`Right path is not a directory: ${absoluteRight}`);
+    }
+
+    // Get file lists from both directories
+    const leftFiles = recursive
+      ? await this.getFilesRecursive(absoluteLeft, absoluteLeft)
+      : await this.getFilesInDirectory(absoluteLeft);
+
+    const rightFiles = recursive
+      ? await this.getFilesRecursive(absoluteRight, absoluteRight)
+      : await this.getFilesInDirectory(absoluteRight);
+
+    // Create maps for easy comparison
+    const leftMap = new Map(leftFiles.map((f) => [f.relativePath, f]));
+    const rightMap = new Map(rightFiles.map((f) => [f.relativePath, f]));
+
+    // Find differences
+    const onlyInLeft: any[] = [];
+    const onlyInRight: any[] = [];
+    const different: any[] = [];
+    const identical: any[] = [];
+
+    // Check files in left
+    for (const [relPath, leftFile] of leftMap) {
+      const rightFile = rightMap.get(relPath);
+
+      if (!rightFile) {
+        // File only in left
+        onlyInLeft.push({
+          path: relPath,
+          leftPath: leftFile.fullPath,
+          size: leftFile.size,
+          modified: leftFile.modified,
+          isDirectory: leftFile.isDirectory,
+        });
+      } else if (leftFile.isDirectory && rightFile.isDirectory) {
+        // Both are directories - mark as identical
+        identical.push({
+          path: relPath,
+          leftPath: leftFile.fullPath,
+          rightPath: rightFile.fullPath,
+          isDirectory: true,
+        });
+      } else if (leftFile.isDirectory || rightFile.isDirectory) {
+        // One is directory, other is file
+        different.push({
+          path: relPath,
+          leftPath: leftFile.fullPath,
+          rightPath: rightFile.fullPath,
+          leftSize: leftFile.size,
+          rightSize: rightFile.size,
+          leftModified: leftFile.modified,
+          rightModified: rightFile.modified,
+          leftIsDirectory: leftFile.isDirectory,
+          rightIsDirectory: rightFile.isDirectory,
+          reason: 'type',
+        });
+      } else {
+        // Both are files - compare size and modification time
+        if (
+          leftFile.size !== rightFile.size ||
+          leftFile.modified !== rightFile.modified
+        ) {
+          different.push({
+            path: relPath,
+            leftPath: leftFile.fullPath,
+            rightPath: rightFile.fullPath,
+            leftSize: leftFile.size,
+            rightSize: rightFile.size,
+            leftModified: leftFile.modified,
+            rightModified: rightFile.modified,
+            reason:
+              leftFile.size !== rightFile.size ? 'size' : 'modification-time',
+          });
+        } else {
+          identical.push({
+            path: relPath,
+            leftPath: leftFile.fullPath,
+            rightPath: rightFile.fullPath,
+            size: leftFile.size,
+            modified: leftFile.modified,
+            isDirectory: false,
+          });
+        }
+      }
+    }
+
+    // Check files only in right
+    for (const [relPath, rightFile] of rightMap) {
+      if (!leftMap.has(relPath)) {
+        onlyInRight.push({
+          path: relPath,
+          rightPath: rightFile.fullPath,
+          size: rightFile.size,
+          modified: rightFile.modified,
+          isDirectory: rightFile.isDirectory,
+        });
+      }
+    }
+
+    return {
+      success: true,
+      operation: 'compare',
+      leftPath: absoluteLeft,
+      rightPath: absoluteRight,
+      recursive: recursive,
+      summary: {
+        totalLeft: leftFiles.length,
+        totalRight: rightFiles.length,
+        onlyInLeft: onlyInLeft.length,
+        onlyInRight: onlyInRight.length,
+        different: different.length,
+        identical: identical.length,
+      },
+      onlyInLeft: onlyInLeft,
+      onlyInRight: onlyInRight,
+      different: different,
+      identical: identical,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  /**
+   * Get all files in a directory (non-recursive)
+   */
+  private async getFilesInDirectory(dirPath: string): Promise<
+    Array<{
+      relativePath: string;
+      fullPath: string;
+      size: number;
+      modified: string;
+      isDirectory: boolean;
+    }>
+  > {
+    const entries = await readdir(dirPath, { withFileTypes: true });
+    const files: Array<{
+      relativePath: string;
+      fullPath: string;
+      size: number;
+      modified: string;
+      isDirectory: boolean;
+    }> = [];
+
+    for (const entry of entries) {
+      const fullPath = path.join(dirPath, entry.name);
+
+      try {
+        const stats = await stat(fullPath);
+        files.push({
+          relativePath: entry.name,
+          fullPath: fullPath,
+          size: stats.size,
+          modified: stats.mtime.toISOString(),
+          isDirectory: entry.isDirectory(),
+        });
+      } catch (error: any) {
+        console.warn(`Warning: Unable to access ${fullPath}: ${error.message}`);
+        continue;
+      }
+    }
+
+    return files;
+  }
+
+  /**
+   * Get all files recursively in a directory
+   */
+  private async getFilesRecursive(
+    dirPath: string,
+    basePath: string,
+  ): Promise<
+    Array<{
+      relativePath: string;
+      fullPath: string;
+      size: number;
+      modified: string;
+      isDirectory: boolean;
+    }>
+  > {
+    const entries = await readdir(dirPath, { withFileTypes: true });
+    const files: Array<{
+      relativePath: string;
+      fullPath: string;
+      size: number;
+      modified: string;
+      isDirectory: boolean;
+    }> = [];
+
+    for (const entry of entries) {
+      const fullPath = path.join(dirPath, entry.name);
+      const relativePath = path.relative(basePath, fullPath);
+
+      try {
+        const stats = await stat(fullPath);
+        files.push({
+          relativePath: relativePath,
+          fullPath: fullPath,
+          size: stats.size,
+          modified: stats.mtime.toISOString(),
+          isDirectory: entry.isDirectory(),
+        });
+
+        // Recurse into subdirectories
+        if (entry.isDirectory()) {
+          const subFiles = await this.getFilesRecursive(fullPath, basePath);
+          files.push(...subFiles);
+        }
+      } catch (error: any) {
+        console.warn(`Warning: Unable to access ${fullPath}: ${error.message}`);
+        continue;
+      }
+    }
+
+    return files;
   }
 
   /**

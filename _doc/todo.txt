@@ -1,6 +1,13 @@
-- favorites
+- add logo
 - zip files or folders
 - compare dirs recursive oder only at top Level. Binary compare.
+  - show compae in table
+  - add ability to ignore folders
+- page up / down for Navigation in files
+- support \\paths (Windows only) ? Or better map to drive … .
 - integrate more cmdline-Tools
+  - dirsorter for jpegs
+  - mp3metatagsetter for iPod
+- Strg+left or Right to Show left Folder in Right and vice versa
 - music player (IPOD), integrate mp3 metadata helper here
-- build linux
+- build app for linux

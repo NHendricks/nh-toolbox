@@ -546,6 +546,15 @@ export class Commander extends LitElement {
   @property({ type: Object })
   commandDialog: { command: string; workingDir: string } | null = null
 
+  @property({ type: Object })
+  compareDialog: {
+    result: any
+    recursive: boolean
+  } | null = null
+
+  @property({ type: Boolean })
+  compareRecursive = false
+
   async connectedCallback() {
     super.connectedCallback()
 
@@ -1581,6 +1590,50 @@ export class Commander extends LitElement {
     this.commandDialog = null
   }
 
+  async handleCompare() {
+    try {
+      this.setStatus(
+        `Vergleiche Verzeichnisse${this.compareRecursive ? ' (rekursiv)' : ''}...`,
+        'normal',
+      )
+
+      const response = await (window as any).electron.ipcRenderer.invoke(
+        'cli-execute',
+        'file-operations',
+        {
+          operation: 'compare',
+          leftPath: this.leftPane.currentPath,
+          rightPath: this.rightPane.currentPath,
+          recursive: this.compareRecursive,
+        },
+      )
+
+      if (response.success && response.data) {
+        this.compareDialog = {
+          result: response.data,
+          recursive: this.compareRecursive,
+        }
+        this.setStatus('Vergleich abgeschlossen', 'success')
+      } else {
+        this.setStatus(`Fehler: ${response.error}`, 'error')
+      }
+    } catch (error: any) {
+      this.setStatus(`Fehler: ${error.message}`, 'error')
+    }
+  }
+
+  closeCompare() {
+    this.compareDialog = null
+  }
+
+  toggleCompareRecursive() {
+    this.compareRecursive = !this.compareRecursive
+    this.setStatus(
+      `Rekursiver Vergleich: ${this.compareRecursive ? 'An' : 'Aus'}`,
+      'success',
+    )
+  }
+
   formatFileSize(bytes: number): string {
     if (bytes === 0) return ''
     const sizes = ['B', 'KB', 'MB', 'GB']
@@ -1593,6 +1646,19 @@ export class Commander extends LitElement {
       <div class="commander-container">
         <div class="toolbar">
           <span class="toolbar-title">📁 NH Commander</span>
+          <div
+            class="function-key-top"
+            @click=${() => this.handleCompare()}
+            style="min-width: 100px; background: ${this.compareRecursive
+              ? '#0ea5e9'
+              : '#475569'};"
+            title="Verzeichnisse vergleichen (Klicke mit Strg für rekursiven Modus)"
+          >
+            <span class="function-key-label"
+              >${this.compareRecursive ? '📂' : '📁'}</span
+            >
+            <span class="function-key-action">🔍 Vergleichen</span>
+          </div>
           <div
             class="function-key-top"
             @click=${() => this.openHelp()}
@@ -1652,9 +1718,244 @@ export class Commander extends LitElement {
         ${this.operationDialog ? this.renderOperationDialog() : ''}
         ${this.deleteDialog ? this.renderDeleteDialog() : ''}
         ${this.commandDialog ? this.renderCommandDialog() : ''}
+        ${this.compareDialog ? this.renderCompareDialog() : ''}
         ${this.showDriveSelector ? this.renderDriveSelector() : ''}
         ${this.showHelp ? this.renderHelp() : ''}
       </div>
+    `
+  }
+
+  renderCompareDialog() {
+    if (!this.compareDialog) return ''
+
+    const { result, recursive } = this.compareDialog
+    const { summary, onlyInLeft, onlyInRight, different } = result
+
+    return html`
+      <simple-dialog
+        .open=${true}
+        .title=${`🔍 Verzeichnisvergleich ${recursive ? '(Rekursiv)' : '(Aktuell)'}`}
+        .width=${'90%'}
+        .maxHeight=${'85vh'}
+        @dialog-close=${this.closeCompare}
+      >
+        <div style="padding: 1.5rem;">
+          <!-- Summary Section -->
+          <div
+            style="background: #1e293b; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem;"
+          >
+            <h3 style="margin: 0 0 0.75rem 0; color: #fbbf24;">
+              📊 Zusammenfassung
+            </h3>
+            <div
+              style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;"
+            >
+              <div>
+                <div style="color: #94a3b8; font-size: 0.85rem;">
+                  Links gesamt
+                </div>
+                <div style="font-size: 1.5rem; font-weight: bold;">
+                  ${summary.totalLeft}
+                </div>
+              </div>
+              <div>
+                <div style="color: #94a3b8; font-size: 0.85rem;">
+                  Rechts gesamt
+                </div>
+                <div style="font-size: 1.5rem; font-weight: bold;">
+                  ${summary.totalRight}
+                </div>
+              </div>
+              <div style="color: #3b82f6;">
+                <div style="font-size: 0.85rem;">Nur links</div>
+                <div style="font-size: 1.5rem; font-weight: bold;">
+                  ${summary.onlyInLeft}
+                </div>
+              </div>
+              <div style="color: #f59e0b;">
+                <div style="font-size: 0.85rem;">Nur rechts</div>
+                <div style="font-size: 1.5rem; font-weight: bold;">
+                  ${summary.onlyInRight}
+                </div>
+              </div>
+              <div style="color: #ef4444;">
+                <div style="font-size: 0.85rem;">Unterschiedlich</div>
+                <div style="font-size: 1.5rem; font-weight: bold;">
+                  ${summary.different}
+                </div>
+              </div>
+              <div style="color: #10b981;">
+                <div style="font-size: 0.85rem;">Identisch</div>
+                <div style="font-size: 1.5rem; font-weight: bold;">
+                  ${summary.identical}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Differences Sections -->
+          <div style="display: flex; flex-direction: column; gap: 1rem;">
+            <!-- Only in Left -->
+            ${onlyInLeft.length > 0
+              ? html`
+                  <div
+                    style="background: #1e3a5f; padding: 1rem; border-radius: 8px; border-left: 4px solid #3b82f6;"
+                  >
+                    <h4 style="margin: 0 0 0.75rem 0; color: #3b82f6;">
+                      ← Nur links (${onlyInLeft.length})
+                    </h4>
+                    <div
+                      style="max-height: 200px; overflow-y: auto; font-size: 0.9rem;"
+                    >
+                      ${onlyInLeft.map(
+                        (item: any) => html`
+                          <div
+                            style="padding: 0.25rem 0; color: #cbd5e1; font-family: monospace;"
+                          >
+                            ${item.isDirectory ? '📁' : '📄'} ${item.path}
+                            ${!item.isDirectory
+                              ? html`<span
+                                  style="color: #64748b; margin-left: 1rem;"
+                                  >${this.formatFileSize(item.size)}</span
+                                >`
+                              : ''}
+                          </div>
+                        `,
+                      )}
+                    </div>
+                  </div>
+                `
+              : ''}
+
+            <!-- Only in Right -->
+            ${onlyInRight.length > 0
+              ? html`
+                  <div
+                    style="background: #4a350f; padding: 1rem; border-radius: 8px; border-left: 4px solid #f59e0b;"
+                  >
+                    <h4 style="margin: 0 0 0.75rem 0; color: #f59e0b;">
+                      → Nur rechts (${onlyInRight.length})
+                    </h4>
+                    <div
+                      style="max-height: 200px; overflow-y: auto; font-size: 0.9rem;"
+                    >
+                      ${onlyInRight.map(
+                        (item: any) => html`
+                          <div
+                            style="padding: 0.25rem 0; color: #cbd5e1; font-family: monospace;"
+                          >
+                            ${item.isDirectory ? '📁' : '📄'} ${item.path}
+                            ${!item.isDirectory
+                              ? html`<span
+                                  style="color: #64748b; margin-left: 1rem;"
+                                  >${this.formatFileSize(item.size)}</span
+                                >`
+                              : ''}
+                          </div>
+                        `,
+                      )}
+                    </div>
+                  </div>
+                `
+              : ''}
+
+            <!-- Different Files -->
+            ${different.length > 0
+              ? html`
+                  <div
+                    style="background: #4a1c1c; padding: 1rem; border-radius: 8px; border-left: 4px solid #ef4444;"
+                  >
+                    <h4 style="margin: 0 0 0.75rem 0; color: #ef4444;">
+                      ⚠️ Unterschiedlich (${different.length})
+                    </h4>
+                    <div
+                      style="max-height: 200px; overflow-y: auto; font-size: 0.9rem;"
+                    >
+                      ${different.map(
+                        (item: any) => html`
+                          <div
+                            style="padding: 0.5rem 0; border-bottom: 1px solid #334155; color: #cbd5e1; font-family: monospace;"
+                          >
+                            <div style="font-weight: bold;">
+                              📄 ${item.path}
+                            </div>
+                            <div
+                              style="margin-top: 0.25rem; display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; font-size: 0.85rem;"
+                            >
+                              <div style="color: #3b82f6;">
+                                ← Links:
+                                ${item.leftIsDirectory
+                                  ? '📁 Verzeichnis'
+                                  : this.formatFileSize(item.leftSize)}
+                              </div>
+                              <div style="color: #f59e0b;">
+                                → Rechts:
+                                ${item.rightIsDirectory
+                                  ? '📁 Verzeichnis'
+                                  : this.formatFileSize(item.rightSize)}
+                              </div>
+                            </div>
+                            <div
+                              style="color: #64748b; font-size: 0.8rem; margin-top: 0.25rem;"
+                            >
+                              Grund:
+                              ${item.reason === 'size'
+                                ? 'Größe'
+                                : item.reason === 'modification-time'
+                                  ? 'Änderungszeitpunkt'
+                                  : item.reason === 'type'
+                                    ? 'Typ (Datei/Verzeichnis)'
+                                    : item.reason}
+                            </div>
+                          </div>
+                        `,
+                      )}
+                    </div>
+                  </div>
+                `
+              : ''}
+          </div>
+
+          <!-- Success Message -->
+          ${summary.onlyInLeft === 0 &&
+          summary.onlyInRight === 0 &&
+          summary.different === 0
+            ? html`
+                <div
+                  style="background: #064e3b; padding: 1.5rem; border-radius: 8px; border: 2px solid #10b981; text-align: center; margin-top: 1rem;"
+                >
+                  <div style="font-size: 3rem; margin-bottom: 0.5rem;">✅</div>
+                  <div
+                    style="font-size: 1.2rem; font-weight: bold; color: #10b981;"
+                  >
+                    Verzeichnisse sind identisch!
+                  </div>
+                  <div style="color: #94a3b8; margin-top: 0.5rem;">
+                    ${summary.identical} identische
+                    ${summary.identical === 1 ? 'Element' : 'Elemente'}
+                  </div>
+                </div>
+              `
+            : ''}
+        </div>
+
+        <div slot="footer" class="dialog-buttons">
+          <button
+            class="btn-cancel"
+            @click=${this.toggleCompareRecursive}
+            style="margin-right: auto;"
+          >
+            ${this.compareRecursive ? '📂' : '📁'} Modus:
+            ${this.compareRecursive ? 'Rekursiv' : 'Aktuell'}
+          </button>
+          <button class="btn-confirm" @click=${this.handleCompare}>
+            🔄 Erneut vergleichen
+          </button>
+          <button class="btn-cancel" @click=${this.closeCompare}>
+            Schließen (ESC)
+          </button>
+        </div>
+      </simple-dialog>
     `
   }
 
