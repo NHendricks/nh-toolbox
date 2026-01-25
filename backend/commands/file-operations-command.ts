@@ -34,6 +34,8 @@ export class FileOperationsCommand implements ICommand {
           return await this.copyFile(sourcePath, destinationPath);
         case 'move':
           return await this.moveFile(sourcePath, destinationPath);
+        case 'delete':
+          return await this.deleteFile(sourcePath);
         default:
           return {
             success: false,
@@ -543,6 +545,50 @@ export class FileOperationsCommand implements ICommand {
         };
       }
       throw error;
+    }
+  }
+
+  /**
+   * Delete a file or directory
+   */
+  private async deleteFile(sourcePath: string): Promise<any> {
+    if (!sourcePath) {
+      throw new Error('sourcePath is required for delete operation');
+    }
+
+    const absolutePath = path.resolve(sourcePath);
+
+    // Check if file/directory exists
+    if (!fs.existsSync(absolutePath)) {
+      throw new Error(`Path does not exist: ${absolutePath}`);
+    }
+
+    const stats = await stat(absolutePath);
+
+    if (stats.isDirectory()) {
+      // Delete directory recursively
+      await this.deleteDirectoryRecursive(absolutePath);
+      return {
+        success: true,
+        operation: 'delete',
+        path: absolutePath,
+        type: 'directory',
+        timestamp: new Date().toISOString(),
+      };
+    } else if (stats.isFile()) {
+      // Delete file
+      await unlink(absolutePath);
+      return {
+        success: true,
+        operation: 'delete',
+        path: absolutePath,
+        type: 'file',
+        timestamp: new Date().toISOString(),
+      };
+    } else {
+      throw new Error(
+        `Path is neither a file nor a directory: ${absolutePath}`,
+      );
     }
   }
 

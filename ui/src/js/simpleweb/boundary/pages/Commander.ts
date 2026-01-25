@@ -529,6 +529,9 @@ export class Commander extends LitElement {
   @property({ type: Boolean })
   showHelp = false
 
+  @property({ type: Object })
+  deleteDialog: { files: string[] } | null = null
+
   async connectedCallback() {
     super.connectedCallback()
 
@@ -1066,6 +1069,11 @@ export class Commander extends LitElement {
         this.handleF6()
         break
 
+      case 'F8':
+        event.preventDefault()
+        this.handleF8()
+        break
+
       case 'Enter':
         // Don't handle Enter if a dialog is open
         if (this.operationDialog || this.showHelp || this.showDriveSelector) {
@@ -1296,6 +1304,67 @@ export class Commander extends LitElement {
     this.operationDialog = null
   }
 
+  handleF8() {
+    const selectedFiles = this.getSelectedFiles()
+    if (selectedFiles.length > 0) {
+      this.deleteDialog = { files: selectedFiles }
+    } else {
+      this.setStatus('Keine Dateien ausgewählt', 'error')
+    }
+  }
+
+  async executeDelete() {
+    if (!this.deleteDialog) return
+
+    const { files } = this.deleteDialog
+
+    try {
+      this.setStatus(`Lösche ${files.length} Datei(en)...`, 'normal')
+
+      let successCount = 0
+      for (const file of files) {
+        const fileName = file.split(/[/\\]/).pop() || 'file'
+
+        const response = await (window as any).electron.ipcRenderer.invoke(
+          'cli-execute',
+          'file-operations',
+          {
+            operation: 'delete',
+            sourcePath: file,
+          },
+        )
+
+        if (response.success) {
+          successCount++
+        } else {
+          this.setStatus(`Fehler bei ${fileName}: ${response.error}`, 'error')
+          break
+        }
+      }
+
+      if (successCount === files.length) {
+        this.setStatus(
+          `${successCount} Datei(en) erfolgreich gelöscht`,
+          'success',
+        )
+
+        // Refresh active pane
+        await this.loadDirectory(
+          this.activePane,
+          this.getActivePane().currentPath,
+        )
+      }
+
+      this.deleteDialog = null
+    } catch (error: any) {
+      this.setStatus(`Fehler: ${error.message}`, 'error')
+    }
+  }
+
+  cancelDelete() {
+    this.deleteDialog = null
+  }
+
   formatFileSize(bytes: number): string {
     if (bytes === 0) return ''
     const sizes = ['B', 'KB', 'MB', 'GB']
@@ -1347,12 +1416,17 @@ export class Commander extends LitElement {
             <span class="function-key-label">F7</span>
             <span class="function-key-action">Aktualisieren</span>
           </div>
+          <div class="function-key" @click=${() => this.handleF8()}>
+            <span class="function-key-label">F8</span>
+            <span class="function-key-action">Löschen</span>
+          </div>
         </div>
 
         <div class="status-bar ${this.statusType}">${this.statusMessage}</div>
 
         ${this.viewerFile ? this.renderViewer() : ''}
         ${this.operationDialog ? this.renderOperationDialog() : ''}
+        ${this.deleteDialog ? this.renderDeleteDialog() : ''}
         ${this.showDriveSelector ? this.renderDriveSelector() : ''}
         ${this.showHelp ? this.renderHelp() : ''}
       </div>
@@ -1641,6 +1715,47 @@ export class Commander extends LitElement {
             </button>
             <button class="btn-confirm" @click=${this.executeOperation}>
               ${operation} (ENTER)
+            </button>
+          </div>
+        </div>
+      </div>
+    `
+  }
+
+  renderDeleteDialog() {
+    if (!this.deleteDialog) return ''
+
+    const { files } = this.deleteDialog
+
+    return html`
+      <div class="dialog-overlay">
+        <div
+          class="dialog input-dialog"
+          @click=${(e: Event) => e.stopPropagation()}
+        >
+          <div class="dialog-header">
+            <span class="dialog-title">🗑️ Löschen bestätigen</span>
+          </div>
+          <div style="padding: 1rem;">
+            <div
+              style="margin-bottom: 1rem; color: #fbbf24; font-weight: bold;"
+            >
+              ⚠️ Wirklich ${files.length} Datei(en) löschen?
+            </div>
+            <div style="margin-top: 1rem; color: #94a3b8; font-size: 0.9rem;">
+              ${files.map((f) => html`<div>• ${f.split(/[/\\]/).pop()}</div>`)}
+            </div>
+          </div>
+          <div class="dialog-buttons">
+            <button class="btn-cancel" @click=${this.cancelDelete}>
+              Abbrechen (ESC)
+            </button>
+            <button
+              class="btn-confirm"
+              @click=${this.executeDelete}
+              style="background: #dc2626;"
+            >
+              Löschen (ENTER)
             </button>
           </div>
         </div>
