@@ -549,13 +549,31 @@ export class FileOperationsCommand implements ICommand {
   }
 
   /**
-   * Delete a file or directory
+   * Delete a file or directory (supports ZIP)
    */
   private async deleteFile(sourcePath: string): Promise<any> {
     if (!sourcePath) {
       throw new Error('sourcePath is required for delete operation');
     }
 
+    const { ZipHelper } = await import('./zip-helper.js');
+
+    // Check if this is a ZIP path
+    const zipPath = ZipHelper.parsePath(sourcePath);
+    if (zipPath.isZipPath) {
+      // Delete from ZIP
+      ZipHelper.deleteFromZip(zipPath.zipFile, zipPath.internalPath);
+
+      return {
+        success: true,
+        operation: 'delete',
+        path: sourcePath,
+        type: 'file',
+        timestamp: new Date().toISOString(),
+      };
+    }
+
+    // Regular file system delete
     const absolutePath = path.resolve(sourcePath);
 
     // Check if file/directory exists

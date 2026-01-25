@@ -1,5 +1,6 @@
 - fix functions on mac
-- implementdelete function
+- zip files or folders
+- compare dirs recursive oder only at top Level. Binary compare.
 - integrate more cmdline-Tools
 - music player (IPOD), integrate mp3 metadata helper here
 - build linux

@@ -291,4 +291,50 @@ export class ZipHelper {
     // Write ZIP file
     zip.writeZip(zipFilePath);
   }
+
+  /**
+   * Delete a file or directory from ZIP
+   */
+  static deleteFromZip(zipFilePath: string, internalPath: string): void {
+    if (!fs.existsSync(zipFilePath)) {
+      throw new Error(`ZIP file does not exist: ${zipFilePath}`);
+    }
+
+    const zip = new AdmZip(zipFilePath);
+    const normalizedPath = internalPath.replace(/\\/g, '/');
+
+    // Get all entries
+    const entries = zip.getEntries();
+
+    // Check if it's a directory by looking for entries that start with this path
+    const isDirectory = entries.some(
+      (entry) =>
+        entry.entryName.replace(/\\/g, '/').startsWith(normalizedPath + '/') ||
+        entry.entryName.replace(/\\/g, '/') === normalizedPath + '/',
+    );
+
+    if (isDirectory) {
+      // Delete all entries that start with this path (directory and its contents)
+      const prefix = normalizedPath.endsWith('/')
+        ? normalizedPath
+        : normalizedPath + '/';
+
+      for (const entry of entries) {
+        const entryPath = entry.entryName.replace(/\\/g, '/');
+        if (
+          entryPath.startsWith(prefix) ||
+          entryPath === normalizedPath ||
+          entryPath === normalizedPath + '/'
+        ) {
+          zip.deleteFile(entry.entryName);
+        }
+      }
+    } else {
+      // Delete single file
+      zip.deleteFile(normalizedPath);
+    }
+
+    // Write ZIP file
+    zip.writeZip(zipFilePath);
+  }
 }
