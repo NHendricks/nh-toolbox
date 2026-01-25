@@ -82,14 +82,24 @@ export class FileOperationsCommand implements ICommand {
   }
 
   /**
-   * List files in a folder
+   * List files in a folder (or ZIP contents)
    */
   private async listFiles(folderPath: string): Promise<any> {
     if (!folderPath) {
       throw new Error('folderPath is required for list operation');
     }
 
-    // Resolve to absolute path
+    // Import ZipHelper dynamically to avoid circular dependencies
+    const { ZipHelper } = await import('./zip-helper.js');
+
+    // Check if this is a ZIP path
+    const zipPath = ZipHelper.parsePath(folderPath);
+    if (zipPath.isZipPath) {
+      // List ZIP contents
+      return ZipHelper.listZipContents(zipPath.zipFile, zipPath.internalPath);
+    }
+
+    // Regular directory listing
     const absolutePath = path.resolve(folderPath);
 
     // Check if directory exists
@@ -171,13 +181,66 @@ export class FileOperationsCommand implements ICommand {
   }
 
   /**
-   * Read a file's content
+   * Read a file's content (from disk or ZIP)
    */
   private async readFile(filePath: string): Promise<any> {
     if (!filePath) {
       throw new Error('filePath is required for read operation');
     }
 
+    const { ZipHelper } = await import('./zip-helper.js');
+
+    // Check if this is a ZIP path
+    const zipPath = ZipHelper.parsePath(filePath);
+    if (zipPath.isZipPath) {
+      // Read from ZIP
+      const isImage = this.isImageFile(zipPath.internalPath);
+
+      if (isImage) {
+        const buffer = ZipHelper.readFromZip(
+          zipPath.zipFile,
+          zipPath.internalPath,
+          true,
+        ) as Buffer;
+        const base64 = buffer.toString('base64');
+        const ext = path.extname(zipPath.internalPath).toLowerCase();
+
+        let mimeType = 'image/jpeg';
+        if (ext === '.png') mimeType = 'image/png';
+        else if (ext === '.gif') mimeType = 'image/gif';
+        else if (ext === '.bmp') mimeType = 'image/bmp';
+        else if (ext === '.webp') mimeType = 'image/webp';
+        else if (ext === '.svg') mimeType = 'image/svg+xml';
+        else if (ext === '.ico') mimeType = 'image/x-icon';
+
+        return {
+          success: true,
+          operation: 'read',
+          path: filePath,
+          content: `data:${mimeType};base64,${base64}`,
+          size: buffer.length,
+          modified: new Date().toISOString(),
+          isImage: true,
+        };
+      } else {
+        const content = ZipHelper.readFromZip(
+          zipPath.zipFile,
+          zipPath.internalPath,
+          false,
+        ) as string;
+        return {
+          success: true,
+          operation: 'read',
+          path: filePath,
+          content: content,
+          size: content.length,
+          modified: new Date().toISOString(),
+          isImage: false,
+        };
+      }
+    }
+
+    // Regular file reading
     const absolutePath = path.resolve(filePath);
 
     // Check if file exists
@@ -235,7 +298,7 @@ export class FileOperationsCommand implements ICommand {
   }
 
   /**
-   * Copy a file or directory from source to destination
+   * Copy a file or directory from source to destination (supports ZIP)
    */
   private async copyFile(
     sourcePath: string,
@@ -248,6 +311,75 @@ export class FileOperationsCommand implements ICommand {
       throw new Error('destinationPath is required for copy operation');
     }
 
+    const { ZipHelper } = await import('./zip-helper.js');
+
+    const sourceZip = ZipHelper.parsePath(sourcePath);
+    const destZip = ZipHelper.parsePath(destinationPath);
+
+    // Case 1: Copy FROM ZIP to regular file system
+    if (sourceZip.isZipPath && !destZip.isZipPath) {
+      const destPath = path.resolve(destinationPath);
+      ZipHelper.extractFromZip(
+        sourceZip.zipFile,
+        sourceZip.internalPath,
+        destPath,
+      );
+
+      const stats = await stat(destPath);
+      return {
+        success: true,
+        operation: 'copy',
+        source: sourcePath,
+        destination: destPath,
+        size: stats.size,
+        type: 'file',
+        timestamp: new Date().toISOString(),
+      };
+    }
+
+    // Case 2: Copy TO ZIP from regular file system
+    if (!sourceZip.isZipPath && destZip.isZipPath) {
+      const sourceFilePath = path.resolve(sourcePath);
+      ZipHelper.addToZip(destZip.zipFile, sourceFilePath, destZip.internalPath);
+
+      return {
+        success: true,
+        operation: 'copy',
+        source: sourceFilePath,
+        destination: destinationPath,
+        type: 'file',
+        timestamp: new Date().toISOString(),
+      };
+    }
+
+    // Case 3: ZIP to ZIP (extract then add)
+    if (sourceZip.isZipPath && destZip.isZipPath) {
+      // Create temp file
+      const tempPath = path.join(
+        require('os').tmpdir(),
+        `temp_${Date.now()}_${path.basename(sourceZip.internalPath)}`,
+      );
+      ZipHelper.extractFromZip(
+        sourceZip.zipFile,
+        sourceZip.internalPath,
+        tempPath,
+      );
+      ZipHelper.addToZip(destZip.zipFile, tempPath, destZip.internalPath);
+
+      // Clean up temp file
+      await unlink(tempPath);
+
+      return {
+        success: true,
+        operation: 'copy',
+        source: sourcePath,
+        destination: destinationPath,
+        type: 'file',
+        timestamp: new Date().toISOString(),
+      };
+    }
+
+    // Case 4: Regular file system copy
     const absoluteSource = path.resolve(sourcePath);
     const absoluteDestination = path.resolve(destinationPath);
 

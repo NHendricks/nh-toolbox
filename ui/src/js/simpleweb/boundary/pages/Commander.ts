@@ -826,8 +826,12 @@ export class Commander extends LitElement {
     const item = pane.items[index]
     console.log('Double-click on item:', item)
 
-    if (item.isDirectory) {
-      console.log('Navigating to directory:', item.path)
+    // Check if this is a ZIP file - treat it like a directory
+    const isZipFile =
+      !item.isDirectory && item.name.toLowerCase().endsWith('.zip')
+
+    if (item.isDirectory || isZipFile) {
+      console.log('Navigating to directory/ZIP:', item.path)
       await this.navigateToDirectory(item.path)
     } else {
       console.log('Viewing file:', item.path)
@@ -1491,7 +1495,13 @@ export class Commander extends LitElement {
                 @click=${(e: MouseEvent) => this.handleItemClick(index, e)}
                 @dblclick=${() => this.handleItemDoubleClick(index)}
               >
-                <span class="file-icon">${item.isDirectory ? '📁' : '📄'}</span>
+                <span class="file-icon"
+                  >${item.isDirectory
+                    ? '📁'
+                    : item.name.toLowerCase().endsWith('.zip')
+                      ? '📦'
+                      : '📄'}</span
+                >
                 <span class="file-name ${item.isDirectory ? 'directory' : ''}"
                   >${item.name}</span
                 >
