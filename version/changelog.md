@@ -1,7 +1,7 @@
-# nh-toolbox ((https://github.com/NHendricks/nh-toolbox))
+# nh-toolbox (https://github.com/NHendricks/nh-toolbox)
 
 ## changelog
 
-### 1.0.0
+### 1.0.0 (25.01.2026)
 
 - base app with file commander utility
