@@ -1113,7 +1113,12 @@ export class Commander extends LitElement {
   handleEnter() {
     const pane = this.getActivePane()
     const item = pane.items[pane.focusedIndex]
-    if (item && item.isDirectory) {
+
+    // Check if this is a ZIP file - treat it like a directory
+    const isZipFile =
+      item && !item.isDirectory && item.name.toLowerCase().endsWith('.zip')
+
+    if (item && (item.isDirectory || isZipFile)) {
       this.navigateToDirectory(item.path)
     }
   }
