@@ -211,7 +211,6 @@ export class Commander extends LitElement {
 
     .file-name.directory {
       color: #fbbf24;
-      font-weight: bold;
     }
 
     .file-size {
@@ -492,8 +491,12 @@ export class Commander extends LitElement {
     }
   }
 
-  async handlePathClick() {
+  async handlePathClick(pane?: 'left' | 'right') {
     if (this.availableDrives.length > 0) {
+      // Set active pane if specified
+      if (pane) {
+        this.activePane = pane
+      }
       this.showDriveSelector = true
     }
   }
@@ -530,10 +533,20 @@ export class Commander extends LitElement {
 
       if (response.success && response.data) {
         const data = response.data
+
+        // Check if the data itself indicates an error
+        if (data.success === false) {
+          this.setStatus(`Fehler: ${data.error}`, 'error')
+          console.error('Backend error:', data.error)
+          return
+        }
         const items: FileItem[] = []
 
         // Add parent directory entry if not at root
-        if (path !== 'd:\\' && path !== '/' && path !== 'd:') {
+        const normalizedPath = path.replace(/\\/g, '/').toLowerCase()
+        const isRoot = normalizedPath.match(/^[a-z]:\/?\s*$/)
+
+        if (!isRoot) {
           items.push({
             name: '..',
             path: this.getParentPath(path),
@@ -545,9 +558,13 @@ export class Commander extends LitElement {
           })
         }
 
-        // Add directories first, then files
-        items.push(...data.directories)
-        items.push(...data.files)
+        // Add directories first, then files (with safety checks)
+        if (data.directories && Array.isArray(data.directories)) {
+          items.push(...data.directories)
+        }
+        if (data.files && Array.isArray(data.files)) {
+          items.push(...data.files)
+        }
 
         console.log(`Loaded ${items.length} items for ${pane}`)
 
@@ -567,10 +584,10 @@ export class Commander extends LitElement {
           }
         }
 
-        this.setStatus(
-          `${data.summary.totalDirectories} Ordner, ${data.summary.totalFiles} Dateien`,
-          'success',
-        )
+        // Display status with safety checks
+        const dirCount = data.summary?.totalDirectories ?? 0
+        const fileCount = data.summary?.totalFiles ?? 0
+        this.setStatus(`${dirCount} Ordner, ${fileCount} Dateien`, 'success')
       } else {
         this.setStatus(`Fehler: ${response.error}`, 'error')
         console.error('Load directory error:', response.error)
@@ -731,6 +748,19 @@ export class Commander extends LitElement {
     }
 
     const pane = this.getActivePane()
+
+    // Handle Alt+1 and Alt+2 for drive selection
+    if (event.altKey) {
+      if (event.key === '1') {
+        event.preventDefault()
+        this.handlePathClick('left')
+        return
+      } else if (event.key === '2') {
+        event.preventDefault()
+        this.handlePathClick('right')
+        return
+      }
+    }
 
     switch (event.key) {
       case 'F3':

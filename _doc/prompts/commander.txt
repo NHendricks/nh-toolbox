@@ -26,4 +26,12 @@ Prompts and costs
   (0,30)
 
 11. Die Navigation klappt nicht von d:/devtools über .. nach oben. Er landet im aktuellen Verzeichnis der Anwendung. Außerdem will ich, dass beim click auf das aktuelle Verzeichnis (header) eine Auswahl der verfügbaren Verzeichnisse kommt. Dafür brauchst Du vermutlich noch einen neuen command.
-2.18
+  (1.00)
+
+12. Ich kann mein Drive nicht wechseln. Mit Alt+1 möchte ich links ein anderes drive auswählen können und mit Alt+2 rechts.
+  (0.80)
+
+13. Fehlermeldungen aus der Konsole gepasted (beim Wechsel auf Laufwerk c)
+  (0.60)
+
+usw.

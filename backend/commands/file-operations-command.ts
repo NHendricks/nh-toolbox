@@ -111,22 +111,30 @@ export class FileOperationsCommand implements ICommand {
 
     for (const entry of entries) {
       const fullPath = path.join(absolutePath, entry.name);
-      const itemStats = await stat(fullPath);
 
-      const item = {
-        name: entry.name,
-        path: fullPath,
-        size: itemStats.size,
-        created: itemStats.birthtime,
-        modified: itemStats.mtime,
-        isDirectory: entry.isDirectory(),
-        isFile: entry.isFile(),
-      };
+      try {
+        const itemStats = await stat(fullPath);
 
-      if (entry.isDirectory()) {
-        directories.push(item);
-      } else {
-        files.push(item);
+        const item = {
+          name: entry.name,
+          path: fullPath,
+          size: itemStats.size,
+          created: itemStats.birthtime,
+          modified: itemStats.mtime,
+          isDirectory: entry.isDirectory(),
+          isFile: entry.isFile(),
+        };
+
+        if (entry.isDirectory()) {
+          directories.push(item);
+        } else {
+          files.push(item);
+        }
+      } catch (error: any) {
+        // Skip files that are locked, inaccessible, or have permission issues
+        // This commonly occurs with system files like DumpStack.log.tmp on Windows
+        console.warn(`Warning: Unable to access ${fullPath}: ${error.message}`);
+        continue;
       }
     }
 
@@ -260,12 +268,18 @@ export class FileOperationsCommand implements ICommand {
       const sourcePath = path.join(source, entry.name);
       const destPath = path.join(destination, entry.name);
 
-      if (entry.isDirectory()) {
-        // Recursively copy subdirectory
-        await this.copyDirectoryRecursive(sourcePath, destPath);
-      } else if (entry.isFile()) {
-        // Copy file
-        await copyFile(sourcePath, destPath);
+      try {
+        if (entry.isDirectory()) {
+          // Recursively copy subdirectory
+          await this.copyDirectoryRecursive(sourcePath, destPath);
+        } else if (entry.isFile()) {
+          // Copy file
+          await copyFile(sourcePath, destPath);
+        }
+      } catch (error: any) {
+        // Skip files that are locked or inaccessible
+        console.warn(`Warning: Unable to copy ${sourcePath}: ${error.message}`);
+        continue;
       }
     }
   }
