@@ -17,10 +17,12 @@
     "buildLinuxApp": "dont use it but will be easy to implement in the tools project"
   },
   "devDependencies": {
+    "@types/adm-zip": "^0.5.7",
     "@types/node": "^25.0.10",
     "typescript": "^5.9.3"
   },
   "dependencies": {
+    "adm-zip": "^0.5.16",
     "rifraf": "^2.0.3"
   }
 }
