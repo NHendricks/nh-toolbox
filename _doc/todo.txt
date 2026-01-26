@@ -1,5 +1,4 @@
 commander:
-- compare texts
 - english
 - fonts / colors
 - ALT+filter for visible files

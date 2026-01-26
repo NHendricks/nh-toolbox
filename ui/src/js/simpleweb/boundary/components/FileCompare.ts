@@ -55,7 +55,6 @@ export class FileCompare extends LitElement {
       font-family: 'Courier New', monospace;
       font-size: 0.85rem;
       line-height: 1.5;
-      white-space: pre-wrap;
     }
 
     .line {
