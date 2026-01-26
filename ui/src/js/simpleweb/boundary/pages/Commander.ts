@@ -1380,10 +1380,12 @@ export class Commander extends LitElement {
         if (event.ctrlKey) {
           event.preventDefault()
           // Ctrl+Left: Switch left panel to right panel's directory
-          if (this.activePane === 'left') {
-            const targetPath = this.rightPane.currentPath
-            this.navigateToDirectory(targetPath)
-          }
+          const targetPath = this.rightPane.currentPath
+          const previousActive = this.activePane
+          this.activePane = 'left'
+          this.navigateToDirectory(targetPath).then(() => {
+            this.activePane = previousActive
+          })
         }
         break
 
@@ -1391,10 +1393,12 @@ export class Commander extends LitElement {
         if (event.ctrlKey) {
           event.preventDefault()
           // Ctrl+Right: Switch right panel to left panel's directory
-          if (this.activePane === 'right') {
-            const targetPath = this.leftPane.currentPath
-            this.navigateToDirectory(targetPath)
-          }
+          const targetPath = this.leftPane.currentPath
+          const previousActive = this.activePane
+          this.activePane = 'right'
+          this.navigateToDirectory(targetPath).then(() => {
+            this.activePane = previousActive
+          })
         }
         break
 

@@ -17,6 +17,7 @@
 - add file filter using ALT+f
 - switch to english in UI
 - add diff feature in directory compare dialog
+- open same folder in other pane using ctrl+left/right
 
 ### v1.0.0 (25.01.2026)
 
