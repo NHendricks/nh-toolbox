@@ -533,7 +533,7 @@ export class CompareDialog extends LitElement {
     return html`
       <simple-dialog
         .open=${true}
-        .title=${`🔍 Verzeichnisvergleich ${this.recursive ? '(Rekursiv)' : '(Aktuell)'}`}
+        .title=${`🔍 Directory Comparison ${this.recursive ? '(Recursive)' : '(Current)'}`}
         .width=${'95%'}
         .maxHeight=${'90vh'}
         @dialog-close=${this.close}
@@ -544,8 +544,8 @@ export class CompareDialog extends LitElement {
                 <div class="waiting-overlay">
                   <div class="spinner"></div>
                   <div class="waiting-text">
-                    Vergleiche
-                    Verzeichnisse${this.recursive ? ' (rekursiv)' : ''}...
+                    Comparing
+                    directories${this.recursive ? ' (recursive)' : ''}...
                   </div>
                 </div>
               `
@@ -556,7 +556,7 @@ export class CompareDialog extends LitElement {
 
             <label
               class=${this.hideIdentical ? 'active' : ''}
-              title="Identische ausblenden"
+              title="Hide identical"
             >
               <input
                 type="checkbox"
@@ -569,7 +569,7 @@ export class CompareDialog extends LitElement {
 
             <label
               class=${this.hideDirectories ? 'active' : ''}
-              title="Verzeichnisse ausblenden"
+              title="Hide directories"
             >
               <input
                 type="checkbox"
@@ -582,7 +582,7 @@ export class CompareDialog extends LitElement {
               📁
             </label>
 
-            <label class=${this.showOnlyLeft ? 'active' : ''} title="Nur links">
+            <label class=${this.showOnlyLeft ? 'active' : ''} title="Left only">
               <input
                 type="checkbox"
                 .checked=${this.showOnlyLeft}
@@ -594,7 +594,7 @@ export class CompareDialog extends LitElement {
 
             <label
               class=${this.showOnlyRight ? 'active' : ''}
-              title="Nur rechts"
+              title="Right only"
             >
               <input
                 type="checkbox"
@@ -607,7 +607,7 @@ export class CompareDialog extends LitElement {
 
             <label
               class=${this.showOnlyDifferent ? 'active' : ''}
-              title="Nur unterschiedliche"
+              title="Different only"
             >
               <input
                 type="checkbox"
@@ -638,9 +638,9 @@ export class CompareDialog extends LitElement {
                   <table class="compare-table">
                     <thead>
                       <tr>
-                        <th>Links</th>
+                        <th>Left</th>
                         <th class="status-col">Status</th>
-                        <th>Rechts</th>
+                        <th>Right</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -660,7 +660,7 @@ export class CompareDialog extends LitElement {
                             item.rightFile &&
                             !item.leftFile.isDirectory &&
                             !item.rightFile.isDirectory
-                              ? 'Klicken zum Vergleichen'
+                              ? 'Click to compare'
                               : ''}"
                           >
                             <td>
@@ -683,7 +683,7 @@ export class CompareDialog extends LitElement {
                                     </div>
                                   `
                                 : html`<span class="empty-cell"
-                                    >nicht vorhanden</span
+                                    >not present</span
                                   >`}
                             </td>
                             <td class="status-col ${item.statusClass}">
@@ -709,7 +709,7 @@ export class CompareDialog extends LitElement {
                                     </div>
                                   `
                                 : html`<span class="empty-cell"
-                                    >nicht vorhanden</span
+                                    >not present</span
                                   >`}
                             </td>
                           </tr>
@@ -721,7 +721,7 @@ export class CompareDialog extends LitElement {
                               colspan="3"
                               style="text-align:center; padding:2rem; color:#94a3b8;"
                             >
-                              Keine Einträge entsprechen den aktuellen Filtern
+                              No entries match the current filters
                             </td>
                           </tr>`
                         : ''}
@@ -732,36 +732,36 @@ export class CompareDialog extends LitElement {
             : html`
                 <div class="success-message">
                   <div class="success-icon">✅</div>
-                  <div class="success-title">Verzeichnisse sind identisch!</div>
+                  <div class="success-title">Directories are identical!</div>
                   <div class="success-subtitle">
-                    ${summary.identical} identische
-                    ${summary.identical === 1 ? 'Element' : 'Elemente'}
+                    ${summary.identical} identical
+                    ${summary.identical === 1 ? 'item' : 'items'}
                   </div>
                 </div>
               `}
           <div class="summary-section">
             <div class="summary-item">
-              <div class="summary-label">Links gesamt</div>
+              <div class="summary-label">Total left</div>
               <div class="summary-value">${summary.totalLeft}</div>
             </div>
             <div class="summary-item">
-              <div class="summary-label">Rechts gesamt</div>
+              <div class="summary-label">Total right</div>
               <div class="summary-value">${summary.totalRight}</div>
             </div>
             <div class="summary-item status-left-only">
-              <div class="summary-label">Nur links</div>
+              <div class="summary-label">Left only</div>
               <div class="summary-value">${summary.onlyInLeft}</div>
             </div>
             <div class="summary-item status-right-only">
-              <div class="summary-label">Nur rechts</div>
+              <div class="summary-label">Right only</div>
               <div class="summary-value">${summary.onlyInRight}</div>
             </div>
             <div class="summary-item status-different">
-              <div class="summary-label">Unterschiedlich</div>
+              <div class="summary-label">Different</div>
               <div class="summary-value">${summary.different}</div>
             </div>
             <div class="summary-item status-identical">
-              <div class="summary-label">Identisch</div>
+              <div class="summary-label">Identical</div>
               <div class="summary-value">${summary.identical}</div>
             </div>
           </div>
@@ -773,15 +773,13 @@ export class CompareDialog extends LitElement {
             @click=${this.toggleRecursive}
             style="margin-right: auto;"
           >
-            ${this.recursive ? '📂' : '📁'} Modus:
-            ${this.recursive ? 'Rekursiv' : 'Aktuell'}
+            ${this.recursive ? '📂' : '📁'} Mode:
+            ${this.recursive ? 'Recursive' : 'Current'}
           </button>
           <button class="btn-confirm" @click=${this.recompare}>
-            🔄 Erneut vergleichen
+            🔄 Compare Again
           </button>
-          <button class="btn-cancel" @click=${this.close}>
-            Schließen (ESC)
-          </button>
+          <button class="btn-cancel" @click=${this.close}>Close (ESC)</button>
         </div>
       </simple-dialog>
 
@@ -795,14 +793,14 @@ export class CompareDialog extends LitElement {
             >
               <div style="padding: 1rem;">
                 <div class="input-field">
-                  <label>Regex Muster (z.B. \\.txt$ für txt-Dateien):</label>
+                  <label>Regex pattern (e.g. \\.txt$ for txt files):</label>
                   <input
                     type="text"
                     class="regex-input ${this.regexFilter &&
                     !this.isValidRegex()
                       ? 'error'
                       : ''}"
-                    placeholder="z.B. \\.txt$ oder ^test"
+                    placeholder="e.g. \\.txt$ or ^test"
                     .value=${this.regexFilter}
                     @input=${(e: Event) =>
                       (this.regexFilter = (e.target as HTMLInputElement).value)}
@@ -827,7 +825,7 @@ export class CompareDialog extends LitElement {
                     ? html`<div
                         style="color: #ef4444; font-size: 0.85rem; margin-top: 0.5rem;"
                       >
-                        ⚠️ Ungültiger Regex-Ausdruck
+                        ⚠️ Invalid regex expression
                       </div>`
                     : ''}
                 </div>
@@ -841,13 +839,13 @@ export class CompareDialog extends LitElement {
                     this.showRegexDialog = false
                   }}
                 >
-                  Deaktivieren
+                  Disable
                 </button>
                 <button
                   class="btn-cancel"
                   @click=${() => (this.showRegexDialog = false)}
                 >
-                  Abbrechen (ESC)
+                  Cancel (ESC)
                 </button>
                 <button
                   class="btn-confirm"
@@ -859,7 +857,7 @@ export class CompareDialog extends LitElement {
                   }}
                   ?disabled=${!this.regexFilter || !this.isValidRegex()}
                 >
-                  Anwenden (ENTER)
+                  Apply (ENTER)
                 </button>
               </div>
             </simple-dialog>

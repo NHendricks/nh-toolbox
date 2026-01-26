@@ -166,10 +166,10 @@ export class FileCompare extends LitElement {
         this.leftContent = left.data.content
         this.rightContent = right.data.content
       } else {
-        this.error = left.error || right.error || 'Fehler beim Laden'
+        this.error = left.error || right.error || 'Error loading'
       }
     } catch (e: any) {
-      this.error = e.message ?? 'Unbekannter Fehler'
+      this.error = e.message ?? 'Unknown error'
     } finally {
       this.loading = false
     }
@@ -340,7 +340,7 @@ export class FileCompare extends LitElement {
   /* ---------- Render ---------- */
   render() {
     return html`
-      <simple-dialog .open=${true} title="📊 Dateivergleich" width="95%">
+      <simple-dialog .open=${true} title="📊 File Comparison" width="95%">
         <div class="root">
           <div class="toolbar">
             <button
@@ -361,7 +361,7 @@ export class FileCompare extends LitElement {
               class="btn ${this.showOnlyDiffs ? 'active' : ''}"
               @click=${() => (this.showOnlyDiffs = !this.showOnlyDiffs)}
             >
-              Nur Diffs
+              Diffs Only
             </button>
 
             <button
@@ -384,12 +384,12 @@ export class FileCompare extends LitElement {
             <span style="color:#94a3b8">
               ${this.diffLines.length
                 ? `${this.currentDiff + 1}/${this.diffLines.length}`
-                : 'keine Diffs'}
+                : 'no diffs'}
             </span>
           </div>
 
           ${this.loading
-            ? html`<div style="padding:2rem;color:#0ea5e9">Lade…</div>`
+            ? html`<div style="padding:2rem;color:#0ea5e9">Loading…</div>`
             : this.error
               ? html`<div style="padding:2rem;color:#ef4444">
                   ${this.error}
@@ -400,7 +400,7 @@ export class FileCompare extends LitElement {
         </div>
 
         <div slot="footer">
-          <button class="btn" @click=${this.close}>Schließen (Esc)</button>
+          <button class="btn" @click=${this.close}>Close (Esc)</button>
         </div>
       </simple-dialog>
     `

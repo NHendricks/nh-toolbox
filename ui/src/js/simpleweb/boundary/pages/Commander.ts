@@ -513,7 +513,7 @@ export class Commander extends LitElement {
   activePane: 'left' | 'right' = 'left'
 
   @property({ type: String })
-  statusMessage = 'Bereit'
+  statusMessage = 'Ready'
 
   @property({ type: String })
   statusType: 'normal' | 'success' | 'error' = 'normal'
@@ -627,11 +627,11 @@ export class Commander extends LitElement {
     if (index >= 0) {
       // Remove from favorites
       this.favoritePaths = this.favoritePaths.filter((_, i) => i !== index)
-      this.setStatus(`Aus Favoriten entfernt: ${path}`, 'success')
+      this.setStatus(`Removed from favorites: ${path}`, 'success')
     } else {
       // Add to favorites
       this.favoritePaths = [...this.favoritePaths, path]
-      this.setStatus(`Zu Favoriten hinzugefügt: ${path}`, 'success')
+      this.setStatus(`Added to favorites: ${path}`, 'success')
     }
     this.saveFavorites()
   }
@@ -756,7 +756,7 @@ export class Commander extends LitElement {
     previousPath?: string,
   ) {
     try {
-      this.setStatus('Lade Verzeichnis...', 'normal')
+      this.setStatus('Loading directory...', 'normal')
       console.log(`Loading directory for ${pane}: ${path}`)
 
       const response = await (window as any).electron.ipcRenderer.invoke(
@@ -781,10 +781,7 @@ export class Commander extends LitElement {
 
           // If we're already at the root or parent is the same as current, stop
           if (parentPath === path) {
-            this.setStatus(
-              `Fehler: Kein gültiges Verzeichnis gefunden`,
-              'error',
-            )
+            this.setStatus(`Error: No valid directory found`, 'error')
             console.error('Already at root, cannot go higher')
             return
           }
@@ -860,7 +857,7 @@ export class Commander extends LitElement {
         // Display status with safety checks
         const dirCount = data.summary?.totalDirectories ?? 0
         const fileCount = data.summary?.totalFiles ?? 0
-        this.setStatus(`${dirCount} Ordner, ${fileCount} Dateien`, 'success')
+        this.setStatus(`${dirCount} folders, ${fileCount} files`, 'success')
       } else {
         // Request failed - go up one level and retry
         console.log('Failed to load directory, going up one level...')
@@ -868,7 +865,7 @@ export class Commander extends LitElement {
 
         // If we're already at the root or parent is the same as current, stop
         if (parentPath === path) {
-          this.setStatus(`Fehler: ${response.error}`, 'error')
+          this.setStatus(`Error: ${response.error}`, 'error')
           console.error('Load directory error:', response.error)
           return
         }
@@ -883,7 +880,7 @@ export class Commander extends LitElement {
 
       // If we're already at the root or parent is the same as current, stop
       if (parentPath === path) {
-        this.setStatus(`Fehler: ${error.message}`, 'error')
+        this.setStatus(`Error: ${error.message}`, 'error')
         console.error('Load directory exception:', error)
         return
       }
@@ -892,7 +889,7 @@ export class Commander extends LitElement {
       try {
         await this.loadDirectory(pane, parentPath, previousPath)
       } catch (retryError: any) {
-        this.setStatus(`Fehler: ${retryError.message}`, 'error')
+        this.setStatus(`Error: ${retryError.message}`, 'error')
         console.error('Failed to load parent directory:', retryError)
       }
     }
@@ -959,7 +956,7 @@ export class Commander extends LitElement {
 
     if (type !== 'normal') {
       setTimeout(() => {
-        this.statusMessage = 'Bereit'
+        this.statusMessage = 'Ready'
         this.statusType = 'normal'
       }, 3000)
     }
@@ -1050,7 +1047,7 @@ export class Commander extends LitElement {
 
   async viewFile(filePath: string) {
     try {
-      this.setStatus('Lade Datei...', 'normal')
+      this.setStatus('Loading file...', 'normal')
 
       const response = await (window as any).electron.ipcRenderer.invoke(
         'cli-execute',
@@ -1069,14 +1066,14 @@ export class Commander extends LitElement {
           isImage: response.data.isImage || false,
         }
         this.setStatus(
-          response.data.isImage ? 'Bild geladen' : 'Datei geladen',
+          response.data.isImage ? 'Image loaded' : 'File loaded',
           'success',
         )
       } else {
-        this.setStatus(`Fehler: ${response.error}`, 'error')
+        this.setStatus(`Error: ${response.error}`, 'error')
       }
     } catch (error: any) {
-      this.setStatus(`Fehler: ${error.message}`, 'error')
+      this.setStatus(`Error: ${error.message}`, 'error')
     }
   }
 
@@ -1346,7 +1343,7 @@ export class Commander extends LitElement {
         destination: destPane.currentPath,
       }
     } else {
-      this.setStatus('Keine Dateien ausgewählt', 'error')
+      this.setStatus('No files selected', 'error')
     }
   }
 
@@ -1360,7 +1357,7 @@ export class Commander extends LitElement {
         destination: destPane.currentPath,
       }
     } else {
-      this.setStatus('Keine Dateien ausgewählt', 'error')
+      this.setStatus('No files selected', 'error')
     }
   }
 
@@ -1469,7 +1466,7 @@ export class Commander extends LitElement {
 
     try {
       this.setStatus(
-        `${type === 'copy' ? 'Kopiere' : 'Verschiebe'} ${files.length} Datei(en)...`,
+        `${type === 'copy' ? 'Copying' : 'Moving'} ${files.length} file(s)...`,
         'normal',
       )
 
@@ -1493,14 +1490,14 @@ export class Commander extends LitElement {
         if (response.success) {
           successCount++
         } else {
-          this.setStatus(`Fehler bei ${fileName}: ${response.error}`, 'error')
+          this.setStatus(`Error with ${fileName}: ${response.error}`, 'error')
           break
         }
       }
 
       if (successCount === files.length) {
         this.setStatus(
-          `${successCount} Datei(en) erfolgreich ${type === 'copy' ? 'kopiert' : 'verschoben'}`,
+          `${successCount} file(s) successfully ${type === 'copy' ? 'copied' : 'moved'}`,
           'success',
         )
 
@@ -1517,7 +1514,7 @@ export class Commander extends LitElement {
 
       this.operationDialog = null
     } catch (error: any) {
-      this.setStatus(`Fehler: ${error.message}`, 'error')
+      this.setStatus(`Error: ${error.message}`, 'error')
     }
   }
 
@@ -1540,7 +1537,7 @@ export class Commander extends LitElement {
     const { files } = this.deleteDialog
 
     try {
-      this.setStatus(`Lösche ${files.length} Datei(en)...`, 'normal')
+      this.setStatus(`Deleting ${files.length} file(s)...`, 'normal')
 
       let successCount = 0
       for (const file of files) {
@@ -1558,14 +1555,14 @@ export class Commander extends LitElement {
         if (response.success) {
           successCount++
         } else {
-          this.setStatus(`Fehler bei ${fileName}: ${response.error}`, 'error')
+          this.setStatus(`Error with ${fileName}: ${response.error}`, 'error')
           break
         }
       }
 
       if (successCount === files.length) {
         this.setStatus(
-          `${successCount} Datei(en) erfolgreich gelöscht`,
+          `${successCount} file(s) successfully deleted`,
           'success',
         )
 
@@ -1578,7 +1575,7 @@ export class Commander extends LitElement {
 
       this.deleteDialog = null
     } catch (error: any) {
-      this.setStatus(`Fehler: ${error.message}`, 'error')
+      this.setStatus(`Error: ${error.message}`, 'error')
     }
   }
 
@@ -1599,7 +1596,7 @@ export class Commander extends LitElement {
     const item = pane.items[pane.focusedIndex]
 
     if (!item || item.name === '..') {
-      this.setStatus('Keine gültige Datei ausgewählt', 'error')
+      this.setStatus('No valid file selected', 'error')
       return
     }
 
@@ -1611,12 +1608,12 @@ export class Commander extends LitElement {
       )
 
       if (response.success) {
-        this.setStatus(`Pfad kopiert: ${item.path}`, 'success')
+        this.setStatus(`Path copied: ${item.path}`, 'success')
       } else {
-        this.setStatus(`Fehler beim Kopieren: ${response.error}`, 'error')
+        this.setStatus(`Error copying: ${response.error}`, 'error')
       }
     } catch (error: any) {
-      this.setStatus(`Fehler beim Kopieren: ${error.message}`, 'error')
+      this.setStatus(`Error copying: ${error.message}`, 'error')
       console.error('Clipboard error:', error)
     }
   }
@@ -1636,7 +1633,7 @@ export class Commander extends LitElement {
     const { command, workingDir } = this.commandDialog
 
     try {
-      this.setStatus(`Führe Befehl aus: ${command}`, 'normal')
+      this.setStatus(`Executing command: ${command}`, 'normal')
 
       // Use Node.js child_process via IPC to execute command
       const response = await (window as any).electron.ipcRenderer.invoke(
@@ -1652,17 +1649,14 @@ export class Commander extends LitElement {
       if (response.success && response.data) {
         // Show output in viewer
         this.viewerFile = {
-          path: `Befehl: ${command}`,
-          content: response.data.output || 'Befehl erfolgreich ausgeführt.',
+          path: `Command: ${command}`,
+          content: response.data.output || 'Command executed successfully.',
           size: 0,
           isImage: false,
         }
-        this.setStatus('Befehl erfolgreich ausgeführt', 'success')
+        this.setStatus('Command executed successfully', 'success')
       } else {
-        this.setStatus(
-          `Fehler: ${response.error || 'Unbekannter Fehler'}`,
-          'error',
-        )
+        this.setStatus(`Error: ${response.error || 'Unknown error'}`, 'error')
       }
 
       this.commandDialog = null
@@ -1685,7 +1679,7 @@ export class Commander extends LitElement {
   async handleCompare() {
     try {
       this.setStatus(
-        `Vergleiche Verzeichnisse${this.compareRecursive ? ' (rekursiv)' : ''}...`,
+        `Comparing directories${this.compareRecursive ? ' (recursive)' : ''}...`,
         'normal',
       )
 

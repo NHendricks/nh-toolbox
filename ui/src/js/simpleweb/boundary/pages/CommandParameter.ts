@@ -456,10 +456,10 @@ export class NHStart extends LitElement {
   render() {
     return html`
       <h1>🚀 Backend CLI Interface</h1>
-      <h2>Verfügbare Commands</h2>
+      <h2>Available Commands</h2>
 
       ${this.loading
-        ? html`<div class="loading">Commands werden geladen...</div>`
+        ? html`<div class="loading">Loading commands...</div>`
         : html`
             <div class="commands-grid">
               ${this.commands.map(
@@ -496,7 +496,7 @@ export class NHStart extends LitElement {
           ${!hasParameters
             ? html`
                 <div class="no-params-message">
-                  Dieser Command benötigt keine Parameter
+                  This command requires no parameters
                 </div>
               `
             : html`
@@ -518,14 +518,14 @@ export class NHStart extends LitElement {
 
           <div class="dialog-buttons">
             <button class="btn-cancel" @click=${this.closeDialog}>
-              Abbrechen
+              Cancel
             </button>
             <button
               class="btn-execute"
               @click=${this.executeCommand}
               ?disabled=${this.executing}
             >
-              ${this.executing ? 'Wird ausgeführt...' : 'Ausführen'}
+              ${this.executing ? 'Executing...' : 'Execute'}
             </button>
           </div>
         </div>
@@ -642,10 +642,10 @@ export class NHStart extends LitElement {
       >
         <div class="result-header">
           <div class="result-title">
-            ${this.lastResult.success ? '✅ Erfolg' : '❌ Fehler'}
+            ${this.lastResult.success ? '✅ Success' : '❌ Error'}
           </div>
           <button class="btn-toggle" @click=${this.toggleJsonView}>
-            ${this.showFullJson ? '📋 Nur Result' : '🔍 Vollständiges JSON'}
+            ${this.showFullJson ? '📋 Result Only' : '🔍 Full JSON'}
           </button>
         </div>
         <div class="result-content">${displayContent}</div>
