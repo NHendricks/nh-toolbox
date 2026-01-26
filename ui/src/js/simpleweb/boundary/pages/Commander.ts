@@ -1357,13 +1357,45 @@ export class Commander extends LitElement {
         break
 
       case 'ArrowUp':
-        event.preventDefault()
-        this.moveFocus(-1, event.ctrlKey)
+        if (event.ctrlKey) {
+          event.preventDefault()
+          this.moveFocus(-1, true)
+        } else {
+          event.preventDefault()
+          this.moveFocus(-1, false)
+        }
         break
 
       case 'ArrowDown':
-        event.preventDefault()
-        this.moveFocus(1, event.ctrlKey)
+        if (event.ctrlKey) {
+          event.preventDefault()
+          this.moveFocus(1, true)
+        } else {
+          event.preventDefault()
+          this.moveFocus(1, false)
+        }
+        break
+
+      case 'ArrowLeft':
+        if (event.ctrlKey) {
+          event.preventDefault()
+          // Ctrl+Left: Switch left panel to right panel's directory
+          if (this.activePane === 'left') {
+            const targetPath = this.rightPane.currentPath
+            this.navigateToDirectory(targetPath)
+          }
+        }
+        break
+
+      case 'ArrowRight':
+        if (event.ctrlKey) {
+          event.preventDefault()
+          // Ctrl+Right: Switch right panel to left panel's directory
+          if (this.activePane === 'right') {
+            const targetPath = this.leftPane.currentPath
+            this.navigateToDirectory(targetPath)
+          }
+        }
         break
 
       case 'PageUp':
