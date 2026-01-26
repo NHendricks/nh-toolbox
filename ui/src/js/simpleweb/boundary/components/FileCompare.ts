@@ -118,7 +118,7 @@ export class FileCompare extends LitElement {
   viewMode: 'side' | 'unified' = 'unified'
 
   @property({ type: Boolean })
-  showOnlyDiffs = false
+  showOnlyDiffs = true
 
   private diffLines: number[] = []
   private currentDiff = 0
