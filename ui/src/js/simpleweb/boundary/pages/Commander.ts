@@ -144,6 +144,13 @@ export class Commander extends LitElement {
       transform: translateX(4px);
     }
 
+    .drive-item.focused {
+      background: #1e293b;
+      border-color: #0ea5e9;
+      outline: 2px solid #0ea5e9;
+      transform: translateX(4px);
+    }
+
     .drive-icon {
       font-size: 2rem;
     }
@@ -535,6 +542,9 @@ export class Commander extends LitElement {
   @property({ type: Boolean })
   showDriveSelector = false
 
+  @property({ type: Number })
+  driveSelectorFocusedIndex = 0
+
   @property({ type: Boolean })
   showHelp = false
 
@@ -655,6 +665,7 @@ export class Commander extends LitElement {
         this.activePane = pane
       }
       this.showDriveSelector = true
+      this.driveSelectorFocusedIndex = 0
     }
   }
 
@@ -665,6 +676,55 @@ export class Commander extends LitElement {
 
   closeDriveSelector() {
     this.showDriveSelector = false
+  }
+
+  getDriveSelectorItems() {
+    // Combine favorites and drives into a single list
+    const items: { path: string; type: 'favorite' | 'drive' }[] = []
+
+    this.favoritePaths.forEach((path) => {
+      items.push({ path, type: 'favorite' })
+    })
+
+    this.availableDrives.forEach((drive) => {
+      items.push({ path: drive.path, type: 'drive' })
+    })
+
+    return items
+  }
+
+  moveDriveSelectorFocus(delta: number) {
+    const items = this.getDriveSelectorItems()
+    if (items.length === 0) return
+
+    const newIndex = Math.max(
+      0,
+      Math.min(items.length - 1, this.driveSelectorFocusedIndex + delta),
+    )
+
+    this.driveSelectorFocusedIndex = newIndex
+    this.scrollDriveItemIntoView(newIndex)
+  }
+
+  scrollDriveItemIntoView(index: number) {
+    setTimeout(() => {
+      const driveItems = this.shadowRoot?.querySelectorAll('.drive-item')
+      if (driveItems && driveItems[index]) {
+        driveItems[index].scrollIntoView({
+          block: 'nearest',
+          behavior: 'smooth',
+        })
+      }
+    }, 0)
+  }
+
+  selectFocusedDrive() {
+    const items = this.getDriveSelectorItems()
+    if (items.length === 0 || this.driveSelectorFocusedIndex >= items.length)
+      return
+
+    const selectedItem = items[this.driveSelectorFocusedIndex]
+    this.selectDrive(selectedItem.path)
   }
 
   openHelp() {
@@ -1136,6 +1196,27 @@ export class Commander extends LitElement {
     if (event.key === 'Enter' && this.deleteDialog) {
       event.preventDefault()
       this.executeDelete()
+      return
+    }
+
+    // Handle keyboard navigation in drive selector
+    if (this.showDriveSelector) {
+      if (event.key === 'ArrowUp') {
+        event.preventDefault()
+        this.moveDriveSelectorFocus(-1)
+        return
+      }
+      if (event.key === 'ArrowDown') {
+        event.preventDefault()
+        this.moveDriveSelectorFocus(1)
+        return
+      }
+      if (event.key === 'Enter') {
+        event.preventDefault()
+        this.selectFocusedDrive()
+        return
+      }
+      // ESC is already handled above
       return
     }
 
@@ -1875,8 +1956,14 @@ export class Commander extends LitElement {
                     ⭐ Favoriten
                   </div>
                   ${this.favoritePaths.map(
-                    (favPath) => html`
-                      <div class="drive-item" style="position: relative;">
+                    (favPath, index) => html`
+                      <div
+                        class="drive-item ${this.driveSelectorFocusedIndex ===
+                        index
+                          ? 'focused'
+                          : ''}"
+                        style="position: relative;"
+                      >
                         <span class="drive-icon">⭐</span>
                         <div
                           class="drive-info"
@@ -1911,9 +1998,12 @@ export class Commander extends LitElement {
 
             <!-- Drives Section -->
             ${this.availableDrives.map(
-              (drive) => html`
+              (drive, index) => html`
                 <div
-                  class="drive-item"
+                  class="drive-item ${this.driveSelectorFocusedIndex ===
+                  this.favoritePaths.length + index
+                    ? 'focused'
+                    : ''}"
                   @click=${() => this.selectDrive(drive.path)}
                 >
                   <span class="drive-icon">💾</span>
