@@ -331,6 +331,8 @@ export class Commander extends LitElement {
 
     .dialog-title {
       font-size: 1.1rem;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     .dialog-close {
@@ -2086,13 +2088,11 @@ export class Commander extends LitElement {
   renderViewer() {
     if (!this.viewerFile) return ''
 
-    const icon = this.viewerFile.isImage ? '🖼️' : '📄'
-
     return html`
       <div class="dialog-overlay" @click=${this.closeViewer}>
         <div class="dialog" @click=${(e: Event) => e.stopPropagation()}>
           <div class="dialog-header">
-            <span class="dialog-title">${icon} ${this.viewerFile.path}</span>
+            <span class="dialog-title">${this.viewerFile.path}</span>
             <button class="dialog-close" @click=${this.closeViewer}>ESC</button>
           </div>
           <div
