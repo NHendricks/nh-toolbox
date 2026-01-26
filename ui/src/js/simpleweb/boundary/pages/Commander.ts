@@ -1669,7 +1669,7 @@ export class Commander extends LitElement {
     return html`
       <div class="commander-container">
         <div class="toolbar">
-          <span class="toolbar-title">📁 NH Commander</span>
+          <span class="toolbar-title">📁 Nice2Have Commander</span>
           <div
             class="function-key-top"
             @click=${() => this.handleCompare()}
