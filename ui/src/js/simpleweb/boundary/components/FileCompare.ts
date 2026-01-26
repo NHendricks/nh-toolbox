@@ -115,7 +115,7 @@ export class FileCompare extends LitElement {
   @property() error = ''
 
   @property({ type: String })
-  viewMode: 'side' | 'unified' = 'side'
+  viewMode: 'side' | 'unified' = 'unified'
 
   @property({ type: Boolean })
   showOnlyDiffs = false
