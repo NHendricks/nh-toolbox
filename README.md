@@ -1,6 +1,6 @@
-# nh-toolbox (https://github.com/NHendricks/nh-toolbox)
+# nice2have-toolbox (https://github.com/NHendricks/nh-toolbox)
 
-A modular Electron-based utility application with an extensible command-line backend and interactive UI.
+This **Nice2Have Toolbox** is a modular Electron-based utility application with an extensible command-line backend and interactive UI.
 
 **Changelog** see https://github.com/NHendricks/nh-toolbox/blob/main/version/changelog.md
 
