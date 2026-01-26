@@ -702,7 +702,7 @@ export class ResponsiveMenu extends LitElement {
             <button
               class="close-btn"
               @click=${this.closeActionsOverlay}
-              aria-label="Schließen"
+              aria-label="Close"
             >
               ×
             </button>

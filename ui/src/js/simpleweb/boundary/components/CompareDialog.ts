@@ -533,7 +533,7 @@ export class CompareDialog extends LitElement {
     return html`
       <simple-dialog
         .open=${true}
-        .title=${`🔍 Directory Comparison ${this.recursive ? '(Recursive)' : '(Current)'}`}
+        .title=${`🔍 compare ${this.recursive ? '(recursive)' : '(current dir only)'}`}
         .width=${'95%'}
         .maxHeight=${'90vh'}
         @dialog-close=${this.close}

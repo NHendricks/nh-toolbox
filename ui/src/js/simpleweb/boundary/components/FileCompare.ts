@@ -340,7 +340,7 @@ export class FileCompare extends LitElement {
   /* ---------- Render ---------- */
   render() {
     return html`
-      <simple-dialog .open=${true} title="📊 File Comparison" width="95%">
+      <simple-dialog .open=${true} title="📊 file comparison" width="95%">
         <div class="root">
           <div class="toolbar">
             <button

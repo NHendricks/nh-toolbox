@@ -1527,7 +1527,7 @@ export class Commander extends LitElement {
     if (selectedFiles.length > 0) {
       this.deleteDialog = { files: selectedFiles }
     } else {
-      this.setStatus('Keine Dateien ausgewählt', 'error')
+      this.setStatus('no files selected', 'error')
     }
   }
 
@@ -1751,7 +1751,7 @@ export class Commander extends LitElement {
             style="min-width: 100px; background: ${this.compareRecursive
               ? '#0ea5e9'
               : '#475569'};"
-            title="Verzeichnisse vergleichen (Klicke mit Strg für rekursiven Modus)"
+            title="compare"
           >
             <span class="function-key-label">📂 : 📂</span>
           </div>
@@ -1772,15 +1772,15 @@ export class Commander extends LitElement {
         <div class="function-bar">
           <div class="function-key" @click=${() => this.handleF3()}>
             <span class="function-key-label">F3</span>
-            <span class="function-key-action">Ansehen</span>
+            <span class="function-key-action">view</span>
           </div>
           <div class="function-key" @click=${() => this.handleF5()}>
             <span class="function-key-label">F5</span>
-            <span class="function-key-action">Kopieren</span>
+            <span class="function-key-action">copy</span>
           </div>
           <div class="function-key" @click=${() => this.handleF6()}>
             <span class="function-key-label">F6</span>
-            <span class="function-key-action">Verschieben</span>
+            <span class="function-key-action">move</span>
           </div>
           <div
             class="function-key"
@@ -1791,19 +1791,19 @@ export class Commander extends LitElement {
               )}
           >
             <span class="function-key-label">F7</span>
-            <span class="function-key-action">Aktualisieren</span>
+            <span class="function-key-action">refresh</span>
           </div>
           <div class="function-key" @click=${() => this.handleF8()}>
             <span class="function-key-label">F8</span>
-            <span class="function-key-action">Löschen</span>
+            <span class="function-key-action">delete</span>
           </div>
           <div class="function-key" @click=${() => this.handleF9()}>
             <span class="function-key-label">F9</span>
-            <span class="function-key-action">CMD</span>
+            <span class="function-key-action">cmd</span>
           </div>
           <div class="function-key" @click=${() => this.handleF10()}>
             <span class="function-key-label">F10</span>
-            <span class="function-key-action">📋 Pfad</span>
+            <span class="function-key-action">📋 path</span>
           </div>
         </div>
 
@@ -1833,89 +1833,85 @@ export class Commander extends LitElement {
     return html`
       <simple-dialog
         .open=${this.showHelp}
-        .title=${'❓ Tastenkürzel'}
+        .title=${'❓ shortcuts'}
         .width=${'700px'}
         .maxHeight=${'80vh'}
         @dialog-close=${this.closeHelp}
       >
         <div class="help-content">
           <div class="help-section">
-            <h3>Navigation</h3>
+            <h3>navigate</h3>
             <div class="help-item">
               <div class="help-key">↑ / ↓</div>
-              <div class="help-description">Fokus verschieben</div>
+              <div class="help-description">move focus</div>
             </div>
             <div class="help-item">
               <div class="help-key">Enter</div>
-              <div class="help-description">Verzeichnis öffnen</div>
+              <div class="help-description">open directory</div>
             </div>
             <div class="help-item">
               <div class="help-key">Tab</div>
-              <div class="help-description">Zwischen Panels wechseln</div>
+              <div class="help-description">switch panels</div>
             </div>
             <div class="help-item">
               <div class="help-key">Alt+1 / Alt+2</div>
-              <div class="help-description">Laufwerk wählen (links/rechts)</div>
+              <div class="help-description">select drive</div>
             </div>
           </div>
           <div class="help-section">
-            <h3>Dateien</h3>
+            <h3>files</h3>
             <div class="help-item">
               <div class="help-key">F3</div>
-              <div class="help-description">Datei/Bild ansehen</div>
+              <div class="help-description">file/image</div>
             </div>
             <div class="help-item">
               <div class="help-key">← / →</div>
-              <div class="help-description">Zwischen Bildern navigieren</div>
+              <div class="help-description">navigate</div>
             </div>
             <div class="help-item">
-              <div class="help-key">Doppelklick</div>
-              <div class="help-description">
-                Datei öffnen/Verzeichnis betreten
-              </div>
+              <div class="help-key">double click</div>
+              <div class="help-description">open file / folder</div>
             </div>
           </div>
           <div class="help-section">
-            <h3>Selektion</h3>
+            <h3>select</h3>
             <div class="help-item">
-              <div class="help-key">Strg+Click</div>
-              <div class="help-description">Datei markieren/entmarkieren</div>
+              <div class="help-key">ctrl+click</div>
+              <div class="help-description">(de)select</div>
             </div>
             <div class="help-item">
-              <div class="help-key">Strg+↑ / Strg+↓</div>
-              <div class="help-description">
-                Fokussierte Datei markieren + bewegen
-              </div>
+              <div class="help-key">ctrl+↑ / ctrl+↓</div>
+              <div class="help-description">(de)select</div>
             </div>
             <div class="help-item">
-              <div class="help-key">Strg+Leertaste</div>
-              <div class="help-description">Datei markieren/entmarkieren</div>
+              <div class="help-key">ctrl+space</div>
+              <div class="help-description">(de)select)</div>
             </div>
           </div>
           <div class="help-section">
-            <h3>Operationen</h3>
+            <h3>functions</h3>
             <div class="help-item">
               <div class="help-key">F5</div>
-              <div class="help-description">Kopieren zum anderen Panel</div>
+              <div class="help-description">copy</div>
             </div>
             <div class="help-item">
               <div class="help-key">F6</div>
-              <div class="help-description">Verschieben zum anderen Panel</div>
+              <div class="help-description">move</div>
             </div>
             <div class="help-item">
               <div class="help-key">F7</div>
-              <div class="help-description">Verzeichnis aktualisieren</div>
+              <div class="help-description">refresh</div>
             </div>
           </div>
           <div class="help-section">
-            <h3>Allgemein</h3>
+            <h3>common</h3>
             <div class="help-item">
               <div class="help-key">F1</div>
-              <div class="help-description">Diese Hilfe anzeigen</div>
+              <div class="help-description">show help</div>
             </div>
             <div class="help-item">
               <div class="help-key">ESC</div>
-              <div class="help-description">Dialog schließen</div>
+              <div class="help-description">close</div>
             </div>
           </div>
         </div>
@@ -1936,7 +1932,7 @@ export class Commander extends LitElement {
           <div class="dialog-header">
             <span class="dialog-title">💾 Laufwerk & Favoriten wählen</span>
             <button class="dialog-close" @click=${this.closeDriveSelector}>
-              ESC - Schließen
+              ESC
             </button>
           </div>
 
@@ -2097,9 +2093,7 @@ export class Commander extends LitElement {
         <div class="dialog" @click=${(e: Event) => e.stopPropagation()}>
           <div class="dialog-header">
             <span class="dialog-title">${icon} ${this.viewerFile.path}</span>
-            <button class="dialog-close" @click=${this.closeViewer}>
-              ESC - Schließen
-            </button>
+            <button class="dialog-close" @click=${this.closeViewer}>ESC</button>
           </div>
           <div
             class="dialog-content ${this.viewerFile.isImage
@@ -2117,7 +2111,7 @@ export class Commander extends LitElement {
             ${this.viewerFile.isImage
               ? `Bild: ${this.viewerFile.path.split(/[/\\]/).pop()}`
               : `Größe: ${this.formatFileSize(this.viewerFile.size)}`}
-            | Drücke ESC zum Schließen
+            | press ESC to close
           </div>
         </div>
       </div>
@@ -2128,7 +2122,7 @@ export class Commander extends LitElement {
     if (!this.operationDialog) return ''
 
     const { type, files, destination } = this.operationDialog
-    const operation = type === 'copy' ? 'Kopieren' : 'Verschieben'
+    const operation = type === 'copy' ? 'copy' : 'move'
 
     // Auto-focus input field when dialog opens
     setTimeout(() => {
@@ -2151,8 +2145,8 @@ export class Commander extends LitElement {
         <div style="padding: 1rem;">
           <div class="input-field">
             <label
-              >${files.length} Datei(en)
-              ${type === 'copy' ? 'kopieren' : 'verschieben'} nach:</label
+              >${type === 'copy' ? 'copy' : 'move'} ${files.length} files
+              to:</label
             >
             <input
               type="text"
@@ -2178,7 +2172,7 @@ export class Commander extends LitElement {
         </div>
         <div slot="footer" class="dialog-buttons">
           <button class="btn-cancel" @click=${this.cancelOperation}>
-            Abbrechen (ESC)
+            cancel (ESC)
           </button>
           <button class="btn-confirm" @click=${this.executeOperation}>
             ${operation} (ENTER)
@@ -2206,13 +2200,13 @@ export class Commander extends LitElement {
     return html`
       <simple-dialog
         .open=${true}
-        .title=${'🗑️ Löschen bestätigen'}
+        .title=${'🗑️ confirm'}
         .width=${'600px'}
         @dialog-close=${this.cancelDelete}
       >
         <div style="padding: 1rem;">
           <div style="margin-bottom: 1rem; color: #fbbf24; font-weight: bold;">
-            ⚠️ Wirklich ${files.length} Datei(en) löschen?
+            ⚠️ really delete ${files.length} files?
           </div>
           <div style="margin-top: 1rem; color: #94a3b8; font-size: 0.9rem;">
             ${files.map((f) => html`<div>• ${f.split(/[/\\]/).pop()}</div>`)}
@@ -2229,7 +2223,7 @@ export class Commander extends LitElement {
               }
             }}
           >
-            Abbrechen (ESC)
+            cancel (ESC)
           </button>
           <button
             class="btn-confirm"
@@ -2242,7 +2236,7 @@ export class Commander extends LitElement {
             }}
             style="background: #dc2626;"
           >
-            Löschen (ENTER)
+            confirm (ENTER)
           </button>
         </div>
       </simple-dialog>
@@ -2267,13 +2261,13 @@ export class Commander extends LitElement {
     return html`
       <simple-dialog
         .open=${true}
-        .title=${'⚡ Befehl ausführen'}
+        .title=${'⚡ execute'}
         .width=${'600px'}
         @dialog-close=${this.cancelCommand}
       >
         <div style="padding: 1rem;">
           <div class="input-field">
-            <label>Befehl im Verzeichnis: ${workingDir}</label>
+            <label>execute in: ${workingDir}</label>
             <input
               type="text"
               .value=${command}
@@ -2296,10 +2290,10 @@ export class Commander extends LitElement {
         </div>
         <div slot="footer" class="dialog-buttons">
           <button class="btn-cancel" @click=${this.cancelCommand}>
-            Abbrechen (ESC)
+            cancel (ESC)
           </button>
           <button class="btn-confirm" @click=${this.executeCommand}>
-            Ausführen (ENTER)
+            execute (ENTER)
           </button>
         </div>
       </simple-dialog>

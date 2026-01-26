@@ -113,9 +113,7 @@ export class SimpleDialog extends LitElement {
             <span class="dialog-title">${this.title}</span>
             ${this.showCloseButton
               ? html`
-                  <button class="dialog-close" @click=${this.close}>
-                    ESC - Schließen
-                  </button>
+                  <button class="dialog-close" @click=${this.close}>ESC</button>
                 `
               : ''}
             <slot name="header-actions"></slot>
