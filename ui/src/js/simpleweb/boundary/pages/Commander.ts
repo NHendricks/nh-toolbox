@@ -1589,18 +1589,44 @@ export class Commander extends LitElement {
       }
     }
 
-    const newIndex = Math.max(
+    // Get sorted list to navigate correctly
+    let displayItems = pane.items
+    if (pane.filterActive && pane.filter) {
+      displayItems = displayItems.filter((item) =>
+        item.name.toLowerCase().includes(pane.filter.toLowerCase()),
+      )
+    }
+    displayItems = this.sortItems(displayItems, pane.sortBy, pane.sortDirection)
+
+    // Find current focused item in sorted list
+    const focusedItem = pane.items[pane.focusedIndex]
+    const currentDisplayIndex = focusedItem
+      ? displayItems.findIndex((item) => item.path === focusedItem.path)
+      : 0
+
+    // Calculate new display index
+    const newDisplayIndex = Math.max(
       0,
-      Math.min(pane.items.length - 1, pane.focusedIndex + delta),
+      Math.min(displayItems.length - 1, currentDisplayIndex + delta),
     )
 
-    this.updateActivePane({
-      focusedIndex: newIndex,
-      selectedIndices: newSelected,
-    })
+    // Find the new item in the sorted list
+    const newItem = displayItems[newDisplayIndex]
 
-    // Scroll into view
-    this.scrollItemIntoView(newIndex)
+    // Find its original index in pane.items
+    const newOriginalIndex = pane.items.findIndex(
+      (item) => item.path === newItem.path,
+    )
+
+    if (newOriginalIndex !== -1) {
+      this.updateActivePane({
+        focusedIndex: newOriginalIndex,
+        selectedIndices: newSelected,
+      })
+
+      // Scroll into view (using display index)
+      this.scrollItemIntoView(newDisplayIndex)
+    }
   }
 
   toggleSelection() {
