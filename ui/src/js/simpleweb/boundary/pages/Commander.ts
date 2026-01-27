@@ -55,7 +55,6 @@ export class Commander extends LitElement {
 
     .toolbar-title {
       font-weight: bold;
-      color: #fbbf24;
       font-size: 1.1rem;
     }
 
@@ -96,7 +95,7 @@ export class Commander extends LitElement {
     }
 
     .pane.active .pane-header {
-      background: #0ea5e9;
+      background: #0e5ae9;
       color: #fff;
     }
 
@@ -225,7 +224,7 @@ export class Commander extends LitElement {
 
     .file-name.directory {
       /* color: #fbbf24; */
-      color: #6aa9e9;
+      color: rgb(117 233 106);
     }
 
     .file-size {
@@ -278,10 +277,9 @@ export class Commander extends LitElement {
     .function-key,
     .function-key-top {
       flex: 1;
-      min-width: 120px;
       background: #475569;
       border: 1px solid #64748b;
-      padding: 0.5rem;
+      padding: 0.05rem;
       text-align: center;
       border-radius: 4px;
       cursor: pointer;
