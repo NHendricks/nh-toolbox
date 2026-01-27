@@ -2403,6 +2403,26 @@ export class Commander extends LitElement {
       pane.sortDirection,
     )
 
+    // Find the focused item in the sorted/filtered list
+    const focusedItem = pane.items[pane.focusedIndex]
+    const displayFocusedIndex = focusedItem
+      ? filteredItems.findIndex((item) => item.path === focusedItem.path)
+      : 0
+
+    // Map selected indices from original items to filtered/sorted items
+    const displaySelectedIndices = new Set<number>()
+    pane.selectedIndices.forEach((originalIndex) => {
+      const selectedItem = pane.items[originalIndex]
+      if (selectedItem) {
+        const displayIndex = filteredItems.findIndex(
+          (item) => item.path === selectedItem.path,
+        )
+        if (displayIndex !== -1) {
+          displaySelectedIndices.add(displayIndex)
+        }
+      }
+    })
+
     return html`
       <div
         class="pane ${isActive ? 'active' : ''}"
@@ -2525,13 +2545,31 @@ export class Commander extends LitElement {
 
         <div class="file-list">
           ${filteredItems.map(
-            (item, index) => html`
+            (item, displayIndex) => html`
               <div
-                class="file-item ${pane.focusedIndex === index
+                class="file-item ${displayFocusedIndex === displayIndex
                   ? 'focused'
-                  : ''} ${pane.selectedIndices.has(index) ? 'selected' : ''}"
-                @click=${(e: MouseEvent) => this.handleItemClick(index, e)}
-                @dblclick=${() => this.handleItemDoubleClick(index)}
+                  : ''} ${displaySelectedIndices.has(displayIndex)
+                  ? 'selected'
+                  : ''}"
+                @click=${(e: MouseEvent) => {
+                  // Find original index in pane.items
+                  const originalIndex = pane.items.findIndex(
+                    (i) => i.path === item.path,
+                  )
+                  if (originalIndex !== -1) {
+                    this.handleItemClick(originalIndex, e)
+                  }
+                }}
+                @dblclick=${() => {
+                  // Find original index in pane.items
+                  const originalIndex = pane.items.findIndex(
+                    (i) => i.path === item.path,
+                  )
+                  if (originalIndex !== -1) {
+                    this.handleItemDoubleClick(originalIndex)
+                  }
+                }}
               >
                 <span class="file-icon"
                   >${item.isDirectory
