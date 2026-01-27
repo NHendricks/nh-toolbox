@@ -1622,6 +1622,7 @@ export class Commander extends LitElement {
 
     try {
       this.setStatus(`Zipping ${files.length} file(s)...`, 'normal')
+      console.log('zip params:' + JSON.stringify(files))
 
       const response = await (window as any).electron.ipcRenderer.invoke(
         'cli-execute',

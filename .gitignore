@@ -6,3 +6,4 @@ dist-electron
 build-output
 app-content
 .DS_Store
+target

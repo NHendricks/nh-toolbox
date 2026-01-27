@@ -1191,7 +1191,7 @@ export class FileOperationsCommand implements ICommand {
   }
 
   getDescription(): string {
-    return 'File operations: list files in a folder, read, copy or move files between locations';
+    return 'File operations: list, read, copy, move, rename, delete, zip, compare directories, execute commands - with ZIP archive support';
   }
 
   getParameters(): CommandParameter[] {
@@ -1201,30 +1201,92 @@ export class FileOperationsCommand implements ICommand {
         type: 'select',
         description: 'Operation to perform',
         required: true,
-        options: ['list', 'read', 'copy', 'move'],
+        options: [
+          'list',
+          'drives',
+          'read',
+          'copy',
+          'move',
+          'rename',
+          'delete',
+          'zip',
+          'compare',
+          'execute-command',
+          'execute-file',
+        ],
       },
       {
         name: 'folderPath',
         type: 'string',
-        description: 'Path to folder (for list operation)',
+        description:
+          'Path to folder or ZIP (for list operation). Supports: "C:\\folder" or "C:\\archive.zip/internal/path"',
         required: false,
       },
       {
         name: 'filePath',
         type: 'string',
-        description: 'Path to file (for read operation)',
+        description:
+          'Path to file (for read/execute-file operations). Supports ZIP paths: "C:\\archive.zip/file.txt"',
         required: false,
       },
       {
         name: 'sourcePath',
         type: 'string',
-        description: 'Source file path (for copy/move operations)',
+        description:
+          'Source path (for copy/move/rename/delete operations). Supports ZIP paths for copy/delete',
         required: false,
       },
       {
         name: 'destinationPath',
         type: 'string',
-        description: 'Destination file path (for copy/move operations)',
+        description:
+          'Destination path (for copy/move/rename operations). Supports ZIP paths for copy',
+        required: false,
+      },
+      {
+        name: 'leftPath',
+        type: 'string',
+        description: 'Left directory path (for compare operation)',
+        required: false,
+      },
+      {
+        name: 'rightPath',
+        type: 'string',
+        description: 'Right directory path (for compare operation)',
+        required: false,
+      },
+      {
+        name: 'recursive',
+        type: 'boolean',
+        description:
+          'Recursive comparison (for compare operation). Default: false',
+        required: false,
+      },
+      {
+        name: 'files',
+        type: 'string',
+        description:
+          'JSON array of file/folder paths to add (for zip operation). Example: ["C:\\\\file1.txt", "C:\\\\folder"]',
+        required: false,
+      },
+      {
+        name: 'zipFilePath',
+        type: 'string',
+        description: 'Path to ZIP file to create (for zip operation)',
+        required: false,
+      },
+      {
+        name: 'command',
+        type: 'string',
+        description:
+          'Command to execute (for execute-command operation). Example: "npm install"',
+        required: false,
+      },
+      {
+        name: 'workingDir',
+        type: 'string',
+        description:
+          'Working directory for command execution (for execute-command operation)',
         required: false,
       },
     ];
