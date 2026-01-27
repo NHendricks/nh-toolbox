@@ -2,6 +2,10 @@
 
 ## changelog
 
+### upcoming
+
+- pos1 und end should navigate to top, end
+
 ### v1.1.0 (26.01.2026)
 
 - navigate to parent folder automatically if folder does not exist (any more)

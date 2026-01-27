@@ -3,7 +3,6 @@ commander:
   dir: rgb(117 233 106)
   toolbar-title: rgb(36 199 251)
 - sort by extension (dont show extension in separate column)
-- pos1 und end should navigate to top, end
 - execute executable
 - prefs export / import
 - cmd should be executable directly in input field and enter should spawn cmd and refresh. Open cmd window separately.
