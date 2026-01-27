@@ -1,6 +1,4 @@
 commander:
-- rename features
-- zip current folder
 - fonts / colors
   toolbar-title: rgb(36 199 251)
   ...

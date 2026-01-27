@@ -11,6 +11,7 @@
 - delete key should also delete file like F8
 - enable sorting
 - rename files using F2
+- zip files or folders
 
 ### v1.1.0 (26.01.2026)
 

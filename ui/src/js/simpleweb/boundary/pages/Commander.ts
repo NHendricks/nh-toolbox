@@ -1244,6 +1244,24 @@ export class Commander extends LitElement {
       return
     }
 
+    // If any dialog is open, only allow ESC and ENTER (which dialogs handle themselves)
+    // This prevents keyboard shortcuts from interfering while typing in dialogs
+    const anyDialogOpen =
+      this.showHelp ||
+      this.viewerFile ||
+      this.operationDialog ||
+      this.deleteDialog ||
+      this.showDriveSelector ||
+      this.commandDialog ||
+      this.quickLaunchDialog ||
+      this.renameDialog ||
+      this.zipDialog ||
+      this.compareDialog
+
+    if (anyDialogOpen && event.key !== 'Escape' && event.key !== 'Enter') {
+      return
+    }
+
     // Handle ESC for dialogs first
     if (event.key === 'Escape') {
       event.preventDefault()
@@ -1344,6 +1362,8 @@ export class Commander extends LitElement {
       !this.commandDialog &&
       !this.quickLaunchDialog &&
       !this.renameDialog &&
+      !this.zipDialog &&
+      !this.compareDialog &&
       !this.getActivePane().filterActive &&
       !event.ctrlKey &&
       !event.altKey &&
@@ -3165,7 +3185,6 @@ export class Commander extends LitElement {
       ) as HTMLInputElement
       if (input) {
         input.focus()
-        input.select()
       }
     }, 100)
 
