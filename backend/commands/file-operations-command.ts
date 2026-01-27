@@ -43,6 +43,8 @@ export class FileOperationsCommand implements ICommand {
           return await this.copyFile(sourcePath, destinationPath);
         case 'move':
           return await this.moveFile(sourcePath, destinationPath);
+        case 'rename':
+          return await this.renameFile(sourcePath, destinationPath);
         case 'delete':
           return await this.deleteFile(sourcePath);
         case 'execute-command':
@@ -564,6 +566,63 @@ export class FileOperationsCommand implements ICommand {
         };
       }
       throw error;
+    }
+  }
+
+  /**
+   * Rename a file or directory
+   */
+  private async renameFile(sourcePath: string, newName: string): Promise<any> {
+    if (!sourcePath) {
+      throw new Error('sourcePath is required for rename operation');
+    }
+    if (!newName) {
+      throw new Error('newName is required for rename operation');
+    }
+
+    const absoluteSource = path.resolve(sourcePath);
+
+    // Check if source exists
+    if (!fs.existsSync(absoluteSource)) {
+      throw new Error(`Source does not exist: ${absoluteSource}`);
+    }
+
+    const sourceStats = await stat(absoluteSource);
+
+    // Build destination path (same directory, new name)
+    const sourceDir = path.dirname(absoluteSource);
+    const absoluteDestination = path.join(sourceDir, newName);
+
+    // Check if destination already exists
+    if (fs.existsSync(absoluteDestination)) {
+      throw new Error(`Destination already exists: ${absoluteDestination}`);
+    }
+
+    // Perform the rename
+    await rename(absoluteSource, absoluteDestination);
+
+    if (sourceStats.isDirectory()) {
+      return {
+        success: true,
+        operation: 'rename',
+        source: absoluteSource,
+        destination: absoluteDestination,
+        newName: newName,
+        type: 'directory',
+        timestamp: new Date().toISOString(),
+      };
+    } else {
+      const destStats = await stat(absoluteDestination);
+      return {
+        success: true,
+        operation: 'rename',
+        source: absoluteSource,
+        destination: absoluteDestination,
+        newName: newName,
+        size: destStats.size,
+        type: 'file',
+        timestamp: new Date().toISOString(),
+      };
     }
   }
 

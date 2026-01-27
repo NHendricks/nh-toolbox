@@ -1,9 +1,10 @@
 commander:
+- rename features
+- zip current folder
 - fonts / colors
   toolbar-title: rgb(36 199 251)
   ...
 - prefs export / import
-- zip files or folders
 - support \\paths (Windows only) ? Or better map to drive … .
 - cancel all fileops when closing compare dialog
 

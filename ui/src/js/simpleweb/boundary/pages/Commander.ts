@@ -612,6 +612,10 @@ export class Commander extends LitElement {
   @property({ type: Object })
   quickLaunchDialog: { command: string } | null = null
 
+  @property({ type: Object })
+  renameDialog: { filePath: string; oldName: string; newName: string } | null =
+    null
+
   fileIcons: Record<string, string> = {
     zip: '📦',
     exe: '🧩',
@@ -1268,6 +1272,10 @@ export class Commander extends LitElement {
         this.cancelQuickLaunch()
         return
       }
+      if (this.renameDialog) {
+        this.cancelRename()
+        return
+      }
       // Clear filter if active
       const pane = this.getActivePane()
       if (pane.filterActive) {
@@ -1328,6 +1336,7 @@ export class Commander extends LitElement {
       !this.showDriveSelector &&
       !this.commandDialog &&
       !this.quickLaunchDialog &&
+      !this.renameDialog &&
       !this.getActivePane().filterActive &&
       !event.ctrlKey &&
       !event.altKey &&
@@ -1375,6 +1384,11 @@ export class Commander extends LitElement {
       case 'F1':
         event.preventDefault()
         this.openHelp()
+        break
+
+      case 'F2':
+        event.preventDefault()
+        this.handleF2()
         break
 
       case 'F3':
@@ -1497,6 +1511,22 @@ export class Commander extends LitElement {
           this.toggleSelection()
         }
         break
+    }
+  }
+
+  handleF2() {
+    const pane = this.getActivePane()
+    const item = pane.items[pane.focusedIndex]
+
+    if (!item || item.name === '..') {
+      this.setStatus('Cannot rename parent directory', 'error')
+      return
+    }
+
+    this.renameDialog = {
+      filePath: item.path,
+      oldName: item.name,
+      newName: item.name,
     }
   }
 
@@ -1968,6 +1998,56 @@ export class Commander extends LitElement {
     this.quickLaunchDialog = null
   }
 
+  updateRename(value: string) {
+    if (this.renameDialog) {
+      this.renameDialog = {
+        ...this.renameDialog,
+        newName: value,
+      }
+    }
+  }
+
+  async executeRename() {
+    if (!this.renameDialog || !this.renameDialog.newName.trim()) return
+
+    const { filePath, newName } = this.renameDialog
+
+    try {
+      this.setStatus(`Renaming file...`, 'normal')
+
+      const response = await (window as any).electron.ipcRenderer.invoke(
+        'cli-execute',
+        'file-operations',
+        {
+          operation: 'rename',
+          sourcePath: filePath,
+          destinationPath: newName,
+        },
+      )
+
+      if (response.success) {
+        this.setStatus(`File renamed successfully`, 'success')
+
+        // Refresh active pane
+        await this.loadDirectory(
+          this.activePane,
+          this.getActivePane().currentPath,
+        )
+      } else {
+        this.setStatus(`Error renaming: ${response.error}`, 'error')
+      }
+
+      this.renameDialog = null
+    } catch (error: any) {
+      this.setStatus(`Error: ${error.message}`, 'error')
+      this.renameDialog = null
+    }
+  }
+
+  cancelRename() {
+    this.renameDialog = null
+  }
+
   async handleCompare() {
     try {
       this.setStatus(
@@ -2181,6 +2261,7 @@ export class Commander extends LitElement {
         ${this.deleteDialog ? this.renderDeleteDialog() : ''}
         ${this.commandDialog ? this.renderCommandDialog() : ''}
         ${this.quickLaunchDialog ? this.renderQuickLaunchDialog() : ''}
+        ${this.renameDialog ? this.renderRenameDialog() : ''}
         ${this.compareDialog
           ? html`<compare-dialog
               .result=${this.compareDialog.result}
@@ -2228,6 +2309,10 @@ export class Commander extends LitElement {
           </div>
           <div class="help-section">
             <h3>files</h3>
+            <div class="help-item">
+              <div class="help-key">F2</div>
+              <div class="help-description">rename file/folder</div>
+            </div>
             <div class="help-item">
               <div class="help-key">F3</div>
               <div class="help-description">show file/image</div>
@@ -2894,6 +2979,71 @@ export class Commander extends LitElement {
           </button>
           <button class="btn-confirm" @click=${this.executeQuickLaunch}>
             execute (ENTER)
+          </button>
+        </div>
+      </simple-dialog>
+    `
+  }
+
+  renderRenameDialog() {
+    if (!this.renameDialog) return ''
+
+    const { oldName, newName } = this.renameDialog
+
+    // Auto-focus input field when dialog opens
+    setTimeout(() => {
+      const input = this.shadowRoot?.querySelector(
+        '.rename-input',
+      ) as HTMLInputElement
+      if (input) {
+        input.focus()
+        input.select()
+      }
+    }, 100)
+
+    return html`
+      <simple-dialog
+        .open=${true}
+        .title=${'✏️ rename'}
+        .width=${'600px'}
+        @dialog-close=${this.cancelRename}
+      >
+        <div style="padding: 1rem;">
+          <div class="input-field">
+            <label>Rename "${oldName}" to:</label>
+            <input
+              type="text"
+              class="rename-input"
+              .value=${newName}
+              placeholder="Enter new name..."
+              @input=${(e: Event) =>
+                this.updateRename((e.target as HTMLInputElement).value)}
+              @keydown=${(e: KeyboardEvent) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  this.executeRename()
+                } else if (e.key === 'Escape') {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  this.cancelRename()
+                }
+              }}
+            />
+          </div>
+          <div
+            style="margin-top: 1rem; padding: 0.75rem; background: #0f172a; border-radius: 4px; color: #94a3b8; font-size: 0.85rem;"
+          >
+            💡 Tip: Press F2 on any file or folder to rename it. Press ENTER to
+            confirm, ESC to cancel.
+          </div>
+        </div>
+        <div slot="footer" class="dialog-buttons">
+          <button class="btn-cancel" @click=${this.cancelRename}>
+            cancel (ESC)
+          </button>
+          <button class="btn-confirm" @click=${this.executeRename}>
+            rename (ENTER)
           </button>
         </div>
       </simple-dialog>
