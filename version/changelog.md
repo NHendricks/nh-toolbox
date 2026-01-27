@@ -12,6 +12,7 @@
 - enable sorting
 - rename files using F2
 - zip files or folders
+- bugfix: Support links
 
 ### v1.1.0 (26.01.2026)
 

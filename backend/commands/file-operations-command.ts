@@ -11,6 +11,7 @@ import { CommandParameter, ICommand } from './command-interface.js';
 
 const readdir = promisify(fs.readdir);
 const stat = promisify(fs.stat);
+const lstat = promisify(fs.lstat);
 const copyFile = promisify(fs.copyFile);
 const rename = promisify(fs.rename);
 const mkdir = promisify(fs.mkdir);
@@ -150,41 +151,54 @@ export class FileOperationsCommand implements ICommand {
       throw new Error(`Path is not a directory: ${absolutePath}`);
     }
 
-    // Read directory contents
     const entries = await readdir(absolutePath, { withFileTypes: true });
 
-    const files = [];
-    const directories = [];
+    const files: any[] = [];
+    const directories: any[] = [];
 
     for (const entry of entries) {
       const fullPath = path.join(absolutePath, entry.name);
 
       try {
-        const itemStats = await stat(fullPath);
+        const lstats = await lstat(fullPath);
+
+        let stats = lstats;
+        let isSymlink = lstats.isSymbolicLink();
+        let linkTargetType: 'file' | 'directory' | null = null;
+
+        if (isSymlink) {
+          try {
+            stats = await stat(fullPath); // folgt dem Link
+            linkTargetType = stats.isDirectory() ? 'directory' : 'file';
+          } catch {
+            // broken symlink
+            linkTargetType = null;
+          }
+        }
 
         const item = {
           name: entry.name,
           path: fullPath,
-          size: itemStats.size,
-          created: itemStats.birthtime.toISOString(),
-          modified: itemStats.mtime.toISOString(),
-          isDirectory: entry.isDirectory(),
-          isFile: entry.isFile(),
+          size: stats.size,
+          created: stats.birthtime.toISOString(),
+          modified: stats.mtime.toISOString(),
+          isSymbolicLink: isSymlink,
+          isDirectory: isSymlink
+            ? linkTargetType === 'directory'
+            : entry.isDirectory(),
+          isFile: isSymlink ? linkTargetType === 'file' : entry.isFile(),
+          linkTargetType, // 'file' | 'directory' | null
         };
 
-        if (entry.isDirectory()) {
+        if (item.isDirectory) {
           directories.push(item);
         } else {
           files.push(item);
         }
       } catch (error: any) {
-        // Skip files that are locked, inaccessible, or have permission issues
-        // This commonly occurs with system files like DumpStack.log.tmp on Windows
         console.warn(`Warning: Unable to access ${fullPath}: ${error.message}`);
-        continue;
       }
     }
-
     return {
       success: true,
       operation: 'list',
