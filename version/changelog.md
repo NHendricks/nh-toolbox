@@ -4,8 +4,10 @@
 
 ### upcoming
 
-add progressbar when zipping files
-...
+- add progressbar when zipping files
+- add progressbar when copying files
+- support cancel for file operations (they did not cancel in backend before)
+-
 
 ### v1.2.0 (27.01.2026)
 

@@ -1,6 +1,6 @@
 Prompts and costs
 
-1. add command in backend to list files in a folder, copy or move a file from one location to antoher (0,60)
+1. add command in backend to list files in a folder, copy or move a file from one location to antoher (0,60$)
 2. fix ui service call Unknow operation (0,60)
 3. Send screenshot and d:/temp (erfolglos 0,80)
 4. If i dont explicitely choose a combo box entry in ui the value is '' (0,70)

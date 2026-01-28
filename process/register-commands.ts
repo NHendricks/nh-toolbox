@@ -1,6 +1,22 @@
 import { IpcMainInvokeEvent } from 'electron';
 const { app, clipboard } = require('electron');
 
+// Shared CommandHandler instance to maintain state across IPC calls
+let sharedHandler: any = null;
+
+function getCommandHandler() {
+  if (!sharedHandler) {
+    const path = require('path');
+    const commandHandlerPath = path.join(
+      __dirname,
+      '../../backend/dist/command-handler.js',
+    );
+    const { CommandHandler } = require(commandHandlerPath);
+    sharedHandler = new CommandHandler();
+  }
+  return sharedHandler;
+}
+
 export function registerCommands(ipcMain: any, version: string) {
   ipcMain.handle('ping', () => 'Pong');
   ipcMain.handle('getVersion', () => version);
@@ -8,14 +24,7 @@ export function registerCommands(ipcMain: any, version: string) {
   // Backend CLI Commands - dynamically load available commands
   ipcMain.handle('cli-getCommands', async () => {
     try {
-      // Import CommandHandler directly instead of spawning process
-      const path = require('path');
-      const commandHandlerPath = path.join(
-        __dirname,
-        '../../backend/dist/command-handler.js',
-      );
-      const { CommandHandler } = require(commandHandlerPath);
-      const handler = new CommandHandler();
+      const handler = getCommandHandler();
 
       // Execute help command to get available commands
       const result = await handler.execute('help', null);
@@ -37,14 +46,8 @@ export function registerCommands(ipcMain: any, version: string) {
     'cli-execute',
     async (event: IpcMainInvokeEvent, toolname: string, params: any) => {
       try {
-        // Import CommandHandler directly instead of spawning process
-        const path = require('path');
-        const commandHandlerPath = path.join(
-          __dirname,
-          '../../backend/dist/command-handler.js',
-        );
-        const { CommandHandler } = require(commandHandlerPath);
-        const handler = new CommandHandler();
+        // Use shared handler to maintain state
+        const handler = getCommandHandler();
 
         // Get command instance for progress callback setup
         const command = handler.getCommand(toolname);
@@ -57,6 +60,9 @@ export function registerCommands(ipcMain: any, version: string) {
         ) {
           const eventName =
             params.operation === 'zip' ? 'zip-progress' : 'copy-progress';
+
+          // Reset cancellation flag before starting
+          (command as any).resetCancellation?.();
 
           // Set up progress callback to send events to renderer
           (command as any).setProgressCallback?.(
@@ -95,10 +101,7 @@ export function registerCommands(ipcMain: any, version: string) {
           toolname === 'file-operations' &&
           (params.operation === 'zip' || params.operation === 'copy')
         ) {
-          const handler = new (require(require('path').join(
-            __dirname,
-            '../../backend/dist/command-handler.js',
-          )).CommandHandler)();
+          const handler = getCommandHandler();
           const command = handler.getCommand(toolname);
           if (command) {
             (command as any).setProgressCallback?.(undefined);
@@ -120,4 +123,22 @@ export function registerCommands(ipcMain: any, version: string) {
       clipboard.writeText(aString);
     },
   );
+
+  // Cancel file operations
+  ipcMain.handle('cancel-file-operation', async () => {
+    try {
+      // Use shared handler to cancel operations on the same instance
+      const handler = getCommandHandler();
+      const command = handler.getCommand('file-operations');
+
+      if (command) {
+        (command as any).cancel?.();
+        return { success: true };
+      }
+
+      return { success: false, error: 'Command not found' };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  });
 }

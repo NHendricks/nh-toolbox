@@ -26,11 +26,21 @@ export class FileOperationsCommand implements ICommand {
     total: number,
     fileName: string,
   ) => void;
+  private cancelled: boolean = false;
 
   setProgressCallback(
     callback: (current: number, total: number, fileName: string) => void,
   ) {
     this.progressCallback = callback;
+  }
+
+  cancel() {
+    this.cancelled = true;
+    console.log('[FileOps] Operation cancelled');
+  }
+
+  resetCancellation() {
+    this.cancelled = false;
   }
 
   async execute(params: any): Promise<any> {
@@ -570,6 +580,11 @@ export class FileOperationsCommand implements ICommand {
     destination: string,
     onFileCopied?: (fileName: string) => void,
   ): Promise<void> {
+    // Check for cancellation
+    if (this.cancelled) {
+      throw new Error('Operation cancelled by user');
+    }
+
     // Create destination directory
     if (!fs.existsSync(destination)) {
       await mkdir(destination, { recursive: true });
@@ -579,6 +594,11 @@ export class FileOperationsCommand implements ICommand {
     const entries = await readdir(source, { withFileTypes: true });
 
     for (const entry of entries) {
+      // Check for cancellation before processing each file
+      if (this.cancelled) {
+        throw new Error('Operation cancelled by user');
+      }
+
       const sourcePath = path.join(source, entry.name);
       const destPath = path.join(destination, entry.name);
 
@@ -599,6 +619,10 @@ export class FileOperationsCommand implements ICommand {
           await new Promise((resolve) => setTimeout(resolve, 5));
         }
       } catch (error: any) {
+        // Re-throw cancellation errors
+        if (error.message === 'Operation cancelled by user') {
+          throw error;
+        }
         // Skip files that are locked or inaccessible
         console.warn(`Warning: Unable to copy ${sourcePath}: ${error.message}`);
         continue;
@@ -1275,6 +1299,11 @@ export class FileOperationsCommand implements ICommand {
       let addedCount = 0;
 
       for (let i = 0; i < allFiles.length; i++) {
+        // Check for cancellation before processing each file
+        if (this.cancelled) {
+          throw new Error('Operation cancelled by user');
+        }
+
         const file = allFiles[i];
 
         // Report progress
@@ -1288,6 +1317,10 @@ export class FileOperationsCommand implements ICommand {
           zip.addFile(file.zipPath.replace(/\\/g, '/'), fileContent);
           addedCount++;
         } catch (error: any) {
+          // Re-throw cancellation errors
+          if (error.message === 'Operation cancelled by user') {
+            throw error;
+          }
           console.warn(
             `Warning: Unable to add ${file.fullPath}: ${error.message}`,
           );

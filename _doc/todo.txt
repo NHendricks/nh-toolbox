@@ -1,4 +1,5 @@
 commander:
+- cancel all fileops when closing compare dialog
 - fix no ctrl+1 dialog when only 1 drive is there (mac) so we cant set favorites
 - build asar for better performance abd less files to transport / scan at runtime
 - progress dialog also when copying directory
@@ -16,7 +17,6 @@ commander:
   ...
 - prefs export / import
 - support \\paths (Windows only) ? Or better map to drive … .
-- cancel all fileops when closing compare dialog
 
 other:
 - build app for linux

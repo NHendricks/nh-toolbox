@@ -1693,7 +1693,10 @@ export class Commander extends LitElement {
     }
   }
 
-  cancelZip() {
+  async cancelZip() {
+    // Cancel any ongoing file operation
+    await (window as any).electron.ipcRenderer.invoke('cancel-file-operation')
+
     this.zipDialog = null
     this.zipProgress = null
   }
@@ -1954,8 +1957,12 @@ export class Commander extends LitElement {
     }
   }
 
-  cancelOperation() {
+  async cancelOperation() {
+    // Cancel any ongoing file operation
+    await (window as any).electron.ipcRenderer.invoke('cancel-file-operation')
+
     this.operationDialog = null
+    this.copyProgress = null
   }
 
   handleF8() {
