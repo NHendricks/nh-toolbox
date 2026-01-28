@@ -9,6 +9,8 @@ const {
   screen,
   globalShortcut,
   clipboard,
+  Tray,
+  Menu,
 } = require('electron');
 const path = require('path');
 const installExtension = require('electron-devtools-installer').default;
@@ -18,6 +20,7 @@ const isDev = process.env.NODE_ENV
   ? process.env.NODE_ENV.startsWith('development')
   : false;
 
+let tray: any = null;
 let version = '0.0';
 if (!isDev) {
   process.env.NODE_ENV = 'production';
@@ -28,28 +31,114 @@ if (!isDev) {
   version = fs.readFileSync(versionsfile, 'utf8');
 }
 
+function createTray() {
+  // Set tray icon path based on environment and platform
+  // macOS needs a small PNG (16x16 or 22x22) for tray icons
+  let trayIconPath: string;
+  if (isDev) {
+    // In development, use the assets folder
+    if (process.platform === 'darwin') {
+      trayIconPath = path.join(__dirname, '../../assets/icons/icon-tray.png');
+    } else if (process.platform === 'win32') {
+      trayIconPath = path.join(__dirname, '../../assets/icons/icon.ico');
+    } else {
+      trayIconPath = path.join(__dirname, '../../assets/icons/icon-1024.png');
+    }
+  } else {
+    // In production, use the Resources folder
+    if (process.platform === 'darwin') {
+      trayIconPath = path.join(process.resourcesPath, 'icon-tray.png');
+    } else if (process.platform === 'win32') {
+      trayIconPath = path.join(process.resourcesPath, '../icon.ico');
+    } else {
+      trayIconPath = path.join(process.resourcesPath, 'icon-1024.png');
+    }
+  }
+
+  tray = new Tray(trayIconPath);
+
+  const contextMenu = Menu.buildFromTemplate([
+    {
+      label: `nh-toolbox v${version}`,
+      enabled: false,
+    },
+    { type: 'separator' },
+    {
+      label: 'Show App',
+      click: () => {
+        const windows = BrowserWindow.getAllWindows();
+        if (windows.length > 0) {
+          windows[0].show();
+          windows[0].focus();
+        } else {
+          createWindow();
+        }
+      },
+    },
+    { type: 'separator' },
+    {
+      label: 'Quit',
+      click: () => {
+        app.quit();
+      },
+    },
+  ]);
+
+  tray.setToolTip('nh-toolbox');
+  tray.setContextMenu(contextMenu);
+
+  // On macOS, clicking the tray icon should show/hide the window
+  tray.on('click', () => {
+    const windows = BrowserWindow.getAllWindows();
+    if (windows.length > 0) {
+      if (windows[0].isVisible()) {
+        windows[0].hide();
+      } else {
+        windows[0].show();
+        windows[0].focus();
+      }
+    } else {
+      createWindow();
+    }
+  });
+}
+
 async function createWindow() {
   const primaryDisplay = screen.getPrimaryDisplay();
   const { width, height } = primaryDisplay.workAreaSize;
 
-  // Set icon path based on environment
-  let iconPath: string;
-  if (isDev) {
-    iconPath = path.join(__dirname, '../../assets/icons/icon.ico');
-  } else {
-    iconPath = path.join(process.resourcesPath, '../icon.ico');
-  }
-
-  const win = new BrowserWindow({
+  // On macOS, the icon is set via the app bundle - don't set it in BrowserWindow
+  // On other platforms, set the icon explicitly
+  const windowOptions: any = {
     width: width,
     height: height,
-    icon: iconPath,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       backgroundThrottling: false,
     },
-  });
+  };
+
+  // Only set icon for non-macOS platforms
+  if (process.platform !== 'darwin') {
+    let iconPath: string;
+    if (isDev) {
+      if (process.platform === 'win32') {
+        iconPath = path.join(__dirname, '../../assets/icons/icon.ico');
+      } else {
+        iconPath = path.join(__dirname, '../../assets/icons/icon-1024.png');
+      }
+    } else {
+      if (process.platform === 'win32') {
+        iconPath = path.join(process.resourcesPath, '../icon.ico');
+      } else {
+        iconPath = path.join(process.resourcesPath, 'icon-1024.png');
+      }
+    }
+    windowOptions.icon = iconPath;
+  }
+
+  const win = new BrowserWindow(windowOptions);
   win.webContents.setWindowOpenHandler(({ url }: { url: string }) => {
     // Öffne die URL im Standardbrowser
     shell.openExternal(url);
@@ -94,9 +183,17 @@ ipcMain.handle('clipboard-read-text', () => {
   }
 });
 
-app.whenReady().then(createWindow);
+app.whenReady().then(() => {
+  createTray();
+  createWindow();
+});
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit();
+  // Don't quit the app when all windows are closed - keep tray icon
+  // Users can quit from the tray menu
+});
+
+app.on('before-quit', () => {
+  if (tray) {
+    tray.destroy();
   }
 });

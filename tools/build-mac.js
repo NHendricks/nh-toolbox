@@ -211,16 +211,27 @@ if (fs.existsSync(electronBinary)) {
   console.log('   ⚠️  Electron binary not found!');
 }
 
-// Step 8: Copy custom icon
-console.log('\n🎨 Step 8: Copying custom icon...');
+// Step 8: Copy custom icons
+console.log('\n🎨 Step 8: Copying custom icons...');
 const iconSource = path.join(rootDir, 'assets', 'icons', 'icon.icns');
 const iconDest = path.join(targetResourcesDir, 'icon.icns');
 
 if (fs.existsSync(iconSource)) {
   fs.copySync(iconSource, iconDest);
-  console.log('   ✅ Custom icon copied');
+  console.log('   ✅ Custom app icon copied');
 } else {
   console.log('   ⚠️  Custom icon not found at assets/icons/icon.icns');
+}
+
+// Copy tray icon
+const trayIconSource = path.join(rootDir, 'assets', 'icons', 'icon-tray.png');
+const trayIconDest = path.join(targetResourcesDir, 'icon-tray.png');
+
+if (fs.existsSync(trayIconSource)) {
+  fs.copySync(trayIconSource, trayIconDest);
+  console.log('   ✅ Tray icon copied');
+} else {
+  console.log('   ⚠️  Tray icon not found at assets/icons/icon-tray.png');
 }
 
 // Step 9: Update Info.plist
