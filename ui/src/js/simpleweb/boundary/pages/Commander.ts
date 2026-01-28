@@ -765,14 +765,13 @@ export class Commander extends LitElement {
   }
 
   async handlePathClick(pane?: 'left' | 'right') {
-    if (this.availableDrives.length > 0) {
-      // Set active pane if specified
-      if (pane) {
-        this.activePane = pane
-      }
-      this.showDriveSelector = true
-      this.driveSelectorFocusedIndex = 0
+    // Always show the dialog to allow managing favorites
+    // even if there's only one drive (common on Mac)
+    if (pane) {
+      this.activePane = pane
     }
+    this.showDriveSelector = true
+    this.driveSelectorFocusedIndex = 0
   }
 
   async selectDrive(drivePath: string) {

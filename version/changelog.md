@@ -8,6 +8,8 @@
 - add progressbar when copying files
 - support cancel for file operations (they did not cancel in backend before)
 - build asar archives in build (less files in binary)
+- fix tray icon for mac
+- fix no ctrl+1 dialog when only 1 drive is there (mac) so we cant set favorites
 
 ### v1.2.0 (27.01.2026)
 

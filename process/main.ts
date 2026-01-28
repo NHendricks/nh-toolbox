@@ -32,27 +32,17 @@ if (!isDev) {
 }
 
 function createTray() {
-  // Set tray icon path based on environment and platform
-  // macOS needs a small PNG (16x16 or 22x22) for tray icons
+  // Only create tray on macOS
+  if (process.platform !== 'darwin') {
+    return;
+  }
+
+  // Set tray icon path based on environment
   let trayIconPath: string;
   if (isDev) {
-    // In development, use the assets folder
-    if (process.platform === 'darwin') {
-      trayIconPath = path.join(__dirname, '../../assets/icons/icon-tray.png');
-    } else if (process.platform === 'win32') {
-      trayIconPath = path.join(__dirname, '../../assets/icons/icon.ico');
-    } else {
-      trayIconPath = path.join(__dirname, '../../assets/icons/icon-1024.png');
-    }
+    trayIconPath = path.join(__dirname, '../../assets/icons/icon-tray.png');
   } else {
-    // In production, use the Resources folder
-    if (process.platform === 'darwin') {
-      trayIconPath = path.join(process.resourcesPath, 'icon-tray.png');
-    } else if (process.platform === 'win32') {
-      trayIconPath = path.join(process.resourcesPath, '../icon.ico');
-    } else {
-      trayIconPath = path.join(process.resourcesPath, 'icon-1024.png');
-    }
+    trayIconPath = path.join(process.resourcesPath, 'icon-tray.png');
   }
 
   tray = new Tray(trayIconPath);
@@ -66,6 +56,7 @@ function createTray() {
     {
       label: 'Show App',
       click: () => {
+        if (isQuitting) return;
         const windows = BrowserWindow.getAllWindows();
         if (windows.length > 0) {
           windows[0].show();
@@ -89,6 +80,7 @@ function createTray() {
 
   // On macOS, clicking the tray icon should show/hide the window
   tray.on('click', () => {
+    if (isQuitting) return;
     const windows = BrowserWindow.getAllWindows();
     if (windows.length > 0) {
       if (windows[0].isVisible()) {
@@ -104,11 +96,12 @@ function createTray() {
 }
 
 async function createWindow() {
+  if (isQuitting) return;
+
   const primaryDisplay = screen.getPrimaryDisplay();
   const { width, height } = primaryDisplay.workAreaSize;
 
-  // On macOS, the icon is set via the app bundle - don't set it in BrowserWindow
-  // On other platforms, set the icon explicitly
+  // Set icon path based on environment and platform
   const windowOptions: any = {
     width: width,
     height: height,
@@ -119,26 +112,29 @@ async function createWindow() {
     },
   };
 
-  // Only set icon for non-macOS platforms
+  // On macOS, the icon is set via the app bundle - don't set it in BrowserWindow
+  // On Windows and other platforms, set the icon explicitly
   if (process.platform !== 'darwin') {
     let iconPath: string;
     if (isDev) {
-      if (process.platform === 'win32') {
-        iconPath = path.join(__dirname, '../../assets/icons/icon.ico');
-      } else {
-        iconPath = path.join(__dirname, '../../assets/icons/icon-1024.png');
-      }
+      iconPath = path.join(__dirname, '../../assets/icons/icon.ico');
     } else {
-      if (process.platform === 'win32') {
-        iconPath = path.join(process.resourcesPath, '../icon.ico');
-      } else {
-        iconPath = path.join(process.resourcesPath, 'icon-1024.png');
-      }
+      iconPath = path.join(process.resourcesPath, '../icon.ico');
     }
     windowOptions.icon = iconPath;
   }
 
   const win = new BrowserWindow(windowOptions);
+
+  // Handle window close - only on macOS hide instead of quit
+  win.on('close', (event: any) => {
+    if (process.platform === 'darwin' && !isQuitting) {
+      // On macOS, hide the window instead of quitting
+      event.preventDefault();
+      win.hide();
+    }
+  });
+
   win.webContents.setWindowOpenHandler(({ url }: { url: string }) => {
     // Öffne die URL im Standardbrowser
     shell.openExternal(url);
@@ -184,16 +180,31 @@ ipcMain.handle('clipboard-read-text', () => {
 });
 
 app.whenReady().then(() => {
-  createTray();
+  createTray(); // Will only create tray on macOS
   createWindow();
 });
+
+// Track if we're quitting to prevent window recreation
+let isQuitting = false;
+
 app.on('window-all-closed', () => {
-  // Don't quit the app when all windows are closed - keep tray icon
-  // Users can quit from the tray menu
+  // On macOS, keep app running with tray icon
+  // On Windows, quit the app
+  if (process.platform !== 'darwin') {
+    app.quit();
+  }
 });
 
-app.on('before-quit', () => {
-  if (tray) {
-    tray.destroy();
+app.on('before-quit', (event: any) => {
+  isQuitting = true;
+
+  // Destroy tray on macOS
+  if (tray && process.platform === 'darwin') {
+    try {
+      tray.destroy();
+      tray = null;
+    } catch (err) {
+      console.error('Error destroying tray:', err);
+    }
   }
 });
