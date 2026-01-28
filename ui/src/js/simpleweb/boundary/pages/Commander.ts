@@ -1407,8 +1407,8 @@ export class Commander extends LitElement {
 
     const pane = this.getActivePane()
 
-    // Handle Alt+1 and Alt+2 for drive selection, Alt+F for filter
-    if (event.altKey) {
+    // Handle Alt+1 and Alt+2 (or Cmd+1 and Cmd+2 on Mac) for drive selection, Alt+F for filter
+    if (event.altKey || event.metaKey) {
       if (event.key === '1') {
         event.preventDefault()
         this.handlePathClick('left')
@@ -1417,7 +1417,8 @@ export class Commander extends LitElement {
         event.preventDefault()
         this.handlePathClick('right')
         return
-      } else if (event.key.toLowerCase() === 'f') {
+      } else if (event.key.toLowerCase() === 'f' && event.altKey) {
+        // Only Alt+F for filter (not Cmd+F which is browser search)
         event.preventDefault()
         const pane = this.getActivePane()
         this.updateActivePane({ filterActive: !pane.filterActive })
