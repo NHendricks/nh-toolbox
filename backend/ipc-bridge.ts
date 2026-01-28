@@ -33,19 +33,40 @@ export class IpcBridge {
       'cli-execute',
       async (event: IpcEvent, toolname: string, params: any) => {
         try {
+          console.log('[IPC] cli-execute called:', { toolname, params });
+
           // Get command instance to set up progress callback for zip operations
           const command = this.handler.getCommand(toolname);
 
-          // If it's a file-operations command with zip operation, set up progress callback
+          console.log('[IPC] Command retrieved:', !!command);
+
+          // If it's a file-operations command with zip or copy operation, set up progress callback
           if (
             toolname === 'file-operations' &&
-            params.operation === 'zip' &&
+            (params.operation === 'zip' || params.operation === 'copy') &&
             command
           ) {
+            const eventName =
+              params.operation === 'zip' ? 'zip-progress' : 'copy-progress';
+
+            console.log(
+              `[IPC] Setting up progress callback for ${params.operation} operation, event: ${eventName}`,
+            );
+            console.log(
+              '[IPC] setProgressCallback exists:',
+              typeof (command as any).setProgressCallback,
+            );
+
             // Set up progress callback to send events to renderer
             (command as any).setProgressCallback?.(
               (current: number, total: number, fileName: string) => {
-                event.sender?.send('zip-progress', {
+                console.log(
+                  `[IPC] Sending ${eventName}:`,
+                  current,
+                  total,
+                  fileName,
+                );
+                event.sender?.send(eventName, {
                   current,
                   total,
                   fileName,
@@ -56,6 +77,16 @@ export class IpcBridge {
           }
 
           const result = await this.handler.execute(toolname, params);
+
+          // Clear progress callback after operation completes
+          if (
+            toolname === 'file-operations' &&
+            (params.operation === 'zip' || params.operation === 'copy') &&
+            command
+          ) {
+            (command as any).setProgressCallback?.(undefined);
+          }
+
           return {
             success: true,
             data: result,
@@ -63,6 +94,17 @@ export class IpcBridge {
             timestamp: new Date().toISOString(),
           };
         } catch (error: any) {
+          // Clear progress callback on error
+          if (
+            toolname === 'file-operations' &&
+            (params.operation === 'zip' || params.operation === 'copy')
+          ) {
+            const command = this.handler.getCommand(toolname);
+            if (command) {
+              (command as any).setProgressCallback?.(undefined);
+            }
+          }
+
           return {
             success: false,
             error: error.message || 'Unknown error',

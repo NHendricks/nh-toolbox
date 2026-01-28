@@ -49,16 +49,19 @@ export function registerCommands(ipcMain: any, version: string) {
         // Get command instance for progress callback setup
         const command = handler.getCommand(toolname);
 
-        // If it's a file-operations command with zip operation, set up progress callback
+        // If it's a file-operations command with zip or copy operation, set up progress callback
         if (
           toolname === 'file-operations' &&
-          params.operation === 'zip' &&
+          (params.operation === 'zip' || params.operation === 'copy') &&
           command
         ) {
+          const eventName =
+            params.operation === 'zip' ? 'zip-progress' : 'copy-progress';
+
           // Set up progress callback to send events to renderer
           (command as any).setProgressCallback?.(
             (current: number, total: number, fileName: string) => {
-              event.sender?.send('zip-progress', {
+              event.sender?.send(eventName, {
                 current,
                 total,
                 fileName,
@@ -71,6 +74,15 @@ export function registerCommands(ipcMain: any, version: string) {
         // Execute command directly
         const result = await handler.execute(toolname, params);
 
+        // Clear progress callback after operation completes
+        if (
+          toolname === 'file-operations' &&
+          (params.operation === 'zip' || params.operation === 'copy') &&
+          command
+        ) {
+          (command as any).setProgressCallback?.(undefined);
+        }
+
         return {
           success: true,
           data: result,
@@ -78,6 +90,21 @@ export function registerCommands(ipcMain: any, version: string) {
           timestamp: new Date().toISOString(),
         };
       } catch (error: any) {
+        // Clear progress callback on error
+        if (
+          toolname === 'file-operations' &&
+          (params.operation === 'zip' || params.operation === 'copy')
+        ) {
+          const handler = new (require(require('path').join(
+            __dirname,
+            '../../backend/dist/command-handler.js',
+          )).CommandHandler)();
+          const command = handler.getCommand(toolname);
+          if (command) {
+            (command as any).setProgressCallback?.(undefined);
+          }
+        }
+
         return {
           success: false,
           error: error.message || 'Unknown error',

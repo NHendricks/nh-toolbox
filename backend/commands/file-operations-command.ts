@@ -30,6 +30,7 @@ export class FileOperationsCommand implements ICommand {
   setProgressCallback(
     callback: (current: number, total: number, fileName: string) => void,
   ) {
+    console.log('[FileOps] setProgressCallback called, callback:', !!callback);
     this.progressCallback = callback;
   }
 
@@ -371,6 +372,11 @@ export class FileOperationsCommand implements ICommand {
     sourcePath: string,
     destinationPath: string,
   ): Promise<any> {
+    console.log(
+      '[FileOps] copyFile called, progressCallback set:',
+      !!this.progressCallback,
+    );
+
     if (!sourcePath) {
       throw new Error('sourcePath is required for copy operation');
     }
@@ -458,8 +464,28 @@ export class FileOperationsCommand implements ICommand {
     const sourceStats = await stat(absoluteSource);
 
     if (sourceStats.isDirectory()) {
-      // Copy directory recursively
-      await this.copyDirectoryRecursive(absoluteSource, absoluteDestination);
+      // Count total files for progress tracking
+      const totalFiles = await this.countFilesRecursive(absoluteSource);
+      let currentFile = 0;
+
+      console.log(
+        `[Copy] Starting directory copy: ${totalFiles} files, callback set: ${!!this.progressCallback}`,
+      );
+
+      // Copy directory recursively with progress tracking
+      await this.copyDirectoryRecursive(
+        absoluteSource,
+        absoluteDestination,
+        (fileName: string) => {
+          currentFile++;
+          console.log(
+            `[Copy] Progress: ${currentFile}/${totalFiles} - ${fileName}`,
+          );
+          if (this.progressCallback) {
+            this.progressCallback(currentFile, totalFiles, fileName);
+          }
+        },
+      );
       return {
         success: true,
         operation: 'copy',
@@ -475,8 +501,24 @@ export class FileOperationsCommand implements ICommand {
         await mkdir(destDir, { recursive: true });
       }
 
+      console.log(
+        `[Copy] Starting file copy, callback set: ${!!this.progressCallback}`,
+      );
+
+      // Report progress for single file copy
+      if (this.progressCallback) {
+        console.log('[Copy] Sending progress: 0/1');
+        this.progressCallback(0, 1, path.basename(absoluteSource));
+      }
+
       // Copy the file
       await copyFile(absoluteSource, absoluteDestination);
+
+      // Report completion
+      if (this.progressCallback) {
+        console.log('[Copy] Sending progress: 1/1');
+        this.progressCallback(1, 1, path.basename(absoluteSource));
+      }
 
       const destStats = await stat(absoluteDestination);
 
@@ -497,11 +539,45 @@ export class FileOperationsCommand implements ICommand {
   }
 
   /**
+   * Count total files in a directory recursively
+   */
+  private async countFilesRecursive(source: string): Promise<number> {
+    let count = 0;
+
+    try {
+      const entries = await readdir(source, { withFileTypes: true });
+
+      for (const entry of entries) {
+        const sourcePath = path.join(source, entry.name);
+
+        try {
+          if (entry.isDirectory()) {
+            count += await this.countFilesRecursive(sourcePath);
+          } else if (entry.isFile()) {
+            count++;
+          }
+        } catch (error: any) {
+          // Skip files that are locked or inaccessible
+          console.warn(
+            `Warning: Unable to access ${sourcePath}: ${error.message}`,
+          );
+          continue;
+        }
+      }
+    } catch (error: any) {
+      console.warn(`Warning: Unable to read directory ${source}: ${error.message}`);
+    }
+
+    return count;
+  }
+
+  /**
    * Recursively copy a directory
    */
   private async copyDirectoryRecursive(
     source: string,
     destination: string,
+    onFileCopied?: (fileName: string) => void,
   ): Promise<void> {
     // Create destination directory
     if (!fs.existsSync(destination)) {
@@ -518,10 +594,18 @@ export class FileOperationsCommand implements ICommand {
       try {
         if (entry.isDirectory()) {
           // Recursively copy subdirectory
-          await this.copyDirectoryRecursive(sourcePath, destPath);
+          await this.copyDirectoryRecursive(sourcePath, destPath, onFileCopied);
         } else if (entry.isFile()) {
           // Copy file
           await copyFile(sourcePath, destPath);
+
+          // Report progress
+          if (onFileCopied) {
+            onFileCopied(entry.name);
+          }
+
+          // Small delay to allow UI to update
+          await new Promise((resolve) => setTimeout(resolve, 5));
         }
       } catch (error: any) {
         // Skip files that are locked or inaccessible

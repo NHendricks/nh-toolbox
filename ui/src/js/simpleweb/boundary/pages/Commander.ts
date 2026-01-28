@@ -627,6 +627,14 @@ export class Commander extends LitElement {
     percentage: number
   } | null = null
 
+  @property({ type: Object })
+  copyProgress: {
+    current: number
+    total: number
+    fileName: string
+    percentage: number
+  } | null = null
+
   fileIcons: Record<string, string> = {
     zip: '📦',
     exe: '🧩',
@@ -693,6 +701,17 @@ export class Commander extends LitElement {
       // Force UI update
       this.requestUpdate()
     })
+
+    // Add IPC listener for copy progress
+    ;(window as any).electron.ipcRenderer.on('copy-progress', (data: any) => {
+      console.log('[UI] Copy progress received:', data)
+      this.copyProgress = data
+      console.log('[UI] copyProgress property set, requesting update')
+      // Force UI update
+      this.requestUpdate()
+    })
+
+    console.log('[UI] Copy progress listener registered')
   }
 
   loadFavorites() {
@@ -1868,7 +1887,12 @@ export class Commander extends LitElement {
 
     const { type, files, destination } = this.operationDialog
 
+    console.log('[UI] executeOperation started:', { type, files, destination })
+
     try {
+      // Reset progress
+      this.copyProgress = null
+
       this.setStatus(
         `${type === 'copy' ? 'Copying' : 'Moving'} ${files.length} file(s)...`,
         'normal',
@@ -1881,6 +1905,12 @@ export class Commander extends LitElement {
         const separator = destination.includes('\\') ? '\\' : '/'
         const destPath = destination + separator + fileName
 
+        console.log('[UI] Invoking copy operation:', {
+          operation: type,
+          sourcePath: file,
+          destinationPath: destPath,
+        })
+
         const response = await (window as any).electron.ipcRenderer.invoke(
           'cli-execute',
           'file-operations',
@@ -1891,6 +1921,8 @@ export class Commander extends LitElement {
           },
         )
 
+        console.log('[UI] Copy operation response:', response)
+
         if (response.success) {
           successCount++
         } else {
@@ -1898,6 +1930,9 @@ export class Commander extends LitElement {
           break
         }
       }
+
+      // Clear progress
+      this.copyProgress = null
 
       if (successCount === files.length) {
         this.setStatus(
@@ -1919,6 +1954,8 @@ export class Commander extends LitElement {
       this.operationDialog = null
     } catch (error: any) {
       this.setStatus(`Error: ${error.message}`, 'error')
+      // Clear progress on error
+      this.copyProgress = null
     }
   }
 
@@ -2895,23 +2932,25 @@ export class Commander extends LitElement {
     const { type, files, destination } = this.operationDialog
     const operation = type === 'copy' ? 'copy' : 'move'
 
-    // Auto-focus input field when dialog opens
-    setTimeout(() => {
-      const input = this.shadowRoot?.querySelector(
-        '.input-field input',
-      ) as HTMLInputElement
-      if (input) {
-        input.focus()
-        input.select()
-      }
-    }, 100)
+    // Auto-focus input field when dialog opens (only if not in progress)
+    if (!this.copyProgress) {
+      setTimeout(() => {
+        const input = this.shadowRoot?.querySelector(
+          '.input-field input',
+        ) as HTMLInputElement
+        if (input) {
+          input.focus()
+          input.select()
+        }
+      }, 100)
+    }
 
     return html`
       <simple-dialog
         .open=${true}
         .title=${operation}
         .width=${'600px'}
-        @dialog-close=${this.cancelOperation}
+        @dialog-close=${this.copyProgress ? null : this.cancelOperation}
       >
         <div style="padding: 1rem;">
           <div class="input-field">
@@ -2922,6 +2961,7 @@ export class Commander extends LitElement {
             <input
               type="text"
               .value=${destination}
+              .disabled=${this.copyProgress !== null}
               @input=${(e: Event) =>
                 this.updateDestination((e.target as HTMLInputElement).value)}
               @keydown=${(e: KeyboardEvent) => {
@@ -2937,17 +2977,64 @@ export class Commander extends LitElement {
               }}
             />
           </div>
-          <div style="margin-top: 1rem; color: #94a3b8; font-size: 0.9rem;">
-            ${files.map((f) => html`<div>• ${f.split(/[/\\]/).pop()}</div>`)}
-          </div>
+
+          ${this.copyProgress
+            ? html`
+                <div
+                  style="margin-top: 1.5rem; padding: 1rem; background: #1e293b; border-radius: 8px; border: 2px solid #0ea5e9;"
+                >
+                  <div
+                    style="margin-bottom: 0.5rem; color: #0ea5e9; font-weight: bold; font-size: 0.9rem;"
+                  >
+                    ⏳ ${type === 'copy' ? 'Copying' : 'Moving'}...
+                    ${this.copyProgress.percentage}%
+                  </div>
+                  <div
+                    style="width: 100%; height: 24px; background: #0f172a; border-radius: 4px; overflow: hidden; margin-bottom: 0.75rem;"
+                  >
+                    <div
+                      style="height: 100%; background: linear-gradient(90deg, #0ea5e9, #06b6d4); transition: width 0.3s ease; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 0.75rem; width: ${this
+                        .copyProgress.percentage}%;"
+                    >
+                      ${this.copyProgress.percentage}%
+                    </div>
+                  </div>
+                  <div
+                    style="color: #cbd5e1; font-size: 0.85rem; display: flex; justify-content: space-between;"
+                  >
+                    <span
+                      >📁 ${this.copyProgress.current} /
+                      ${this.copyProgress.total}</span
+                    >
+                  </div>
+                  <div
+                    style="color: #94a3b8; font-size: 0.8rem; margin-top: 0.5rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
+                  >
+                    Current: ${this.copyProgress.fileName}
+                  </div>
+                </div>
+              `
+            : html`
+                <div
+                  style="margin-top: 1rem; color: #94a3b8; font-size: 0.9rem;"
+                >
+                  ${files.map(
+                    (f) => html`<div>• ${f.split(/[/\\]/).pop()}</div>`,
+                  )}
+                </div>
+              `}
         </div>
         <div slot="footer" class="dialog-buttons">
-          <button class="btn-cancel" @click=${this.cancelOperation}>
-            cancel (ESC)
-          </button>
-          <button class="btn-confirm" @click=${this.executeOperation}>
-            ${operation} (ENTER)
-          </button>
+          ${!this.copyProgress
+            ? html`
+                <button class="btn-cancel" @click=${this.cancelOperation}>
+                  cancel (ESC)
+                </button>
+                <button class="btn-confirm" @click=${this.executeOperation}>
+                  ${operation} (ENTER)
+                </button>
+              `
+            : ''}
         </div>
       </simple-dialog>
     `
