@@ -3,6 +3,7 @@ import './simpleweb/boundary/navigation/ResponsiveMenu'
 import './simpleweb/boundary/pages/Commander'
 import './simpleweb/boundary/pages/CommandParameter'
 import './simpleweb/boundary/pages/Faq'
+import './simpleweb/boundary/pages/Finder'
 
 const outlet = document.querySelector('.view')
 outlet?.classList.add('view')
@@ -13,6 +14,7 @@ router.setRoutes([
   { path: '/faq', component: 'nh-faq' },
   { path: '/backend', component: 'command-params' },
   { path: '/commander', component: 'simple-commander' },
+  { path: '/finder', component: 'nh-finder' },
   { path: '(.*)', component: 'simple-commander' }, // fallback
 ])
 
