@@ -14,7 +14,7 @@ router.setRoutes([
   { path: '/faq', component: 'nh-faq' },
   { path: '/backend', component: 'command-params' },
   { path: '/commander', component: 'simple-commander' },
-  { path: '/finder', component: 'nh-finder' },
+  { path: '/moneyfinder', component: 'nh-moneyfinder' },
   { path: '(.*)', component: 'simple-commander' }, // fallback
 ])
 

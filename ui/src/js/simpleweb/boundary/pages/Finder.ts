@@ -259,9 +259,11 @@ export class Finder extends LitElement {
 
     .table-container {
       overflow-x: auto;
+      overflow-y: auto;
       margin-top: 1rem;
       border: 1px solid #e2e8f0;
       border-radius: 4px;
+      max-height: 30em;
     }
 
     table {
@@ -662,52 +664,10 @@ export class Finder extends LitElement {
   render() {
     return html`
       <div class="content">
-        <h1>🔍 NH-Finder</h1>
+        <h1>🔍 Nice2Have MoneyFinder</h1>
         <p class="subtitle">
           Analyze and filter banking files with powerful search capabilities
         </p>
-
-        ${this.statusMessage
-          ? html`
-              <div class="status-message ${this.statusType}">
-                <span
-                  >${this.statusType === 'success'
-                    ? '✓'
-                    : this.statusType === 'error'
-                      ? '⚠'
-                      : 'ℹ'}</span
-                >
-                <span>${this.statusMessage}</span>
-              </div>
-            `
-          : ''}
-        <!-- File Selection Section -->
-        <div class="config-section">
-          <div class="section-title">📁 File Configuration</div>
-
-          <div class="form-group">
-            <label for="file-select"
-              >Selected File (Format Auto-Detected)</label
-            >
-            <div style="display: flex; gap: 0.5rem;">
-              <input
-                type="text"
-                id="file-select"
-                .value=${this.selectedFile}
-                placeholder="No file selected... (Supports: CAMT.053 XML, fixed-length TXT)"
-                readonly
-                style="flex: 1;"
-              />
-              <button
-                class="btn btn-secondary"
-                @click=${this.handleFileSelect}
-                style="padding: 0.75rem 1rem;"
-              >
-                Browse...
-              </button>
-            </div>
-          </div>
-        </div>
 
         <!-- Filter Section -->
         <div class="config-section">
@@ -820,6 +780,40 @@ export class Finder extends LitElement {
             </button>
           </div>
         </div>
+        <div class="form-group">
+          <label for="file-select">Selected File (Format Auto-Detected)</label>
+          <div style="display: flex; gap: 0.5rem;">
+            <input
+              type="text"
+              id="file-select"
+              .value=${this.selectedFile}
+              placeholder="No file selected... (Supports: CAMT.053 XML, fixed-length TXT)"
+              readonly
+              style="flex: 1;"
+            />
+            <button
+              class="btn btn-secondary"
+              @click=${this.handleFileSelect}
+              style="padding: 0.75rem 1rem;"
+            >
+              Browse...
+            </button>
+          </div>
+        </div>
+        ${this.statusMessage
+          ? html`
+              <div class="status-message ${this.statusType}">
+                <span
+                  >${this.statusType === 'success'
+                    ? '✓'
+                    : this.statusType === 'error'
+                      ? '⚠'
+                      : 'ℹ'}</span
+                >
+                <span>${this.statusMessage}</span>
+              </div>
+            `
+          : ''}
 
         <!-- Results Section -->
         ${this.results ? this.renderResults() : this.renderEmptyState()}
@@ -1037,12 +1031,10 @@ export class Finder extends LitElement {
 
     return html`
       <div class="results-section">
-        <div class="no-results">
-          👆 Select a file and click "Analyze" to see results
-        </div>
+        <div class="no-results">👆 Select a file</div>
       </div>
     `
   }
 }
 
-customElements.define('nh-finder', Finder)
+customElements.define('nh-moneyfinder', Finder)

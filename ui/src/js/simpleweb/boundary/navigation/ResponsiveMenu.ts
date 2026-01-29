@@ -10,9 +10,15 @@ interface MenuItem {
   submenu?: MenuItem[]
 }
 
+interface PageSettings {
+  forcePortrait?: boolean
+  addBodyClass?: string
+}
+
 interface MenuConfig {
   mainNavigation: MenuItem[]
   bonusActions: MenuItem[]
+  pageSettings?: Record<string, PageSettings>
 }
 
 @customElement('responsive-menu')
@@ -575,6 +581,9 @@ export class ResponsiveMenu extends LitElement {
   connectedCallback() {
     super.connectedCallback()
 
+    // Apply page settings for current route
+    this.applyPageSettings()
+
     // Monitor orientation changes
     const mediaQuery = window.matchMedia('(orientation: portrait)')
     mediaQuery.addEventListener('change', (e) => {
@@ -594,6 +603,47 @@ export class ResponsiveMenu extends LitElement {
       }
     }
     window.addEventListener('scroll', this.scrollHandler)
+
+    // Listen for route changes
+    window.addEventListener('vaadin-router-location-changed', () => {
+      this.applyPageSettings()
+    })
+  }
+
+  private applyPageSettings() {
+    const currentPath = window.location.pathname
+    const pageSettings = this.config.pageSettings?.[currentPath]
+
+    if (pageSettings) {
+      // Apply forcePortrait setting
+      if (pageSettings.forcePortrait !== undefined) {
+        this.forcePortrait = pageSettings.forcePortrait
+      }
+
+      // Apply body class
+      if (pageSettings.addBodyClass) {
+        document.body.classList.add(pageSettings.addBodyClass)
+      }
+    } else {
+      // Reset to defaults if no settings for this page
+      this.forcePortrait = false
+
+      // Remove all page-specific body classes
+      if (this.config.pageSettings) {
+        Object.values(this.config.pageSettings).forEach((settings) => {
+          if (settings.addBodyClass) {
+            document.body.classList.remove(settings.addBodyClass)
+          }
+        })
+      }
+    }
+
+    // Update isPortrait based on forcePortrait
+    if (this.forcePortrait) {
+      this.isPortrait = true
+    } else {
+      this.isPortrait = window.matchMedia('(orientation: portrait)').matches
+    }
   }
 
   disconnectedCallback() {

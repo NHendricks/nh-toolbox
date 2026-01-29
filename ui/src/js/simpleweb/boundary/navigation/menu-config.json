@@ -5,11 +5,11 @@
       "path": "/"
     },
     {
-      "label": "Finder",
-      "path": "/finder"
+      "label": "Moneyfinder",
+      "path": "/moneyfinder"
     },
     {
-      "label": "FAQ",
+      "label": "Help",
       "path": "/faq"
     }
   ],
@@ -18,5 +18,15 @@
       "label": "www.nilshendricks.de",
       "path": "https://www.nilshendricks.de"
     }
-  ]
+  ],
+  "pageSettings": {
+    "/": {
+      "forcePortrait": true,
+      "addBodyClass": "force-portrait"
+    },
+    "/moneyfinder": {
+      "forcePortrait": true,
+      "addBodyClass": "force-portrait"
+    }
+  }
 }

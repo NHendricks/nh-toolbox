@@ -661,15 +661,6 @@ export class Commander extends LitElement {
   async connectedCallback() {
     super.connectedCallback()
 
-    // Force the menu into portrait mode
-    const menu = document.querySelector('responsive-menu') as any
-    if (menu) {
-      menu.forcePortrait = true
-    }
-
-    // Add CSS class to body to remove landscape padding
-    document.body.classList.add('force-portrait')
-
     // Load paths from localStorage
     const savedLeftPath = localStorage.getItem('commander-left-path')
     const savedRightPath = localStorage.getItem('commander-right-path')
@@ -842,15 +833,6 @@ export class Commander extends LitElement {
 
   disconnectedCallback() {
     super.disconnectedCallback()
-
-    // Reset the menu to normal orientation behavior
-    const menu = document.querySelector('responsive-menu') as any
-    if (menu) {
-      menu.forcePortrait = false
-    }
-
-    // Remove CSS class from body
-    document.body.classList.remove('force-portrait')
 
     window.removeEventListener('keydown', this.handleGlobalKeydown.bind(this))
   }
