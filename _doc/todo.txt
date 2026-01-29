@@ -1,6 +1,4 @@
-fix zoom ctrl + +
 
-text replaces
 - find and replace in dir and subdirs
 
 text fnder

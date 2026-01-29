@@ -1405,8 +1405,6 @@ export class Commander extends LitElement {
       return
     }
 
-    const pane = this.getActivePane()
-
     // Handle Alt+1 and Alt+2 (or Cmd+1 and Cmd+2 on Mac) for drive selection, Alt+F for filter
     if (event.altKey || event.metaKey) {
       if (event.key === '1') {
@@ -1603,7 +1601,6 @@ export class Commander extends LitElement {
   handleF12() {
     const selectedFiles = this.getSelectedFiles()
     if (selectedFiles.length > 0) {
-      const destPane = this.getInactivePane()
       // Generate default ZIP filename based on selected file/folder
       let defaultName: string
       if (selectedFiles.length === 1) {

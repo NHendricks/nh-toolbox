@@ -260,10 +260,13 @@ export class Finder extends LitElement {
     .table-container {
       overflow-x: auto;
       margin-top: 1rem;
+      border: 1px solid #e2e8f0;
+      border-radius: 4px;
     }
 
     table {
       width: 100%;
+      min-width: 1200px;
       border-collapse: collapse;
       font-size: 0.9rem;
     }
@@ -277,11 +280,48 @@ export class Finder extends LitElement {
       position: sticky;
       top: 0;
       z-index: 1;
+      cursor: pointer;
+      user-select: none;
+      white-space: nowrap;
+      transition: background 0.2s;
+    }
+
+    th:hover {
+      background: #0284c7;
+    }
+
+    th.sortable {
+      position: relative;
+      padding-right: 2rem;
+    }
+
+    th .sort-indicator {
+      position: absolute;
+      right: 0.5rem;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 0.8rem;
+      opacity: 0.7;
+    }
+
+    th.sorted-asc .sort-indicator::after {
+      content: '▲';
+      opacity: 1;
+    }
+
+    th.sorted-desc .sort-indicator::after {
+      content: '▼';
+      opacity: 1;
+    }
+
+    th:not(.sorted-asc):not(.sorted-desc) .sort-indicator::after {
+      content: '⇅';
     }
 
     td {
       padding: 0.75rem;
       border-bottom: 1px solid #e2e8f0;
+      white-space: nowrap;
     }
 
     tr:hover {
@@ -423,6 +463,12 @@ export class Finder extends LitElement {
   @property({ type: String })
   statusType: 'info' | 'success' | 'error' | '' = ''
 
+  @property({ type: Number })
+  sortColumn: number | null = null
+
+  @property({ type: String })
+  sortDirection: 'asc' | 'desc' = 'asc'
+
   async handleFileSelect() {
     try {
       const response = await (window as any).electron.ipcRenderer.invoke(
@@ -446,7 +492,10 @@ export class Finder extends LitElement {
         response.filePaths.length > 0
       ) {
         this.selectedFile = response.filePaths[0]
-        this.setStatus('File selected successfully', 'success')
+        this.setStatus('File selected, starting analysis...', 'info')
+
+        // Automatically start analysis after file selection
+        await this.analyzeFile()
       } else if (response.error) {
         this.setStatus(`Error: ${response.error}`, 'error')
       }
@@ -558,13 +607,64 @@ export class Finder extends LitElement {
     }).format(value)
   }
 
+  handleSort(columnIndex: number) {
+    if (this.sortColumn === columnIndex) {
+      // Toggle direction if same column
+      this.sortDirection = this.sortDirection === 'asc' ? 'desc' : 'asc'
+    } else {
+      // New column, default to ascending
+      this.sortColumn = columnIndex
+      this.sortDirection = 'asc'
+    }
+  }
+
+  sortRows(rows: any[][]): any[][] {
+    if (this.sortColumn === null) return rows
+
+    const sorted = [...rows].sort((a, b) => {
+      const aVal = a[this.sortColumn!]
+      const bVal = b[this.sortColumn!]
+
+      // Handle different data types
+      let comparison = 0
+
+      // Column 2 is amount (number)
+      if (this.sortColumn === 2) {
+        comparison = Number(aVal) - Number(bVal)
+      }
+      // Column 1 is date (DD.MM.YYYY)
+      else if (this.sortColumn === 1) {
+        const [aDay, aMonth, aYear] = String(aVal).split('.')
+        const [bDay, bMonth, bYear] = String(bVal).split('.')
+        const aDate = new Date(
+          parseInt(aYear),
+          parseInt(aMonth) - 1,
+          parseInt(aDay),
+        )
+        const bDate = new Date(
+          parseInt(bYear),
+          parseInt(bMonth) - 1,
+          parseInt(bDay),
+        )
+        comparison = aDate.getTime() - bDate.getTime()
+      }
+      // String comparison for other columns
+      else {
+        comparison = String(aVal).localeCompare(String(bVal))
+      }
+
+      return this.sortDirection === 'asc' ? comparison : -comparison
+    })
+
+    return sorted
+  }
+
   render() {
     return html`
       <div class="content">
-        <h1>🔍 ProfiCash Finder</h1>
+        <h1>🔍 NH-Finder</h1>
         <p class="subtitle">
-          Analyze and filter ProfiCash export files with powerful search
-          capabilities
+          Analyze and filter banking files with powerful search capabilities
         </p>
 
         ${this.statusMessage
@@ -581,21 +681,6 @@ export class Finder extends LitElement {
               </div>
             `
           : ''}
-
-        <div class="info-box">
-          <div class="info-box-title">📝 How to use</div>
-          <div class="info-box-text">
-            1. Export your ProfiCash data using:
-            <strong
-              >"Datei - Ausfuehren Export - Umsaetze und Salden - feste
-              Satzlänge 768"</strong
-            ><br />
-            2. Select the exported file below<br />
-            3. Apply filters to narrow down your search (optional)<br />
-            4. Click "Analyze" to view results with sum calculations
-          </div>
-        </div>
-
         <!-- File Selection Section -->
         <div class="config-section">
           <div class="section-title">📁 File Configuration</div>
@@ -629,22 +714,6 @@ export class Finder extends LitElement {
           <div class="section-title">🔍 Filters</div>
 
           <div class="filter-grid">
-            <!-- Account Filter -->
-            <div class="filter-group">
-              <label class="filter-label">Konto (Account)</label>
-              <input
-                type="text"
-                class="filter-input"
-                placeholder="Filter by account..."
-                .value=${this.filters.account}
-                @input=${(e: Event) =>
-                  this.updateFilter(
-                    'account',
-                    (e.target as HTMLInputElement).value,
-                  )}
-              />
-            </div>
-
             <!-- Date Range Filter -->
             <div class="filter-group">
               <label class="filter-label">Datum (Date)</label>
@@ -742,19 +811,6 @@ export class Finder extends LitElement {
           </div>
 
           <div class="action-buttons">
-            <button
-              class="btn btn-primary"
-              @click=${this.analyzeFile}
-              ?disabled=${!this.selectedFile || this.isLoading}
-            >
-              ${this.isLoading
-                ? html`<span
-                    class="spinner"
-                    style="width: 20px; height: 20px;"
-                  ></span>`
-                : '🔍'}
-              ${this.isLoading ? 'Analyzing...' : 'Analyze'}
-            </button>
             <button
               class="btn btn-secondary"
               @click=${this.clearFilters}
@@ -857,6 +913,9 @@ export class Finder extends LitElement {
     // Apply filters to the rows
     const filteredRows = this.applyFilters(this.results.rows)
 
+    // Apply sorting
+    const sortedRows = this.sortRows(filteredRows)
+
     // Recalculate summary for filtered rows
     let filteredSum = 0
     const filteredYearSums: Record<string, number> = {}
@@ -920,19 +979,31 @@ export class Finder extends LitElement {
         </div>
 
         <!-- Results Table -->
-        ${filteredRows.length > 0
+        ${sortedRows.length > 0
           ? html`
               <div class="table-container">
                 <table>
                   <thead>
                     <tr>
                       ${this.results.headers.map(
-                        (header) => html`<th>${header}</th>`,
+                        (header, index) => html`
+                          <th
+                            class="sortable ${this.sortColumn === index
+                              ? this.sortDirection === 'asc'
+                                ? 'sorted-asc'
+                                : 'sorted-desc'
+                              : ''}"
+                            @click=${() => this.handleSort(index)}
+                          >
+                            ${header}
+                            <span class="sort-indicator"></span>
+                          </th>
+                        `,
                       )}
                     </tr>
                   </thead>
                   <tbody>
-                    ${filteredRows.map(
+                    ${sortedRows.map(
                       (row) => html`
                         <tr>
                           ${row.map((cell) => html`<td>${cell}</td>`)}
