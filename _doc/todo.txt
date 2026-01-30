@@ -1,12 +1,3 @@
-text file manager
-- find and replace in dir and subdirs
-
-money fnder
-- support criteria filters (for finance clusters)
-
-imdb finder
-- find imdb rating quickly by typeing film name 
-
 commander:
 - regex enhance with examples (dropdown and help)
 - build win and mac app with github action ...
@@ -29,8 +20,7 @@ other:
 - integrate more cmdline-Tools
   - dirsorter for jpegs
   - mp3metatagsetter for mp3s
+  - imdb finder
+    - find imdb rating quickly by typing film name 
 - music player (IPOD-like see www.nilshendricks.de>widgets)
 
-meta:
-- test claude code
-  - npm install -g @anthropic-ai/claude-code

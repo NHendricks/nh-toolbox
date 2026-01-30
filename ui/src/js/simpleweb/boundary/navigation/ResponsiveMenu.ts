@@ -588,8 +588,17 @@ export class ResponsiveMenu extends LitElement {
   connectedCallback() {
     super.connectedCallback()
 
-    // Apply page settings for current route
-    this.applyPageSettings()
+    // Apply page settings for current route - use a small delay to let router initialize
+    const initialPath = this.getCurrentRoutePath()
+    console.log('[ResponsiveMenu] Initial path detected:', initialPath)
+    this.applyPageSettings(initialPath)
+
+    // Also try again after a short delay in case router hasn't initialized yet
+    setTimeout(() => {
+      const delayedPath = this.getCurrentRoutePath()
+      console.log('[ResponsiveMenu] Delayed path check:', delayedPath)
+      this.applyPageSettings(delayedPath)
+    }, 100)
 
     // Monitor orientation changes
     const mediaQuery = window.matchMedia('(orientation: portrait)')
@@ -612,9 +621,56 @@ export class ResponsiveMenu extends LitElement {
     window.addEventListener('scroll', this.scrollHandler)
 
     // Listen for route changes
-    window.addEventListener('vaadin-router-location-changed', () => {
-      this.applyPageSettings()
+    window.addEventListener('vaadin-router-location-changed', (e: Event) => {
+      const customEvent = e as CustomEvent
+      const pathname =
+        customEvent.detail?.location?.pathname || this.getCurrentRoutePath()
+      console.log('[ResponsiveMenu] Route changed to:', pathname)
+      this.applyPageSettings(pathname)
     })
+  }
+
+  private getCurrentRoutePath(): string {
+    // Try to get the path from hash (for hash-based routing in Electron)
+    if (window.location.hash) {
+      // Hash could be "#/" or "#/moneyfinder" etc
+      const hash = window.location.hash
+      if (hash.startsWith('#/')) {
+        return hash.slice(1) // Remove the # prefix
+      } else if (hash.startsWith('#')) {
+        const hashPath = hash.slice(1)
+        return hashPath.startsWith('/') ? hashPath : '/' + hashPath
+      }
+    }
+
+    // For file:// protocol, the pathname is the file path, so we need to detect this
+    const pathname = window.location.pathname
+    const protocol = window.location.protocol
+
+    console.log(
+      '[ResponsiveMenu] getCurrentRoutePath - protocol:',
+      protocol,
+      'pathname:',
+      pathname,
+      'hash:',
+      window.location.hash,
+    )
+
+    // If using file:// protocol, default to '/' since router uses hash or internal state
+    if (protocol === 'file:') {
+      return '/'
+    }
+
+    // For http/https, check if pathname looks like a file path
+    if (
+      pathname.endsWith('.html') ||
+      pathname.includes('\\') ||
+      pathname.length > 50
+    ) {
+      return '/'
+    }
+
+    return pathname || '/'
   }
 
   private triggerForcePortraitOpacityHint() {
@@ -633,9 +689,18 @@ export class ResponsiveMenu extends LitElement {
     }, 500)
   }
 
-  private applyPageSettings() {
-    const currentPath = window.location.pathname
+  private applyPageSettings(routePath?: string) {
+    const currentPath = routePath || this.getCurrentRoutePath()
+    console.log(
+      '[ResponsiveMenu] applyPageSettings called with path:',
+      currentPath,
+    )
+    console.log(
+      '[ResponsiveMenu] Available pageSettings:',
+      this.config.pageSettings,
+    )
     const pageSettings = this.config.pageSettings?.[currentPath]
+    console.log('[ResponsiveMenu] Found pageSettings:', pageSettings)
 
     if (pageSettings) {
       // Apply forcePortrait setting
