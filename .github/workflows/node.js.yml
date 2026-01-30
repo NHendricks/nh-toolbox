@@ -41,4 +41,4 @@ jobs:
         with:
           name: electron-${{ matrix.os }}
           path: |
-            dist/**
+            target/dist/**
