@@ -94,15 +94,14 @@ node backend/dist/cli.js proficash '{"filePath":"./statements/export.txt","forma
 
 Each row contains 9 columns:
 
-1. **Konto** - Account number/IBAN
-2. **Datum** - Date (DD.MM.YYYY format)
-3. **Betrag** - Amount (negative for debits, positive for credits)
-4. **Typ** - Transaction type
-5. **BLZ** - Bank code (BIC/BLZ)
-6. **Konto** - Counterparty account
-7. **Empfänger** - Counterparty name
-8. **VWZ** - Reference/purpose (Verwendungszweck)
-9. **Kategorie** - Category (currently empty, reserved for future use)
+1. **account** - Account number/IBAN
+2. **date** - Date (DD.MM.YYYY format)
+3. **amount** - Amount (negative for debits, positive for credits)
+4. **type** - Transaction type
+5. **bankcode** - Bank code (BIC/BLZ)
+6. **account2** - Counterparty account
+7. **name** - Counterparty name
+8. **reference** - Reference/purpose (Verwendungszweck)
 
 ## Usage Examples
 

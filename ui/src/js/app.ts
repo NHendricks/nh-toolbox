@@ -3,7 +3,7 @@ import './simpleweb/boundary/navigation/ResponsiveMenu'
 import './simpleweb/boundary/pages/Commander'
 import './simpleweb/boundary/pages/CommandParameter'
 import './simpleweb/boundary/pages/Faq'
-import './simpleweb/boundary/pages/Finder'
+import './simpleweb/boundary/pages/MoneyFinder'
 
 const outlet = document.querySelector('.view')
 outlet?.classList.add('view')

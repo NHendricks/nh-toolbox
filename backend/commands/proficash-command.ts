@@ -21,7 +21,6 @@ interface Transaction {
   counterpartyAccount?: string;
   counterpartyName?: string;
   reference?: string;
-  category?: string;
 }
 
 export class ProficashCommand implements ICommand {
@@ -161,7 +160,6 @@ export class ProficashCommand implements ICommand {
       txn.counterpartyAccount || '',
       txn.counterpartyName || '',
       txn.reference || '',
-      txn.category || '',
     ]);
 
     return {
@@ -170,15 +168,14 @@ export class ProficashCommand implements ICommand {
       filePath: filePath,
       format: 'camt.053',
       headers: [
-        'Konto',
-        'Datum',
-        'Betrag',
-        'Typ',
-        'BLZ',
-        'Konto',
-        'Empfänger',
-        'VWZ',
-        'Kategorie',
+        'account',
+        'date',
+        'amount',
+        'type',
+        'bankcode',
+        'account2',
+        'name',
+        'reference',
       ],
       rows: rows,
       summary: {
@@ -243,7 +240,6 @@ export class ProficashCommand implements ICommand {
         counterpartyAccount: '',
         counterpartyName: '',
         reference: this.extractReference(entry),
-        category: '',
       });
     } else {
       // Process detailed transactions
@@ -264,7 +260,6 @@ export class ProficashCommand implements ICommand {
             counterpartyAccount: this.extractCounterpartyAccount(txn),
             counterpartyName: this.extractCounterpartyName(txn),
             reference: this.extractReference(txn),
-            category: '',
           });
         }
       }
@@ -502,7 +497,6 @@ export class ProficashCommand implements ICommand {
           toAccount,
           toName,
           fullReason,
-          '', // Kategorie (category) - would need .criteria file to populate
         ]);
       } catch (error: any) {
         console.warn(`Error parsing line: ${error.message}`);
@@ -516,15 +510,14 @@ export class ProficashCommand implements ICommand {
       filePath: filePath,
       format: 'feste Satzlänge 768',
       headers: [
-        'Konto',
-        'Datum',
-        'Betrag',
-        'Typ',
-        'BLZ',
-        'Konto',
-        'Empfänger',
-        'VWZ',
-        'Kategorie',
+        'account',
+        'date',
+        'amount',
+        'type',
+        'bankcode',
+        'account2',
+        'name',
+        'reference',
       ],
       rows: rows,
       summary: {

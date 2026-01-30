@@ -1,6 +1,6 @@
 import { LitElement, css, html } from 'lit'
 import { property } from 'lit/decorators.js'
-import '../navigation/ResponsiveMenu'
+import '../navigation/ResponsiveMenu.js'
 
 interface FilterState {
   account: string
@@ -22,7 +22,7 @@ interface FinderResult {
   }
 }
 
-export class Finder extends LitElement {
+export class MoneyFinder extends LitElement {
   static styles = css`
     :host {
       display: block;
@@ -666,7 +666,8 @@ export class Finder extends LitElement {
       <div class="content">
         <h1>🔍 Nice2Have MoneyFinder</h1>
         <p class="subtitle">
-          Analyze and filter banking files with powerful search capabilities
+          Analyze and filter banking files exported from your banking app (like
+          Profi cash)
         </p>
 
         <!-- Filter Section -->
@@ -676,7 +677,7 @@ export class Finder extends LitElement {
           <div class="filter-grid">
             <!-- Date Range Filter -->
             <div class="filter-group">
-              <label class="filter-label">Datum (Date)</label>
+              <label class="filter-label">Date</label>
               <div class="range-inputs">
                 <input
                   type="date"
@@ -705,7 +706,7 @@ export class Finder extends LitElement {
 
             <!-- Amount Range Filter -->
             <div class="filter-group">
-              <label class="filter-label">Betrag (Amount)</label>
+              <label class="filter-label">Amount</label>
               <div class="range-inputs">
                 <input
                   type="text"
@@ -742,7 +743,7 @@ export class Finder extends LitElement {
 
             <!-- Global Search Filter -->
             <div class="filter-group">
-              <label class="filter-label">Globale Suche (Global Search)</label>
+              <label class="filter-label">Global Search</label>
               <div class="range-inputs">
                 <input
                   type="text"
@@ -787,7 +788,7 @@ export class Finder extends LitElement {
               type="text"
               id="file-select"
               .value=${this.selectedFile}
-              placeholder="No file selected... (Supports: CAMT.053 XML, fixed-length TXT)"
+              placeholder="No file selected... (supports: CAMT.053 XML, legacy fixed-length 768 TXT)"
               readonly
               style="flex: 1;"
             />
@@ -1037,4 +1038,4 @@ export class Finder extends LitElement {
   }
 }
 
-customElements.define('nh-moneyfinder', Finder)
+customElements.define('nh-moneyfinder', MoneyFinder)
