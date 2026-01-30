@@ -14,7 +14,7 @@
     "buildProcess": "cd process && npm run build",
     "build": "npm run installDependencies && cd ui && npm run build && cd ../backend && npm run build && cd ../process && npm run build",
     "test": "echo nothing",
-    "buildWindowsApp": "npm run build && npx rimraf dist && cd tools && npm run build",
+    "buildWindowsApp": "npm run build && npx rimraf dist && cd tools && npm run build-win",
     "buildMacApp": "npm run build && npx rimraf dist && cd tools && npm run build-mac",
     "buildLinuxApp": "dont use it but will be easy to implement in the tools project"
   },

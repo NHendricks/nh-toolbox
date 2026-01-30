@@ -7,4 +7,5 @@ build-output
 app-content
 .DS_Store
 target
+dist
 backend/coverage/
