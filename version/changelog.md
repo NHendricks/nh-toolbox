@@ -5,6 +5,7 @@
 ### upcoming
 
 - in drive dialog support keyboard navigation
+- memorize directories and enable backward history navigation
 
 ### v1.5.0 (31.01.2026)
 
