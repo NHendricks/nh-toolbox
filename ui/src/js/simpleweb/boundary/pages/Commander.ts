@@ -604,7 +604,7 @@ export class Commander extends LitElement {
   } | null = null
 
   @property({ type: Boolean })
-  compareRecursive = false
+  compareRecursive = true
 
   @property({ type: Boolean })
   compareWaiting = false
@@ -2259,7 +2259,7 @@ export class Commander extends LitElement {
   async toggleCompareRecursive() {
     this.compareRecursive = !this.compareRecursive
     this.setStatus(
-      `Rekursiver Vergleich: ${this.compareRecursive ? 'An' : 'Aus'}`,
+      `recursive compare: ${this.compareRecursive ? 'on' : 'off'}`,
       'success',
     )
 

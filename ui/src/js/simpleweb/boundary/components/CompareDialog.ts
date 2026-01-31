@@ -631,6 +631,32 @@ export class CompareDialog extends LitElement {
             </label>
           </div>
 
+          <div class="summary-section">
+            <div class="summary-item">
+              <div class="summary-label">Total left</div>
+              <div class="summary-value">${summary.totalLeft}</div>
+            </div>
+            <div class="summary-item">
+              <div class="summary-label">Total right</div>
+              <div class="summary-value">${summary.totalRight}</div>
+            </div>
+            <div class="summary-item status-left-only">
+              <div class="summary-label">Left only</div>
+              <div class="summary-value">${summary.onlyInLeft}</div>
+            </div>
+            <div class="summary-item status-right-only">
+              <div class="summary-label">Right only</div>
+              <div class="summary-value">${summary.onlyInRight}</div>
+            </div>
+            <div class="summary-item status-different">
+              <div class="summary-label">Different</div>
+              <div class="summary-value">${summary.different}</div>
+            </div>
+            <div class="summary-item status-identical">
+              <div class="summary-label">Identical</div>
+              <div class="summary-value">${summary.identical}</div>
+            </div>
+          </div>
           <!-- Table & Summary Section same as your original code -->
           ${hasDifferences
             ? html`
@@ -739,32 +765,6 @@ export class CompareDialog extends LitElement {
                   </div>
                 </div>
               `}
-          <div class="summary-section">
-            <div class="summary-item">
-              <div class="summary-label">Total left</div>
-              <div class="summary-value">${summary.totalLeft}</div>
-            </div>
-            <div class="summary-item">
-              <div class="summary-label">Total right</div>
-              <div class="summary-value">${summary.totalRight}</div>
-            </div>
-            <div class="summary-item status-left-only">
-              <div class="summary-label">Left only</div>
-              <div class="summary-value">${summary.onlyInLeft}</div>
-            </div>
-            <div class="summary-item status-right-only">
-              <div class="summary-label">Right only</div>
-              <div class="summary-value">${summary.onlyInRight}</div>
-            </div>
-            <div class="summary-item status-different">
-              <div class="summary-label">Different</div>
-              <div class="summary-value">${summary.different}</div>
-            </div>
-            <div class="summary-item status-identical">
-              <div class="summary-label">Identical</div>
-              <div class="summary-value">${summary.identical}</div>
-            </div>
-          </div>
         </div>
 
         <div slot="footer" class="dialog-buttons">
