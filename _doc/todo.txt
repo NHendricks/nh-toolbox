@@ -1,7 +1,5 @@
 commander:
 - regex enhance with examples (dropdown and help)
-- memorize directories and enable backward history navigation
-- show current file process when compare in ui, open dialog directly then
 - change filter behaviour in compare dialog (more intuitive)
 - drag and drop support for files and folders
 - support zips in zips

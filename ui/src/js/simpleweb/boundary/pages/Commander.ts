@@ -643,6 +643,19 @@ export class Commander extends LitElement {
     percentage: number
   } | null = null
 
+  // Directory history for back/forward navigation (max 5 entries per pane)
+  @property({ type: Array })
+  leftHistory: string[] = []
+
+  @property({ type: Number })
+  leftHistoryIndex = -1
+
+  @property({ type: Array })
+  rightHistory: string[] = []
+
+  @property({ type: Number })
+  rightHistoryIndex = -1
+
   fileIcons: Record<string, string> = {
     zip: '📦',
     exe: '🧩',
@@ -1137,10 +1150,106 @@ export class Commander extends LitElement {
     }
   }
 
-  async navigateToDirectory(path: string) {
+  async navigateToDirectory(path: string, addToHistory = true) {
     console.log('navigateToDirectory called with:', path)
     const currentPath = this.getActivePane().currentPath
+
+    // Add to history if requested and path is different
+    if (addToHistory && currentPath !== path) {
+      this.addToHistory(currentPath)
+    }
+
     await this.loadDirectory(this.activePane, path, currentPath)
+  }
+
+  // Add a path to the history of the active pane
+  addToHistory(path: string) {
+    if (this.activePane === 'left') {
+      // If we're not at the end of history, truncate forward history
+      if (this.leftHistoryIndex < this.leftHistory.length - 1) {
+        this.leftHistory = this.leftHistory.slice(0, this.leftHistoryIndex + 1)
+      }
+      // Add new path
+      this.leftHistory = [...this.leftHistory, path]
+      // Keep only last 20 entries
+      if (this.leftHistory.length > 20) {
+        this.leftHistory = this.leftHistory.slice(-20)
+      }
+      this.leftHistoryIndex = this.leftHistory.length - 1
+    } else {
+      // If we're not at the end of history, truncate forward history
+      if (this.rightHistoryIndex < this.rightHistory.length - 1) {
+        this.rightHistory = this.rightHistory.slice(
+          0,
+          this.rightHistoryIndex + 1,
+        )
+      }
+      // Add new path
+      this.rightHistory = [...this.rightHistory, path]
+      // Keep only last 20 entries
+      if (this.rightHistory.length > 20) {
+        this.rightHistory = this.rightHistory.slice(-20)
+      }
+      this.rightHistoryIndex = this.rightHistory.length - 1
+    }
+  }
+
+  // Navigate back in history
+  async navigateHistoryBack() {
+    if (this.activePane === 'left') {
+      if (this.leftHistoryIndex >= 0 && this.leftHistory.length > 0) {
+        const targetPath = this.leftHistory[this.leftHistoryIndex]
+        this.leftHistoryIndex = Math.max(0, this.leftHistoryIndex - 1)
+        await this.loadDirectory('left', targetPath)
+        this.setStatus(
+          `← Back (${this.leftHistoryIndex + 1}/${this.leftHistory.length})`,
+          'success',
+        )
+      } else {
+        this.setStatus('No history to go back', 'normal')
+      }
+    } else {
+      if (this.rightHistoryIndex >= 0 && this.rightHistory.length > 0) {
+        const targetPath = this.rightHistory[this.rightHistoryIndex]
+        this.rightHistoryIndex = Math.max(0, this.rightHistoryIndex - 1)
+        await this.loadDirectory('right', targetPath)
+        this.setStatus(
+          `← Back (${this.rightHistoryIndex + 1}/${this.rightHistory.length})`,
+          'success',
+        )
+      } else {
+        this.setStatus('No history to go back', 'normal')
+      }
+    }
+  }
+
+  // Navigate forward in history
+  async navigateHistoryForward() {
+    if (this.activePane === 'left') {
+      if (this.leftHistoryIndex < this.leftHistory.length - 1) {
+        this.leftHistoryIndex++
+        const targetPath = this.leftHistory[this.leftHistoryIndex]
+        await this.loadDirectory('left', targetPath)
+        this.setStatus(
+          `→ Forward (${this.leftHistoryIndex + 1}/${this.leftHistory.length})`,
+          'success',
+        )
+      } else {
+        this.setStatus('No history to go forward', 'normal')
+      }
+    } else {
+      if (this.rightHistoryIndex < this.rightHistory.length - 1) {
+        this.rightHistoryIndex++
+        const targetPath = this.rightHistory[this.rightHistoryIndex]
+        await this.loadDirectory('right', targetPath)
+        this.setStatus(
+          `→ Forward (${this.rightHistoryIndex + 1}/${this.rightHistory.length})`,
+          'success',
+        )
+      } else {
+        this.setStatus('No history to go forward', 'normal')
+      }
+    }
   }
 
   isImageFile(filePath: string): boolean {
@@ -1498,7 +1607,11 @@ export class Commander extends LitElement {
         break
 
       case 'ArrowLeft':
-        if (event.ctrlKey) {
+        if (event.altKey) {
+          event.preventDefault()
+          // Alt+Left: Navigate back in history
+          this.navigateHistoryBack()
+        } else if (event.ctrlKey) {
           event.preventDefault()
           // Ctrl+Left: Switch left panel to right panel's directory
           const targetPath = this.rightPane.currentPath
@@ -1511,7 +1624,11 @@ export class Commander extends LitElement {
         break
 
       case 'ArrowRight':
-        if (event.ctrlKey) {
+        if (event.altKey) {
+          event.preventDefault()
+          // Alt+Right: Navigate forward in history
+          this.navigateHistoryForward()
+        } else if (event.ctrlKey) {
           event.preventDefault()
           // Ctrl+Right: Switch right panel to left panel's directory
           const targetPath = this.leftPane.currentPath
