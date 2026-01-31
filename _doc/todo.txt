@@ -4,7 +4,6 @@ commander:
 - show current file process when compare in ui, open dialog directly then
 - change filter behaviour in compare dialog (more intuitive)
 - drag and drop support for files and folders
-- in drive dialog support keyboard navigation
 - support zips in zips
 - progress bar when opening zip
 - better font

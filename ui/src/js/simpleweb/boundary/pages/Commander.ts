@@ -610,6 +610,14 @@ export class Commander extends LitElement {
   compareWaiting = false
 
   @property({ type: Object })
+  compareProgress: {
+    current: number
+    total: number
+    fileName: string
+    percentage: number
+  } | null = null
+
+  @property({ type: Object })
   quickLaunchDialog: { command: string } | null = null
 
   @property({ type: Object })
@@ -2202,8 +2210,26 @@ export class Commander extends LitElement {
         'normal',
       )
 
-      // Set waiting state
+      // Open dialog immediately with empty result and waiting state
       this.compareWaiting = true
+      this.compareProgress = null
+      this.compareDialog = {
+        result: {
+          summary: {
+            totalLeft: 0,
+            totalRight: 0,
+            onlyInLeft: 0,
+            onlyInRight: 0,
+            different: 0,
+            identical: 0,
+          },
+          onlyInLeft: [],
+          onlyInRight: [],
+          different: [],
+          identical: [],
+        },
+        recursive: this.compareRecursive,
+      }
 
       const response = await (window as any).electron.ipcRenderer.invoke(
         'cli-execute',
@@ -2218,6 +2244,7 @@ export class Commander extends LitElement {
 
       // Clear waiting state
       this.compareWaiting = false
+      this.compareProgress = null
 
       if (response.success && response.data) {
         this.compareDialog = {
@@ -2226,11 +2253,14 @@ export class Commander extends LitElement {
         }
         this.setStatus('Vergleich abgeschlossen', 'success')
       } else {
+        this.compareDialog = null
         this.setStatus(`Fehler: ${response.error}`, 'error')
       }
     } catch (error: any) {
       // Clear waiting state on error
       this.compareWaiting = false
+      this.compareProgress = null
+      this.compareDialog = null
       this.setStatus(`Fehler: ${error.message}`, 'error')
     }
   }

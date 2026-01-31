@@ -79,6 +79,7 @@ export class FileOperationsCommand implements ICommand {
             params.leftPath,
             params.rightPath,
             params.recursive || false,
+            this.progressCallback,
           );
         case 'zip':
           return await this.zipFiles(
@@ -857,6 +858,11 @@ export class FileOperationsCommand implements ICommand {
     leftPath: string,
     rightPath: string,
     recursive: boolean,
+    progressCallback?: (
+      current: number,
+      total: number,
+      fileName: string,
+    ) => void,
   ): Promise<any> {
     if (!leftPath) {
       throw new Error('leftPath is required for compare operation');
