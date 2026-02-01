@@ -25,12 +25,37 @@ export class KeyboardHandler {
       return
     }
 
-    // Ignore other keys if typing in an input field (but allow ESC and ENTER above)
-    if (this.isInputField(event.target)) {
-      // Allow ENTER to bubble up in input fields so dialogs can handle form submission
-      if (event.key === 'Enter') {
+    // Handle ENTER for dialogs (execute the action)
+    if (event.key === 'Enter') {
+      if (this.commander.operationDialog) {
+        event.preventDefault()
+        this.commander.executeOperation()
         return
       }
+      if (this.commander.commandDialog) {
+        event.preventDefault()
+        this.commander.executeCommand()
+        return
+      }
+      if (this.commander.renameDialog) {
+        event.preventDefault()
+        this.commander.executeRename()
+        return
+      }
+      if (this.commander.zipDialog) {
+        event.preventDefault()
+        this.commander.executeZip()
+        return
+      }
+      if (this.commander.quickLaunchDialog) {
+        event.preventDefault()
+        this.commander.executeQuickLaunch()
+        return
+      }
+    }
+
+    // Ignore other keys if typing in an input field
+    if (this.isInputField(event.target)) {
       // Block all other keys when in input fields
       return
     }
