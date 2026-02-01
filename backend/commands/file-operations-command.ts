@@ -111,26 +111,41 @@ export class FileOperationsCommand implements ICommand {
 
   /**
    * List available drives (Windows)
+   * Optimized: Skip A:/B: (floppy drives), use async checks, and check drives in parallel
    */
   private async listDrives(): Promise<any> {
     const drives: any[] = [];
 
-    // Check drives A-Z
-    for (let i = 65; i <= 90; i++) {
+    // Start from C (67) to skip A: and B: floppy drives which are slow to check
+    const driveCheckPromises: Promise<{
+      letter: string;
+      path: string;
+    } | null>[] = [];
+
+    for (let i = 67; i <= 90; i++) {
       const letter = String.fromCharCode(i);
       const drivePath = `${letter}:\\`;
 
-      try {
-        if (fs.existsSync(drivePath)) {
-          const stats = await stat(drivePath);
-          drives.push({
-            letter: letter,
-            path: drivePath,
-            label: `${letter}:`,
-          });
-        }
-      } catch (error) {
-        // Drive not accessible, skip
+      // Check all drives in parallel using async access check
+      driveCheckPromises.push(
+        fs.promises
+          .access(drivePath)
+          .then(() => ({ letter, path: drivePath }))
+          .catch(() => null),
+      );
+    }
+
+    // Wait for all drive checks to complete in parallel
+    const results = await Promise.all(driveCheckPromises);
+
+    // Filter out null results (non-existent drives) and build the drives array
+    for (const result of results) {
+      if (result) {
+        drives.push({
+          letter: result.letter,
+          path: result.path,
+          label: `${result.letter}:`,
+        });
       }
     }
 

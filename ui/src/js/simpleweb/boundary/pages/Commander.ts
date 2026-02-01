@@ -202,12 +202,14 @@ export class Commander extends LitElement {
     this.keyboardHandler = new KeyboardHandler(this)
     this.keyboardHandler.attach()
 
-    // Load initial directories
-    await this.loadDirectory('left', this.leftPane.currentPath)
-    await this.loadDirectory('right', this.rightPane.currentPath)
+    // Load initial directories in parallel for faster startup
+    await Promise.all([
+      this.loadDirectory('left', this.leftPane.currentPath),
+      this.loadDirectory('right', this.rightPane.currentPath),
+    ])
 
-    // Load available drives
-    await this.loadDrives()
+    // Load available drives in background (don't block UI)
+    this.loadDrives()
 
     // Load favorite paths from localStorage
     this.loadFavorites()
