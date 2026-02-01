@@ -1807,11 +1807,159 @@ export class Commander extends LitElement {
     this.showSettingsDialog = false
   }
 
-  async handleExportSettings() {}
+  async handleExportSettings() {
+    try {
+      // Safely parse custom applications
+      let customApplications = {}
+      try {
+        const customAppsJson = localStorage.getItem('commander-custom-apps')
+        if (customAppsJson) {
+          customApplications = JSON.parse(customAppsJson)
+        }
+      } catch (parseError) {
+        console.warn('Failed to parse custom applications:', parseError)
+        customApplications = {}
+      }
 
-  async handleImportSettings(file: File) {}
+      // Collect all settings
+      const settings = {
+        version: '1.0.0',
+        exportDate: new Date().toISOString(),
+        favorites: this.favoritePaths,
+        customApplications: customApplications,
+        leftPane: {
+          path: this.leftPane.currentPath,
+          sort: {
+            sortBy: this.leftPane.sortBy,
+            sortDirection: this.leftPane.sortDirection,
+          },
+        },
+        rightPane: {
+          path: this.rightPane.currentPath,
+          sort: {
+            sortBy: this.rightPane.sortBy,
+            sortDirection: this.rightPane.sortDirection,
+          },
+        },
+      }
 
-  async handleClearAllSettings() {}
+      const jsonString = JSON.stringify(settings, null, 2)
+
+      // Use IPC to write file
+      const response = await (window as any).electron.ipcRenderer.invoke(
+        'cli-execute',
+        'file-operations',
+        {
+          operation: 'write-settings',
+          content: jsonString,
+        },
+      )
+
+      if (response.success && response.data?.path) {
+        this.setStatus(`Settings exported to: ${response.data.path}`, 'success')
+      } else {
+        this.setStatus(
+          `Export error: ${response.error || 'Unknown error'}`,
+          'error',
+        )
+      }
+    } catch (error: any) {
+      this.setStatus(`Export error: ${error.message}`, 'error')
+    }
+  }
+
+  async handleImportSettings(file: File) {
+    try {
+      // Read file content
+      const text = await file.text()
+      const settings = JSON.parse(text)
+
+      // Validate
+      if (!settings.version) {
+        this.setStatus('Invalid settings file', 'error')
+        return
+      }
+
+      // Import favorites
+      if (settings.favorites) {
+        localStorage.setItem(
+          'commander-favorites',
+          JSON.stringify(settings.favorites),
+        )
+        this.loadFavorites()
+      }
+
+      // Import custom applications
+      if (settings.customApplications) {
+        localStorage.setItem(
+          'commander-custom-apps',
+          JSON.stringify(settings.customApplications),
+        )
+      }
+
+      // Import pane paths
+      if (settings.leftPane?.path) {
+        localStorage.setItem('commander-left-path', settings.leftPane.path)
+      }
+      if (settings.rightPane?.path) {
+        localStorage.setItem('commander-right-path', settings.rightPane.path)
+      }
+
+      // Import sort settings
+      if (settings.leftPane?.sort) {
+        localStorage.setItem(
+          'commander-left-sort',
+          JSON.stringify(settings.leftPane.sort),
+        )
+      }
+      if (settings.rightPane?.sort) {
+        localStorage.setItem(
+          'commander-right-sort',
+          JSON.stringify(settings.rightPane.sort),
+        )
+      }
+
+      this.setStatus('Settings imported successfully', 'success')
+
+      // Reload pane paths
+      const savedPaths = this.paneManager.loadPanePaths()
+      if (savedPaths.left && savedPaths.left !== this.leftPane.currentPath) {
+        await this.loadDirectory('left', savedPaths.left)
+      }
+      if (savedPaths.right && savedPaths.right !== this.rightPane.currentPath) {
+        await this.loadDirectory('right', savedPaths.right)
+      }
+    } catch (error: any) {
+      this.setStatus(`Import error: ${error.message}`, 'error')
+    }
+  }
+
+  async handleClearAllSettings() {
+    try {
+      // Clear all settings from localStorage
+      const keys = [
+        'commander-favorites',
+        'commander-custom-apps',
+        'commander-left-path',
+        'commander-right-path',
+        'commander-left-sort',
+        'commander-right-sort',
+      ]
+      keys.forEach((key) => localStorage.removeItem(key))
+
+      this.setStatus('All settings cleared', 'success')
+
+      // Reset favorites
+      this.favoritePaths = []
+
+      // Reload both panes to root/default
+      const defaultPath = process.platform === 'win32' ? 'C:\\' : '/'
+      await this.loadDirectory('left', defaultPath)
+      await this.loadDirectory('right', defaultPath)
+    } catch (error: any) {
+      this.setStatus(`Error clearing settings: ${error.message}`, 'error')
+    }
+  }
 
   formatFileSize(bytes: number): string {
     if (bytes === 0) return ''
