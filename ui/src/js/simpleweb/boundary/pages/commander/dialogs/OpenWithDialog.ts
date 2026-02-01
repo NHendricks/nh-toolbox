@@ -5,6 +5,7 @@ interface Application {
   name: string
   command: string
   isDefault: boolean
+  isCustom?: boolean
 }
 
 export class OpenWithDialog extends LitElement {
@@ -185,7 +186,6 @@ export class OpenWithDialog extends LitElement {
 
     .app-item-command {
       font-size: 0.75rem;
-      color: #94a3b8;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -228,6 +228,24 @@ export class OpenWithDialog extends LitElement {
     .btn-secondary:hover {
       background: #64748b;
     }
+
+    .remove-btn {
+      padding: 0.25rem 0.5rem;
+      background: #ef4444;
+      color: white;
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
+      font-size: 0.75rem;
+      transition: background-color 0.15s;
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+    }
+
+    .remove-btn:hover {
+      background: #dc2626;
+    }
   `
 
   async handleBrowseForApp() {
@@ -262,6 +280,18 @@ export class OpenWithDialog extends LitElement {
     } catch (error) {
       console.error('Error browsing for application:', error)
     }
+  }
+
+  handleRemoveApp(command: string, event: Event) {
+    event.stopPropagation() // Prevent app selection when clicking remove
+
+    this.dispatchEvent(
+      new CustomEvent('remove-app', {
+        detail: command,
+        bubbles: true,
+        composed: true,
+      }),
+    )
   }
 
   handleSelectApp(command: string) {
@@ -324,6 +354,16 @@ export class OpenWithDialog extends LitElement {
                               </div>
                               <div class="app-item-command">${app.command}</div>
                             </div>
+                            ${app.isCustom
+                              ? html`<button
+                                  class="remove-btn"
+                                  @click=${(e: Event) =>
+                                    this.handleRemoveApp(app.command, e)}
+                                  title="Remove custom application"
+                                >
+                                  🗑️
+                                </button>`
+                              : ''}
                           </div>
                         `,
                       )}

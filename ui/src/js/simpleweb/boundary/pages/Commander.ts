@@ -1588,16 +1588,46 @@ export class Commander extends LitElement {
     name: string
     command: string
     isDefault: boolean
+    isCustom: boolean
   }> {
     const saved = localStorage.getItem('commander-custom-apps')
     if (!saved) return []
 
     try {
       const customApps = JSON.parse(saved)
-      return customApps[extension] || []
+      const apps = customApps[extension] || []
+      // Mark all custom apps with isCustom flag
+      return apps.map((app: any) => ({ ...app, isCustom: true }))
     } catch (error) {
       console.error('Failed to load custom applications:', error)
       return []
+    }
+  }
+
+  removeCustomApplication(extension: string, command: string) {
+    const saved = localStorage.getItem('commander-custom-apps')
+    if (!saved) return
+
+    try {
+      const customApps = JSON.parse(saved)
+      if (customApps[extension]) {
+        // Filter out the app with matching command
+        customApps[extension] = customApps[extension].filter(
+          (app: any) => app.command !== command,
+        )
+
+        // Remove extension key if no apps left
+        if (customApps[extension].length === 0) {
+          delete customApps[extension]
+        }
+
+        localStorage.setItem(
+          'commander-custom-apps',
+          JSON.stringify(customApps),
+        )
+      }
+    } catch (error) {
+      console.error('Failed to remove custom application:', error)
     }
   }
 
@@ -1742,6 +1772,23 @@ export class Commander extends LitElement {
     // Build the command and execute
     const command = `"${detail.path}" "%1"`
     await this.executeOpenWith(command)
+  }
+
+  async handleRemoveCustomApp(command: string) {
+    if (!this.openWithDialog) return
+
+    const { fileName } = this.openWithDialog
+    const extension = fileName.includes('.')
+      ? '.' + fileName.split('.').pop()?.toLowerCase()
+      : ''
+
+    // Remove the custom application
+    this.removeCustomApplication(extension, command)
+
+    // Refresh the dialog - reload applications
+    await this.handleOpenWith()
+
+    this.setStatus('Custom application removed', 'success')
   }
 
   formatFileSize(bytes: number): string {
@@ -2003,6 +2050,8 @@ export class Commander extends LitElement {
               @select=${(e: CustomEvent) => this.executeOpenWith(e.detail)}
               @select-custom=${(e: CustomEvent) =>
                 this.handleCustomAppSelect(e.detail)}
+              @remove-app=${(e: CustomEvent) =>
+                this.handleRemoveCustomApp(e.detail)}
             ></open-with-dialog>`
           : ''}
       </div>
