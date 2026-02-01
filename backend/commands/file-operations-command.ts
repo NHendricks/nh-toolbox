@@ -526,7 +526,107 @@ export class FileOperationsCommand implements ICommand {
     // Case 2: Copy TO ZIP from regular file system
     if (!sourceZip.isZipPath && destZip.isZipPath) {
       const sourceFilePath = path.resolve(sourcePath);
-      ZipHelper.addToZip(destZip.zipFile, sourceFilePath, destZip.internalPath);
+
+      // Handle nested dest ZIP
+      if (destZip.isNestedZip) {
+        const resolved = (ZipHelper as any).resolveNestedZipPath(destZip);
+        try {
+          // Add to the innermost ZIP
+          ZipHelper.addToZip(
+            resolved.finalZipPath,
+            sourceFilePath,
+            resolved.finalInternalPath,
+          );
+
+          // Now we need to update all the parent ZIPs with the modified inner ZIP
+          // Work backwards through the nested ZIPs
+          for (let i = destZip.nestedZips.length - 1; i >= 0; i--) {
+            const nestedZipName = destZip.nestedZips[i];
+
+            // Determine parent ZIP path
+            let parentZip: string;
+            if (i === 0) {
+              // First level: parent is the original outer ZIP
+              parentZip = destZip.zipFile;
+            } else {
+              // Deeper levels: parent is in temp directory
+              parentZip = path.join(
+                resolved.tempPaths[i - 1],
+                destZip.nestedZips[i - 1],
+              );
+            }
+
+            // Determine current ZIP path (the one to add to parent)
+            let currentZip: string;
+            if (i === destZip.nestedZips.length - 1) {
+              // This is the innermost (last) ZIP - use the final modified one
+              currentZip = resolved.finalZipPath;
+            } else {
+              // This is an intermediate ZIP - it's in temp directory
+              currentZip = path.join(
+                resolved.tempPaths[i],
+                destZip.nestedZips[i],
+              );
+            }
+
+            console.log(
+              `[Copy] Updating nested ZIP ${i}: parent=${parentZip}, current=${currentZip}, name=${nestedZipName}`,
+            );
+
+            // Update the nested ZIP in its parent
+            ZipHelper.addToZip(parentZip, currentZip, nestedZipName);
+          }
+          // Now we need to update all the parent ZIPs with the modified inner ZIP
+          // Work backwards through the nested ZIPs
+          for (let i = destZip.nestedZips.length - 1; i >= 0; i--) {
+            const nestedZipName = destZip.nestedZips[i];
+
+            // Determine parent ZIP path
+            let parentZip: string;
+            if (i === 0) {
+              // First level: parent is the original outer ZIP
+              parentZip = destZip.zipFile;
+            } else {
+              // Deeper levels: parent is in temp directory
+              parentZip = path.join(
+                resolved.tempPaths[i - 1],
+                destZip.nestedZips[i - 1],
+              );
+            }
+
+            // Determine current ZIP path (the one to add to parent)
+            let currentZip: string;
+            if (i === destZip.nestedZips.length - 1) {
+              // This is the innermost (last) ZIP - use the final modified one
+              currentZip = resolved.finalZipPath;
+            } else {
+              // This is an intermediate ZIP - it's in temp directory
+              currentZip = path.join(
+                resolved.tempPaths[i],
+                destZip.nestedZips[i],
+              );
+            }
+
+            console.log(
+              `[Copy] Updating nested ZIP ${i}: parent=${parentZip}, current=${currentZip}, name=${nestedZipName}`,
+            );
+
+            // Update the nested ZIP in its parent
+            ZipHelper.addToZip(parentZip, currentZip, nestedZipName);
+          }
+
+          (ZipHelper as any).cleanupTempPaths(resolved.tempPaths);
+        } catch (error) {
+          (ZipHelper as any).cleanupTempPaths(resolved.tempPaths);
+          throw error;
+        }
+      } else {
+        ZipHelper.addToZip(
+          destZip.zipFile,
+          sourceFilePath,
+          destZip.internalPath,
+        );
+      }
 
       return {
         success: true,
@@ -891,8 +991,49 @@ export class FileOperationsCommand implements ICommand {
     // Check if this is a ZIP path
     const zipPath = ZipHelper.parsePath(sourcePath);
     if (zipPath.isZipPath) {
-      // Delete from ZIP
-      ZipHelper.deleteFromZip(zipPath.zipFile, zipPath.internalPath);
+      // Handle nested ZIP deletion
+      if (zipPath.isNestedZip) {
+        const resolved = (ZipHelper as any).resolveNestedZipPath(zipPath);
+        try {
+          // Delete from the innermost ZIP
+          ZipHelper.deleteFromZip(
+            resolved.finalZipPath,
+            resolved.finalInternalPath,
+          );
+
+          // Update all parent ZIPs with the modified inner ZIP
+          for (let i = zipPath.nestedZips.length - 1; i >= 0; i--) {
+            const nestedZipName = zipPath.nestedZips[i];
+
+            // The parent is either the original outer ZIP or a temp extracted ZIP
+            const parentZip =
+              i === 0
+                ? zipPath.zipFile
+                : resolved.tempPaths[i - 1] +
+                  path.sep +
+                  path.basename(zipPath.nestedZips[i - 1]);
+
+            // The current ZIP to add back is either the final modified one or an intermediate temp one
+            const currentZip =
+              i === zipPath.nestedZips.length - 1
+                ? resolved.finalZipPath
+                : resolved.tempPaths[i] +
+                  path.sep +
+                  path.basename(zipPath.nestedZips[i]);
+
+            // Update the nested ZIP in its parent
+            ZipHelper.addToZip(parentZip, currentZip, nestedZipName);
+          }
+
+          (ZipHelper as any).cleanupTempPaths(resolved.tempPaths);
+        } catch (error) {
+          (ZipHelper as any).cleanupTempPaths(resolved.tempPaths);
+          throw error;
+        }
+      } else {
+        // Regular ZIP deletion
+        ZipHelper.deleteFromZip(zipPath.zipFile, zipPath.internalPath);
+      }
 
       return {
         success: true,

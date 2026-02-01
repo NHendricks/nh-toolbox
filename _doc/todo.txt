@@ -1,5 +1,4 @@
 commander:
-- support zips in zips
 - progress bar when opening zip
 - find files by text or name (in ctrl+f dialog, enable rekurse search here)
 - regex enhance with examples (dropdown and help)
