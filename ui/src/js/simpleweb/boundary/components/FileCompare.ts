@@ -52,7 +52,7 @@ export class FileCompare extends LitElement {
     .file {
       overflow: auto;
       padding: 1rem;
-      font-family: 'Courier New', monospace;
+      font-family: 'JetBrains Mono', monospace;
       font-size: 0.85rem;
       line-height: 1.5;
     }
@@ -78,7 +78,7 @@ export class FileCompare extends LitElement {
     .unified {
       padding: 1rem;
       overflow: auto;
-      font-family: 'Courier New', monospace;
+      font-family: 'JetBrains Mono', monospace;
       white-space: pre;
     }
 

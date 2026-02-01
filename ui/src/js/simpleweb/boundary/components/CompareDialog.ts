@@ -123,7 +123,7 @@ export class CompareDialog extends LitElement {
     .compare-table td {
       padding: 0.5rem 0.75rem;
       color: #cbd5e1;
-      font-family: 'Courier New', monospace;
+      font-family: 'JetBrains Mono', monospace;
       font-size: 0.9rem;
     }
 
@@ -283,7 +283,7 @@ export class CompareDialog extends LitElement {
       background: #0f172a;
       border: 2px solid #475569;
       color: #fff;
-      font-family: 'Courier New', monospace;
+      font-family: 'JetBrains Mono', monospace;
       font-size: 0.9rem;
       border-radius: 4px;
       transition: border-color 0.2s;
@@ -854,7 +854,7 @@ export class CompareDialog extends LitElement {
                     style="width: 100%; padding: 0.75rem; background: #0f172a; border: 2px solid ${this
                       .regexFilter && !this.isValidRegex()
                       ? '#ef4444'
-                      : '#475569'}; color: #fff; font-family: 'Courier New', monospace; font-size: 1rem; border-radius: 4px; box-sizing: border-box;"
+                      : '#475569'}; color: #fff; font-family: 'JetBrains Mono', monospace; font-size: 1rem; border-radius: 4px; box-sizing: border-box;"
                   />
                   ${this.regexFilter && !this.isValidRegex()
                     ? html`<div

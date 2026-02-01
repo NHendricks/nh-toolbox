@@ -19,7 +19,7 @@ export class QuickLaunchDialog extends LitElement {
       background: #0f172a;
       border: 2px solid #475569;
       color: #fff;
-      font-family: 'Courier New', monospace;
+      font-family: 'JetBrains Mono', monospace;
       font-size: 1rem;
       border-radius: 4px;
       box-sizing: border-box;

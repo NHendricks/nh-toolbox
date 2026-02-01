@@ -7,7 +7,7 @@ import { css } from 'lit'
 export const commanderStyles = css`
   :host {
     display: block;
-    font-family: 'Courier New', monospace;
+    font-family: 'JetBrains Mono', monospace;
     color: #fff;
     background: #000;
     width: 100%;
@@ -226,7 +226,7 @@ export const commanderStyles = css`
     background: #0f172a;
     border: 2px solid #0ea5e9;
     color: #fff;
-    font-family: 'Courier New', monospace;
+    font-family: 'JetBrains Mono', monospace;
     font-size: 0.9rem;
     border-radius: 4px;
   }
@@ -364,7 +364,7 @@ export const commanderStyles = css`
     padding: 1rem;
     background: #0f172a;
     color: #e2e8f0;
-    font-family: 'Courier New', monospace;
+    font-family: 'JetBrains Mono', monospace;
     white-space: pre-wrap;
     word-wrap: break-word;
   }
@@ -423,7 +423,7 @@ export const commanderStyles = css`
   .help-key {
     color: #0ea5e9;
     font-weight: bold;
-    font-family: 'Courier New', monospace;
+    font-family: 'JetBrains Mono', monospace;
   }
 
   .help-description {
@@ -451,7 +451,7 @@ export const commanderStyles = css`
     background: #0f172a;
     border: 2px solid #475569;
     color: #fff;
-    font-family: 'Courier New', monospace;
+    font-family: 'JetBrains Mono', monospace;
     font-size: 1rem;
     border-radius: 4px;
   }

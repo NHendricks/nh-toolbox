@@ -59,7 +59,7 @@ export class SimpleDialog extends LitElement {
       padding: 1rem;
       background: #0f172a;
       color: #e2e8f0;
-      font-family: 'Courier New', monospace;
+      font-family: 'JetBrains Mono', monospace;
     }
 
     .dialog-footer {

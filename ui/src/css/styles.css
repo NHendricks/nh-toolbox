@@ -1,3 +1,10 @@
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('/assets/JetBrainsMono[wght].ttf') format('truetype');
+  font-weight: 100 800;
+  font-style: normal;
+}
+
 :root {
   /* set css variables globally and use them in your sites */
   --default-font-size: 5.5vw;
