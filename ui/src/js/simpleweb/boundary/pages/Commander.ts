@@ -175,6 +175,9 @@ export class Commander extends LitElement {
     loading: boolean
   } | null = null
 
+  @property({ type: Boolean })
+  showSettingsDialog = false
+
   async connectedCallback() {
     super.connectedCallback()
 
@@ -1791,6 +1794,25 @@ export class Commander extends LitElement {
     this.setStatus('Custom application removed', 'success')
   }
 
+  async openSettings() {
+    // Lazy load SettingsDialog
+    await import('./commander/dialogs/SettingsDialog.js')
+
+    // Open immediately for responsive UI
+    this.showSettingsDialog = true
+    this.requestUpdate()
+  }
+
+  closeSettings() {
+    this.showSettingsDialog = false
+  }
+
+  async handleExportSettings() {}
+
+  async handleImportSettings(file: File) {}
+
+  async handleClearAllSettings() {}
+
   formatFileSize(bytes: number): string {
     if (bytes === 0) return ''
     const sizes = ['B', 'KB', 'MB', 'GB']
@@ -1882,9 +1904,17 @@ export class Commander extends LitElement {
           <div
             class="function-key-top"
             @click=${() => this.openHelp()}
-            style="margin-left: auto; min-width: 80px;"
+            style="min-width: 80px;"
           >
             <span class="function-key-label">F1</span>
+          </div>
+          <div
+            class="function-key-top"
+            @click=${() => this.openSettings()}
+            style="margin-left: auto; min-width: 80px; margin-right: 0.5rem;"
+            title="Settings"
+          >
+            <span class="function-key-label">⚙️</span>
           </div>
         </div>
 
@@ -2053,6 +2083,15 @@ export class Commander extends LitElement {
               @remove-app=${(e: CustomEvent) =>
                 this.handleRemoveCustomApp(e.detail)}
             ></open-with-dialog>`
+          : ''}
+        ${this.showSettingsDialog
+          ? html`<settings-dialog
+              .open=${this.showSettingsDialog}
+              @close=${this.closeSettings}
+              @export=${this.handleExportSettings}
+              @import=${(e: CustomEvent) => this.handleImportSettings(e.detail)}
+              @clear-all=${this.handleClearAllSettings}
+            ></settings-dialog>`
           : ''}
       </div>
     `

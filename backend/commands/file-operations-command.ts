@@ -91,6 +91,8 @@ export class FileOperationsCommand implements ICommand {
           return await this.getFileAssociations(filePath);
         case 'open-with-app':
           return await this.openWithApp(filePath, params.applicationCommand);
+        case 'write-settings':
+          return await this.writeSettings(params.content);
         default:
           return {
             success: false,
@@ -2056,6 +2058,46 @@ export class FileOperationsCommand implements ICommand {
       };
 
     return commonApps[ext] || [];
+  }
+
+  /**
+   * Write settings to user home directory
+   */
+  private async writeSettings(content: string): Promise<any> {
+    if (!content) {
+      throw new Error('content is required for write-settings operation');
+    }
+
+    try {
+      const os = require('os');
+      const homeDir = os.homedir();
+      const settingsDir = path.join(homeDir, '.nh-toolbox');
+      const settingsPath = path.join(settingsDir, 'settings.json');
+
+      // Create directory if it doesn't exist
+      if (!fs.existsSync(settingsDir)) {
+        await mkdir(settingsDir, { recursive: true });
+      }
+
+      // Write settings file
+      fs.writeFileSync(settingsPath, content, 'utf-8');
+
+      return {
+        success: true,
+        operation: 'write-settings',
+        data: {
+          path: settingsPath,
+        },
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        operation: 'write-settings',
+        error: error.message,
+        timestamp: new Date().toISOString(),
+      };
+    }
   }
 
   /**

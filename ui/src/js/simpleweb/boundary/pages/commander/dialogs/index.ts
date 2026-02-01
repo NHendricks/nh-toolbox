@@ -10,3 +10,4 @@ export * from './QuickLaunchDialog.js'
 export * from './RenameDialog.js'
 export * from './ViewerDialog.js'
 export * from './ZipDialog.js'
+// SettingsDialog is lazy loaded
