@@ -1,10 +1,13 @@
 commander:
+- refactor commander.ts (very expensive action !!!)
 - regex enhance with examples (dropdown and help)
 - change filter behaviour in compare dialog (more intuitive)
 - drag and drop support for files and folders
 - support zips in zips
 - progress bar when opening zip
 - better font
+- new logo
+- find files by text or name (in ctrl+f dialog, enable rekurse search here)
 
 - how does file filter work on mac?
 - fonts / colors
