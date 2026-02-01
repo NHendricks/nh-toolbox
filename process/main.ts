@@ -205,7 +205,7 @@ ipcMain.handle('clipboard-read-text', () => {
   }
 });
 
-// File dialog IPC handler
+// File dialog IPC handlers
 ipcMain.handle('show-open-dialog', async (_event: any, options: any) => {
   try {
     const result = await dialog.showOpenDialog(options);
@@ -213,6 +213,18 @@ ipcMain.handle('show-open-dialog', async (_event: any, options: any) => {
       return { success: true, canceled: true };
     }
     return { success: true, canceled: false, filePaths: result.filePaths };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('show-save-dialog', async (_event: any, options: any) => {
+  try {
+    const result = await dialog.showSaveDialog(options);
+    if (result.canceled) {
+      return { success: true, canceled: true };
+    }
+    return { success: true, canceled: false, filePath: result.filePath };
   } catch (error: any) {
     return { success: false, error: error.message };
   }

@@ -10,6 +10,7 @@
 - add context menu using SHIFT+F10
 - add open with dialog for open with native installed apps
   - enable selecting individual apps also
+- export / import settings
 
 ### v1.5.0 (31.01.2026)
 

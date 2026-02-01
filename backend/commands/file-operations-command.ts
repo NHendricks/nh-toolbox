@@ -93,7 +93,7 @@ export class FileOperationsCommand implements ICommand {
         case 'open-with-app':
           return await this.openWithApp(filePath, params.applicationCommand);
         case 'write-settings':
-          return await this.writeSettings(params.content);
+          return await this.writeSettings(params.content, params.filePath);
         default:
           return {
             success: false,
@@ -2062,31 +2062,37 @@ export class FileOperationsCommand implements ICommand {
   }
 
   /**
-   * Write settings to user home directory
+   * Write settings - content and filePath will be provided by frontend after save dialog
    */
-  private async writeSettings(content: string): Promise<any> {
+  private async writeSettings(
+    content: string,
+    filePath?: string,
+  ): Promise<any> {
     if (!content) {
       throw new Error('content is required for write-settings operation');
     }
 
+    if (!filePath) {
+      throw new Error('filePath is required for write-settings operation');
+    }
+
     try {
-      const homeDir = os.homedir();
-      const settingsDir = path.join(homeDir, '.nh-toolbox');
-      const settingsPath = path.join(settingsDir, 'settings.json');
+      const absolutePath = path.resolve(filePath);
+      const dir = path.dirname(absolutePath);
 
       // Create directory if it doesn't exist
-      if (!fs.existsSync(settingsDir)) {
-        await mkdir(settingsDir, { recursive: true });
+      if (!fs.existsSync(dir)) {
+        await mkdir(dir, { recursive: true });
       }
 
       // Write settings file
-      fs.writeFileSync(settingsPath, content, 'utf-8');
+      fs.writeFileSync(absolutePath, content, 'utf-8');
 
       return {
         success: true,
         operation: 'write-settings',
         data: {
-          path: settingsPath,
+          path: absolutePath,
         },
         timestamp: new Date().toISOString(),
       };

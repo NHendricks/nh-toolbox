@@ -1809,6 +1809,23 @@ export class Commander extends LitElement {
 
   async handleExportSettings() {
     try {
+      // Show save dialog first
+      const saveDialogResponse = await (
+        window as any
+      ).electron.ipcRenderer.invoke('show-save-dialog', {
+        title: 'Export Settings',
+        defaultPath: 'nh-toolbox-settings.json',
+        filters: [{ name: 'JSON Files', extensions: ['json'] }],
+      })
+
+      // Check if user cancelled
+      if (saveDialogResponse.canceled || !saveDialogResponse.filePath) {
+        this.setStatus('Export cancelled', 'normal')
+        return
+      }
+
+      const filePath = saveDialogResponse.filePath
+
       // Safely parse custom applications
       let customApplications = {}
       try {
@@ -1845,13 +1862,14 @@ export class Commander extends LitElement {
 
       const jsonString = JSON.stringify(settings, null, 2)
 
-      // Use IPC to write file
+      // Use IPC to write file with the selected path
       const response = await (window as any).electron.ipcRenderer.invoke(
         'cli-execute',
         'file-operations',
         {
           operation: 'write-settings',
           content: jsonString,
+          filePath: filePath,
         },
       )
 

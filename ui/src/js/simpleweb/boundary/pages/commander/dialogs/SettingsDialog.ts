@@ -1,315 +1,258 @@
-import { LitElement, css, html } from 'lit'
+import { LitElement, html, css } from 'lit'
 import { property } from 'lit/decorators.js'
 
 export class SettingsDialog extends LitElement {
-  @property({ type: Boolean })
-  open = false
+  @property({ type: Boolean }) open = false
 
   static styles = css`
     .overlay {
       position: fixed;
       top: 0;
       left: 0;
-      right: 0;
-      bottom: 0;
+      width: 100%;
+      height: 100%;
       background: rgba(0, 0, 0, 0.7);
       display: flex;
-      align-items: center;
       justify-content: center;
+      align-items: center;
       z-index: 1000;
     }
 
     .dialog {
       background: #1e293b;
-      border: 2px solid #0ea5e9;
       border-radius: 8px;
       padding: 1.5rem;
-      min-width: 500px;
-      max-width: 600px;
-      max-height: 80vh;
-      color: white;
+      width: 90%;
+      max-width: 500px;
       box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
-      display: flex;
-      flex-direction: column;
+      color: white;
     }
 
     .dialog-header {
       display: flex;
+      justify-content: space-between;
       align-items: center;
-      gap: 0.5rem;
+      margin-bottom: 1.5rem;
       padding-bottom: 1rem;
-      border-bottom: 2px solid #334155;
-      flex-shrink: 0;
+      border-bottom: 1px solid #475569;
     }
 
     .dialog-title {
-      font-size: 1.1rem;
+      font-size: 1.25rem;
       font-weight: bold;
-      flex: 1;
-    }
-
-    .dialog-content {
-      overflow-y: auto;
-      overflow-x: hidden;
-      flex: 1;
-      padding-top: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
     }
 
     .close-button {
-      background: #475569;
+      background: none;
       border: none;
-      color: white;
-      padding: 0.5rem 1rem;
-      border-radius: 4px;
+      color: #94a3b8;
+      font-size: 1.5rem;
       cursor: pointer;
-      font-size: 1rem;
+      padding: 0;
+      width: 2rem;
+      height: 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 4px;
     }
 
     .close-button:hover {
-      background: #64748b;
+      background: #334155;
+      color: white;
+    }
+
+    .dialog-content {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
     }
 
     .section {
-      margin-bottom: 1.5rem;
       padding: 1rem;
-      background: #334155;
+      background: #0f172a;
       border-radius: 6px;
+      border: 1px solid #334155;
     }
 
     .section-title {
-      font-weight: bold;
+      font-weight: 600;
       margin-bottom: 0.75rem;
-      color: #0ea5e9;
-      font-size: 1rem;
+      color: #cbd5e1;
+      font-size: 0.95rem;
     }
 
     .section-description {
+      font-size: 0.85rem;
       color: #94a3b8;
-      font-size: 0.875rem;
       margin-bottom: 1rem;
-      line-height: 1.5;
+      line-height: 1.4;
     }
 
-    .button-group {
-      display: flex;
-      gap: 0.5rem;
-      flex-wrap: wrap;
-    }
-
-    .action-button {
-      background: #0ea5e9;
+    .button {
+      padding: 0.75rem 1rem;
+      border-radius: 6px;
       border: none;
-      color: white;
-      padding: 0.75rem 1.5rem;
-      border-radius: 4px;
+      font-size: 0.95rem;
       cursor: pointer;
-      font-size: 0.875rem;
+      transition: all 0.2s;
+      width: 100%;
       font-weight: 500;
-      transition: background 0.2s;
     }
 
-    .action-button:hover {
+    .button-primary {
+      background: #0ea5e9;
+      color: white;
+    }
+
+    .button-primary:hover {
       background: #0284c7;
     }
 
-    .action-button.danger {
-      background: #dc2626;
-    }
-
-    .action-button.danger:hover {
-      background: #b91c1c;
-    }
-
-    .action-button.secondary {
+    .button-secondary {
       background: #475569;
+      color: white;
     }
 
-    .action-button.secondary:hover {
+    .button-secondary:hover {
       background: #64748b;
+    }
+
+    .button-danger {
+      background: #dc2626;
+      color: white;
+    }
+
+    .button-danger:hover {
+      background: #b91c1c;
     }
 
     .file-input {
       display: none;
     }
 
-    .info-box {
-      background: #1e3a5f;
-      border-left: 4px solid #0ea5e9;
-      padding: 0.75rem;
-      margin-top: 1rem;
-      border-radius: 4px;
-      font-size: 0.875rem;
-      line-height: 1.5;
+    .file-input-label {
+      display: block;
+      padding: 0.75rem 1rem;
+      border-radius: 6px;
+      border: 2px dashed #475569;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      color: #cbd5e1;
+      background: #0f172a;
     }
 
-    .warning-box {
-      background: #7c2d12;
-      border-left: 4px solid #f97316;
-      padding: 0.75rem;
-      margin-top: 1rem;
-      border-radius: 4px;
-      font-size: 0.875rem;
-      line-height: 1.5;
-      color: #fed7aa;
+    .file-input-label:hover {
+      border-color: #0ea5e9;
+      background: #1e293b;
+      color: white;
     }
 
     .settings-list {
-      list-style: none;
-      padding: 0;
+      font-size: 0.85rem;
+      color: #94a3b8;
+      padding-left: 1.25rem;
       margin: 0.5rem 0;
-      font-size: 0.875rem;
-      color: #cbd5e1;
     }
 
     .settings-list li {
-      padding: 0.25rem 0;
-      padding-left: 1.25rem;
-      position: relative;
-    }
-
-    .settings-list li:before {
-      content: '✓';
-      position: absolute;
-      left: 0;
-      color: #0ea5e9;
-      font-weight: bold;
+      margin: 0.25rem 0;
     }
   `
 
-  private handleClose() {
-    this.dispatchEvent(new CustomEvent('close'))
-  }
-
-  private async handleExport() {
+  handleExport() {
     this.dispatchEvent(new CustomEvent('export'))
   }
 
-  private handleImportClick() {
+  handleImportClick() {
     const input = this.shadowRoot?.querySelector(
-      '#import-file-input',
+      '#import-input',
     ) as HTMLInputElement
     input?.click()
   }
 
-  private async handleFileSelected(event: Event) {
-    const input = event.target as HTMLInputElement
+  handleFileSelected(e: Event) {
+    const input = e.target as HTMLInputElement
     const file = input.files?.[0]
-
     if (file) {
-      this.dispatchEvent(
-        new CustomEvent('import', {
-          detail: file,
-        }),
-      )
+      this.dispatchEvent(new CustomEvent('import', { detail: file }))
+      // Reset input
+      input.value = ''
     }
-
-    // Reset input so same file can be selected again
-    input.value = ''
   }
 
-  private handleClearAll() {
+  handleClearAll() {
     if (
       confirm(
-        'Are you sure you want to clear ALL settings? This action cannot be undone.\n\nAll favorites, custom applications, and preferences will be reset.',
+        'Möchten Sie wirklich ALLE Einstellungen löschen?\n\nDies umfasst:\n- Favoriten\n- Eigene Anwendungen\n- Pfade\n- Sortiereinstellungen\n\nDieser Vorgang kann nicht rückgängig gemacht werden!',
       )
     ) {
       this.dispatchEvent(new CustomEvent('clear-all'))
     }
   }
 
+  handleClose() {
+    this.dispatchEvent(new CustomEvent('close'))
+  }
+
   render() {
-    if (!this.open) return null
+    if (!this.open) return html``
 
     return html`
       <div class="overlay" @click=${this.handleClose}>
         <div class="dialog" @click=${(e: Event) => e.stopPropagation()}>
           <div class="dialog-header">
-            <span class="dialog-title">⚙️ Settings Management</span>
-            <button class="close-button" @click=${this.handleClose}>
-              Close
-            </button>
+            <div class="dialog-title">⚙️ Einstellungen</div>
+            <button class="close-button" @click=${this.handleClose}>×</button>
           </div>
 
           <div class="dialog-content">
             <!-- Export Section -->
             <div class="section">
-              <div class="section-title">📤 Export Settings</div>
-              <div class="section-description">
-                Export all your personal settings to a JSON file. This includes:
-              </div>
-              <ul class="settings-list">
-                <li>Favorite paths</li>
-                <li>Custom application associations</li>
-                <li>Pane paths and sort preferences</li>
-              </ul>
-              <div class="button-group">
-                <button class="action-button" @click=${this.handleExport}>
-                  📥 Export to File
-                </button>
-              </div>
-              <div class="info-box">
-                💡 Exported settings can be imported on another machine or used
-                as a backup.
-              </div>
+              <div class="section-title">📤 export</div>
+              <div class="section-description"></div>
+              <button class="button button-primary" @click=${this.handleExport}>
+                export
+              </button>
             </div>
 
             <!-- Import Section -->
             <div class="section">
-              <div class="section-title">📥 Import Settings</div>
-              <div class="section-description">
-                Import settings from a previously exported JSON file. This will
-                merge with or replace your current settings.
-              </div>
-              <div class="button-group">
-                <button
-                  class="action-button secondary"
-                  @click=${this.handleImportClick}
-                >
-                  📂 Choose File to Import
-                </button>
-              </div>
+              <div class="section-title">📥 import</div>
               <input
                 type="file"
-                id="import-file-input"
+                id="import-input"
                 class="file-input"
                 accept=".json"
                 @change=${this.handleFileSelected}
               />
-              <div class="warning-box">
-                ⚠️ Importing will overwrite existing settings. Consider
-                exporting your current settings first as a backup.
-              </div>
+              <label
+                for="import-input"
+                class="file-input-label"
+                @click=${this.handleImportClick}
+              >
+                📁 import
+              </label>
             </div>
 
-            <!-- Clear Settings Section -->
+            <!-- Clear All Section -->
             <div class="section">
-              <div class="section-title">🗑️ Reset All Settings</div>
-              <div class="section-description">
-                Clear all saved settings and return to default configuration.
-              </div>
-              <div class="button-group">
-                <button
-                  class="action-button danger"
-                  @click=${this.handleClearAll}
-                >
-                  Clear All Settings
-                </button>
-              </div>
-              <div class="warning-box">
-                ⚠️ This action cannot be undone! All favorites, custom
-                applications, and preferences will be permanently deleted.
-              </div>
+              <div class="section-title">🗑️ remove all private settings</div>
+              <button
+                class="button button-danger"
+                @click=${this.handleClearAll}
+              >
+                back to default
+              </button>
             </div>
           </div>
         </div>
       </div>
     `
-  }
-}
-
-declare global {
-  interface HTMLElementTagNameMap {
-    'settings-dialog': SettingsDialog
   }
 }
 
