@@ -187,6 +187,14 @@ export class DriveSelectorDialog extends LitElement {
 
   private handleUncSubmit() {
     if (this.uncPath && this.uncPath.startsWith('\\\\')) {
+      // Automatically add network share to favorites
+      this.dispatchEvent(
+        new CustomEvent('add-to-favorites', {
+          detail: this.uncPath,
+        }),
+      )
+
+      // Navigate to the network share
       this.selectDrive(this.uncPath)
       this.showUncInput = false
       this.uncPath = ''
@@ -209,7 +217,9 @@ export class DriveSelectorDialog extends LitElement {
       <div class="dialog-overlay" @click=${this.close}>
         <div class="dialog" @click=${(e: Event) => e.stopPropagation()}>
           <div class="dialog-header">
-            <span class="dialog-title">💾 select drive, network & favorites</span>
+            <span class="dialog-title"
+              >💾 select drive, network & favorites</span
+            >
             <button class="dialog-close" @click=${this.close}>ESC</button>
           </div>
           <div class="drive-list">
@@ -218,7 +228,7 @@ export class DriveSelectorDialog extends LitElement {
                   <div
                     style="padding: 0.5rem 0; color: #fbbf24; font-weight: bold; border-bottom: 1px solid #475569;"
                   >
-                    ⭐ Favoriten
+                    ⭐ Favorites
                   </div>
                   ${this.favorites.map(
                     (favPath, index) => html`
@@ -261,17 +271,23 @@ export class DriveSelectorDialog extends LitElement {
                   (share) => html`
                     <div
                       class="drive-item"
-                      @click=${() =>
-                        this.selectDrive(share.remotePath)}
+                      @click=${() => this.selectDrive(share.remotePath)}
                     >
                       <span class="drive-icon">🌐</span>
                       <div class="drive-info">
                         <div class="drive-label">
-                          ${share.name ? `${share.name} → ` : ''}${share.remotePath.split('\\').pop()}
+                          ${share.name
+                            ? `${share.name} → `
+                            : ''}${share.remotePath.split('\\').pop()}
                         </div>
                         <div class="drive-path">${share.remotePath}</div>
                       </div>
-                      <span style="font-size: 0.75rem; color: ${share.status === 'OK' ? '#22c55e' : '#f59e0b'};">
+                      <span
+                        style="font-size: 0.75rem; color: ${share.status ===
+                        'OK'
+                          ? '#22c55e'
+                          : '#f59e0b'};"
+                      >
                         ${share.status}
                       </span>
                     </div>
@@ -286,12 +302,23 @@ export class DriveSelectorDialog extends LitElement {
                       class="unc-input"
                       placeholder="\\\\server\\share"
                       .value=${this.uncPath}
-                      @input=${(e: Event) => (this.uncPath = (e.target as HTMLInputElement).value)}
+                      @input=${(e: Event) =>
+                        (this.uncPath = (e.target as HTMLInputElement).value)}
                       @keydown=${this.handleUncKeydown}
                       autofocus
                     />
-                    <button class="btn-small btn-go" @click=${this.handleUncSubmit}>Go</button>
-                    <button class="btn-small btn-cancel" @click=${this.toggleUncInput}>Cancel</button>
+                    <button
+                      class="btn-small btn-go"
+                      @click=${this.handleUncSubmit}
+                    >
+                      Go
+                    </button>
+                    <button
+                      class="btn-small btn-cancel"
+                      @click=${this.toggleUncInput}
+                    >
+                      Cancel
+                    </button>
                   </div>
                 `
               : html`

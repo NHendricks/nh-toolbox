@@ -302,6 +302,14 @@ export class Commander extends LitElement {
     this.saveFavorites()
   }
 
+  addToFavorites(path: string) {
+    if (!this.favoritePaths.includes(path)) {
+      this.favoritePaths = [...this.favoritePaths, path]
+      this.saveFavorites()
+      this.setStatus(`Added to favorites: ${path}`, 'success')
+    }
+  }
+
   isFavorite(path: string): boolean {
     return this.favoritePaths.includes(path)
   }
@@ -2267,8 +2275,7 @@ export class Commander extends LitElement {
               .command=${this.quickLaunchDialog.command}
               .workingDir=${this.getActivePane().currentPath}
               @close=${this.cancelQuickLaunch}
-              @execute=${(e: CustomEvent) =>
-                this.executeQuickLaunch(e.detail)}
+              @execute=${(e: CustomEvent) => this.executeQuickLaunch(e.detail)}
             ></quick-launch-dialog>`
           : ''}
         ${this.renameDialog
@@ -2314,6 +2321,8 @@ export class Commander extends LitElement {
               @select=${(e: CustomEvent) => this.selectDrive(e.detail)}
               @toggle-favorite=${(e: CustomEvent) =>
                 this.toggleFavorite(e.detail)}
+              @add-to-favorites=${(e: CustomEvent) =>
+                this.addToFavorites(e.detail)}
             ></drive-selector-dialog>`
           : ''}
         ${this.showHelp
