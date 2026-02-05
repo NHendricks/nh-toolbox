@@ -39,14 +39,18 @@ function createTray() {
   }
 
   // Set tray icon path based on environment
+  // Use 16x16 icon for proper macOS menubar sizing
   let trayIconPath: string;
   if (isDev) {
-    trayIconPath = path.join(__dirname, '../../assets/icons/icon-tray.png');
+    trayIconPath = path.join(__dirname, '../../assets/icons/icon-16.png');
   } else {
-    trayIconPath = path.join(process.resourcesPath, 'icon-tray.png');
+    trayIconPath = path.join(process.resourcesPath, 'icon-16.png');
   }
 
   tray = new Tray(trayIconPath);
+
+  // Set the icon as a template image for proper Dark Mode support
+  tray.setImage(trayIconPath);
 
   const contextMenu = Menu.buildFromTemplate([
     {

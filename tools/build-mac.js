@@ -247,15 +247,15 @@ if (fs.existsSync(iconSource)) {
   console.log('   ⚠️  Custom icon not found at assets/icons/icon.icns');
 }
 
-// Copy tray icon
-const trayIconSource = path.join(rootDir, 'assets', 'icons', 'icon-tray.png');
-const trayIconDest = path.join(targetResourcesDir, 'icon-tray.png');
+// Copy tray icon (16x16 for proper macOS menubar sizing)
+const trayIconSource = path.join(rootDir, 'assets', 'icons', 'icon-16.png');
+const trayIconDest = path.join(targetResourcesDir, 'icon-16.png');
 
 if (fs.existsSync(trayIconSource)) {
   fs.copySync(trayIconSource, trayIconDest);
-  console.log('   ✅ Tray icon copied');
+  console.log('   ✅ Tray icon (16x16) copied');
 } else {
-  console.log('   ⚠️  Tray icon not found at assets/icons/icon-tray.png');
+  console.log('   ⚠️  Tray icon not found at assets/icons/icon-16.png');
 }
 
 // Step 9: Update Info.plist

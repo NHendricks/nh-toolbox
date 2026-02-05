@@ -288,6 +288,17 @@ export const commanderStyles = css`
     color: #fff;
   }
 
+  .function-key-label,
+  .function-key-action {
+    line-height: 1.2;
+  }
+
+  /* Emoji icon size control for toolbar buttons */
+  .function-key-top .function-key-label {
+    font-size: 0.9rem;
+    line-height: 1;
+  }
+
   .status-bar {
     background: #334155;
     padding: 0.5rem 1rem;
