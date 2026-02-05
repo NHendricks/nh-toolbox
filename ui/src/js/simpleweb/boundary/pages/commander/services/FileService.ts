@@ -2,7 +2,7 @@
  * FileService - Handles all IPC calls to the backend for file operations
  */
 
-import type { DriveInfo, FileItem } from '../commander.types.js'
+import type { DriveInfo, FileItem, NetworkShareInfo } from '../commander.types.js'
 
 export class FileService {
   /**
@@ -172,5 +172,50 @@ export class FileService {
     callback: (data: any) => void,
   ) {
     ;(window as any).electron.ipcRenderer.on(channel, callback)
+  }
+
+  /**
+   * Load connected network shares (Windows only)
+   */
+  static async loadNetworkShares(): Promise<{
+    success: boolean
+    shares?: NetworkShareInfo[]
+    error?: string
+  }> {
+    return (window as any).electron.ipcRenderer.invoke(
+      'cli-execute',
+      'file-operations',
+      { operation: 'network-shares' },
+    )
+  }
+
+  /**
+   * Load network computers (Windows only)
+   */
+  static async loadNetworkComputers(): Promise<{
+    success: boolean
+    computers?: string[]
+    error?: string
+  }> {
+    return (window as any).electron.ipcRenderer.invoke(
+      'cli-execute',
+      'file-operations',
+      { operation: 'network-computers' },
+    )
+  }
+
+  /**
+   * Browse shares on a specific computer (Windows only)
+   */
+  static async browseComputerShares(computerName: string): Promise<{
+    success: boolean
+    shares?: { name: string; type: string; remark: string }[]
+    error?: string
+  }> {
+    return (window as any).electron.ipcRenderer.invoke(
+      'cli-execute',
+      'file-operations',
+      { operation: 'browse-computer-shares', computerName },
+    )
   }
 }

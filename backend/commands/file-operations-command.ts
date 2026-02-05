@@ -94,6 +94,12 @@ export class FileOperationsCommand implements ICommand {
           return await this.openWithApp(filePath, params.applicationCommand);
         case 'write-settings':
           return await this.writeSettings(params.content, params.filePath);
+        case 'network-shares':
+          return await this.listNetworkShares();
+        case 'network-computers':
+          return await this.listNetworkComputers();
+        case 'browse-computer-shares':
+          return await this.browseComputerShares(params.computerName);
         default:
           return {
             success: false,
@@ -154,6 +160,171 @@ export class FileOperationsCommand implements ICommand {
       operation: 'drives',
       drives: drives,
     };
+  }
+
+  /**
+   * List connected network shares (Windows only)
+   * Uses 'net use' command to get mapped network drives
+   */
+  private async listNetworkShares(): Promise<any> {
+    if (process.platform !== 'win32') {
+      return { success: true, operation: 'network-shares', shares: [] };
+    }
+
+    try {
+      const { stdout } = await execPromise('net use', {
+        encoding: 'utf8',
+        timeout: 10000,
+      });
+
+      const shares: {
+        name: string;
+        remotePath: string;
+        status: string;
+      }[] = [];
+
+      // Parse net use output
+      // Format: Status       Local     Remote                    Network
+      //         OK           Z:        \\server\share            Microsoft Windows Network
+      const lines = stdout.split('\n');
+      for (const line of lines) {
+        // Match lines with network shares (starts with OK, Disconnected, etc.)
+        const match = line.match(
+          /^(OK|Disconnected|Unavailable)\s+([A-Z]:)?\s+(\\\\[^\s]+)/i,
+        );
+        if (match) {
+          shares.push({
+            status: match[1],
+            name: match[2] || '', // Drive letter if mapped
+            remotePath: match[3], // UNC path
+          });
+        }
+      }
+
+      return {
+        success: true,
+        operation: 'network-shares',
+        shares,
+      };
+    } catch (error: any) {
+      // net use might fail if no shares are connected
+      return {
+        success: true,
+        operation: 'network-shares',
+        shares: [],
+      };
+    }
+  }
+
+  /**
+   * List computers visible on the network (Windows only)
+   * Uses 'net view' command - can be slow on large networks
+   */
+  private async listNetworkComputers(): Promise<any> {
+    if (process.platform !== 'win32') {
+      return { success: true, operation: 'network-computers', computers: [] };
+    }
+
+    try {
+      const { stdout } = await execPromise('net view', {
+        encoding: 'utf8',
+        timeout: 30000, // Network discovery can be slow
+      });
+
+      const computers: string[] = [];
+
+      // Parse net view output
+      // Format: \\COMPUTERNAME  Remark
+      const lines = stdout.split('\n');
+      for (const line of lines) {
+        const match = line.match(/^\\\\([^\s]+)/);
+        if (match) {
+          computers.push(match[1]);
+        }
+      }
+
+      return {
+        success: true,
+        operation: 'network-computers',
+        computers,
+      };
+    } catch (error: any) {
+      // net view might fail if no network is available
+      return {
+        success: true,
+        operation: 'network-computers',
+        computers: [],
+        error: error.message,
+      };
+    }
+  }
+
+  /**
+   * Browse shares on a specific computer (Windows only)
+   * Uses 'net view \\computername' command
+   */
+  private async browseComputerShares(computerName: string): Promise<any> {
+    if (process.platform !== 'win32') {
+      return { success: true, operation: 'browse-computer-shares', shares: [] };
+    }
+
+    if (!computerName) {
+      return {
+        success: false,
+        error: 'computerName is required',
+      };
+    }
+
+    try {
+      // Ensure computer name has proper format
+      const computer = computerName.replace(/^\\\\/, '');
+      const { stdout } = await execPromise(`net view \\\\${computer}`, {
+        encoding: 'utf8',
+        timeout: 15000,
+      });
+
+      const shares: { name: string; type: string; remark: string }[] = [];
+
+      // Parse net view \\computer output
+      // Format: Share name      Type         Used as  Comment
+      //         Documents       Disk
+      //         Printers        Print
+      const lines = stdout.split('\n');
+      let inShareList = false;
+
+      for (const line of lines) {
+        // Start parsing after the header line (contains dashes)
+        if (line.match(/^-+/)) {
+          inShareList = true;
+          continue;
+        }
+        if (inShareList && line.trim()) {
+          // Parse share line: name, type, optional remark
+          const match = line.match(/^([^\s]+)\s+(Disk|Print|IPC)\s*(.*)?$/i);
+          if (match) {
+            shares.push({
+              name: match[1],
+              type: match[2],
+              remark: (match[3] || '').trim(),
+            });
+          }
+        }
+      }
+
+      return {
+        success: true,
+        operation: 'browse-computer-shares',
+        computerName: computer,
+        shares,
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        operation: 'browse-computer-shares',
+        shares: [],
+        error: error.message,
+      };
+    }
   }
 
   /**

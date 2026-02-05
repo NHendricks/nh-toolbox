@@ -77,3 +77,9 @@ export interface DriveInfo {
   path: string
   label: string
 }
+
+export interface NetworkShareInfo {
+  name: string // Drive letter if mapped (e.g., "Z:")
+  remotePath: string // UNC path (e.g., "\\server\share")
+  status: string // "OK", "Disconnected", etc.
+}

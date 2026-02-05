@@ -1,6 +1,8 @@
 import { LitElement, css, html } from 'lit'
 import { customElement, property } from 'lit/decorators.js'
 
+import type { NetworkShareInfo } from '../commander.types.js'
+
 @customElement('drive-selector-dialog')
 export class DriveSelectorDialog extends LitElement {
   static styles = css`
@@ -95,12 +97,74 @@ export class DriveSelectorDialog extends LitElement {
       cursor: pointer;
       font-weight: bold;
     }
+    .section-header {
+      padding: 0.5rem 0;
+      color: #fbbf24;
+      font-weight: bold;
+      border-bottom: 1px solid #475569;
+      margin-top: 0.5rem;
+    }
+    .unc-input-container {
+      display: flex;
+      gap: 0.5rem;
+      padding: 0.5rem;
+      background: #0f172a;
+      border-radius: 4px;
+      margin: 0.5rem;
+    }
+    .unc-input {
+      flex: 1;
+      padding: 0.5rem;
+      background: #1e293b;
+      border: 1px solid #475569;
+      border-radius: 4px;
+      color: #e2e8f0;
+      font-family: monospace;
+    }
+    .unc-input:focus {
+      outline: none;
+      border-color: #0ea5e9;
+    }
+    .btn-small {
+      padding: 0.5rem 1rem;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    .btn-go {
+      background: #059669;
+      color: #fff;
+    }
+    .btn-cancel {
+      background: #475569;
+      color: #fff;
+    }
+    .btn-add-network {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 1rem;
+      margin: 0.5rem;
+      background: #1e3a5f;
+      border: 1px dashed #0ea5e9;
+      border-radius: 4px;
+      color: #0ea5e9;
+      cursor: pointer;
+      font-size: 0.9rem;
+    }
+    .btn-add-network:hover {
+      background: #1e4976;
+    }
   `
 
   @property({ type: Array }) drives: any[] = []
   @property({ type: Array }) favorites: string[] = []
   @property({ type: String }) currentPath = ''
   @property({ type: Number }) focusedIndex = 0
+  @property({ type: Array }) networkShares: NetworkShareInfo[] = []
+  @property({ type: Boolean }) showUncInput = false
+  @property({ type: String }) uncPath = ''
 
   private close() {
     this.dispatchEvent(new CustomEvent('close'))
@@ -116,6 +180,28 @@ export class DriveSelectorDialog extends LitElement {
     return this.favorites.includes(path)
   }
 
+  private toggleUncInput() {
+    this.showUncInput = !this.showUncInput
+    this.uncPath = ''
+  }
+
+  private handleUncSubmit() {
+    if (this.uncPath && this.uncPath.startsWith('\\\\')) {
+      this.selectDrive(this.uncPath)
+      this.showUncInput = false
+      this.uncPath = ''
+    }
+  }
+
+  private handleUncKeydown(e: KeyboardEvent) {
+    if (e.key === 'Enter') {
+      this.handleUncSubmit()
+    } else if (e.key === 'Escape') {
+      this.showUncInput = false
+      this.uncPath = ''
+    }
+  }
+
   render() {
     const isCurrentFavorite = this.isFavorite(this.currentPath)
 
@@ -123,7 +209,7 @@ export class DriveSelectorDialog extends LitElement {
       <div class="dialog-overlay" @click=${this.close}>
         <div class="dialog" @click=${(e: Event) => e.stopPropagation()}>
           <div class="dialog-header">
-            <span class="dialog-title">💾 select drive & manage favorites</span>
+            <span class="dialog-title">💾 select drive, network & favorites</span>
             <button class="dialog-close" @click=${this.close}>ESC</button>
           </div>
           <div class="drive-list">
@@ -166,13 +252,55 @@ export class DriveSelectorDialog extends LitElement {
                       </div>
                     `,
                   )}
-                  <div
-                    style="padding: 0.5rem 0; color: #fbbf24; font-weight: bold; border-bottom: 1px solid #475569; margin-top: 0.5rem;"
-                  >
-                    💾 drives
-                  </div>
                 `
               : ''}
+            <!-- Network Shares Section -->
+            <div class="section-header">🌐 Network</div>
+            ${this.networkShares.length > 0
+              ? this.networkShares.map(
+                  (share) => html`
+                    <div
+                      class="drive-item"
+                      @click=${() =>
+                        this.selectDrive(share.remotePath)}
+                    >
+                      <span class="drive-icon">🌐</span>
+                      <div class="drive-info">
+                        <div class="drive-label">
+                          ${share.name ? `${share.name} → ` : ''}${share.remotePath.split('\\').pop()}
+                        </div>
+                        <div class="drive-path">${share.remotePath}</div>
+                      </div>
+                      <span style="font-size: 0.75rem; color: ${share.status === 'OK' ? '#22c55e' : '#f59e0b'};">
+                        ${share.status}
+                      </span>
+                    </div>
+                  `,
+                )
+              : ''}
+            ${this.showUncInput
+              ? html`
+                  <div class="unc-input-container">
+                    <input
+                      type="text"
+                      class="unc-input"
+                      placeholder="\\\\server\\share"
+                      .value=${this.uncPath}
+                      @input=${(e: Event) => (this.uncPath = (e.target as HTMLInputElement).value)}
+                      @keydown=${this.handleUncKeydown}
+                      autofocus
+                    />
+                    <button class="btn-small btn-go" @click=${this.handleUncSubmit}>Go</button>
+                    <button class="btn-small btn-cancel" @click=${this.toggleUncInput}>Cancel</button>
+                  </div>
+                `
+              : html`
+                  <button class="btn-add-network" @click=${this.toggleUncInput}>
+                    + Add Network Path
+                  </button>
+                `}
+            <!-- Drives Section -->
+            <div class="section-header">💾 Drives</div>
             ${this.drives.map(
               (drive, index) => html`
                 <div

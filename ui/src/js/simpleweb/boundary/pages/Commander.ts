@@ -84,6 +84,9 @@ export class Commander extends LitElement {
   availableDrives: any[] = []
 
   @property({ type: Array })
+  availableNetworkShares: any[] = []
+
+  @property({ type: Array })
   favoritePaths: string[] = []
 
   @property({ type: Boolean })
@@ -287,6 +290,23 @@ export class Commander extends LitElement {
       }
     } catch (error: any) {
       console.error('Failed to load drives:', error)
+    }
+
+    // Also load network shares (Windows only)
+    this.loadNetworkShares()
+  }
+
+  async loadNetworkShares() {
+    try {
+      const response = await (
+        await import('./commander/services/FileService.js')
+      ).FileService.loadNetworkShares()
+
+      if (response.success && response.shares) {
+        this.availableNetworkShares = response.shares
+      }
+    } catch (error: any) {
+      console.error('Failed to load network shares:', error)
     }
   }
 
@@ -2210,6 +2230,7 @@ export class Commander extends LitElement {
         ${this.showDriveSelector
           ? html`<drive-selector-dialog
               .drives=${this.availableDrives}
+              .networkShares=${this.availableNetworkShares}
               .favorites=${this.favoritePaths}
               .currentPath=${this.getActivePane().currentPath}
               .focusedIndex=${this.driveSelectorFocusedIndex}
