@@ -41,11 +41,6 @@ jobs:
         env:
           npm_config_arch: ${{ matrix.arch }}
           ELECTRON_ARCH: ${{ matrix.arch }}
-      - name: Sign Mac App
-        if: matrix.os == 'macos-latest'
-        run: |
-          echo "Signing nh-toolbox.app"
-          codesign --force --deep --sign - target/dist/nh-toolbox.app
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4

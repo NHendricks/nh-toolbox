@@ -1,4 +1,5 @@
 import archiver from 'archiver';
+import { execSync } from 'child_process';
 import fs from 'fs-extra';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -296,6 +297,17 @@ if (fs.existsSync(infoPlistPath)) {
   console.log('   ✅ Info.plist updated with icon reference');
 } else {
   console.log('   ⚠️  Info.plist not found!');
+}
+// Step 9.5: Codesign the app
+console.log('\n🔏 Step 9.5: Signing nh-toolbox.app...');
+
+try {
+  execSync(`codesign --force --deep --sign - "${nhToolsAppPath}"`, {
+    stdio: 'inherit',
+  });
+  console.log('   ✅ nh-toolbox.app signed successfully');
+} catch (err) {
+  console.log(`   ❌ Failed to sign nh-toolbox.app: ${err.message}`);
 }
 
 // Step 10: Create ZIP archive
