@@ -17,6 +17,10 @@ jobs:
           - os: windows-latest
             build-script: buildWindowsApp
           - os: macos-latest
+            arch: arm64
+            build-script: buildMacApp
+          - os: macos-latest
+            arch: x64
             build-script: buildMacApp
 
     steps:
