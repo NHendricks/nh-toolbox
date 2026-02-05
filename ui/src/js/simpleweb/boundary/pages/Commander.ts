@@ -1075,13 +1075,21 @@ export class Commander extends LitElement {
       )
       console.log('[UI] Calling FileService.getDirectorySize with:', item.path)
       const response = await FileService.getDirectorySize(item.path)
-      console.log('[UI] Response:', response)
+      console.log('[UI] Full response:', JSON.stringify(response, null, 2))
 
       if (response.success && response.data) {
-        const data = response.data
-        const sizeStr = this.formatFileSize(data.totalSize || 0)
-        const fileCount = data.fileCount || 0
-        const dirCount = data.directoryCount || 0
+        // IPC bridge wraps backend response in 'data' property
+        const totalSize = response.data.totalSize ?? 0
+        const fileCount = response.data.fileCount ?? 0
+        const dirCount = response.data.directoryCount ?? 0
+
+        console.log('[UI] Extracted values:', {
+          totalSize,
+          fileCount,
+          dirCount,
+        })
+
+        const sizeStr = this.formatFileSize(totalSize)
         console.log('[UI] Setting status:', sizeStr, fileCount, dirCount)
         this.setStatus(
           `${item.name}: ${sizeStr} (${fileCount} files, ${dirCount} folders)`,

@@ -2,7 +2,11 @@
  * FileService - Handles all IPC calls to the backend for file operations
  */
 
-import type { DriveInfo, FileItem, NetworkShareInfo } from '../commander.types.js'
+import type {
+  DriveInfo,
+  FileItem,
+  NetworkShareInfo,
+} from '../commander.types.js'
 
 export class FileService {
   /**
@@ -228,10 +232,12 @@ export class FileService {
    */
   static async getDirectorySize(dirPath: string): Promise<{
     success: boolean
-    path?: string
-    totalSize?: number
-    fileCount?: number
-    directoryCount?: number
+    data?: {
+      path?: string
+      totalSize?: number
+      fileCount?: number
+      directoryCount?: number
+    }
     error?: string
   }> {
     return (window as any).electron.ipcRenderer.invoke(
