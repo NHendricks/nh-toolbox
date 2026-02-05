@@ -2523,14 +2523,38 @@ export class FileOperationsCommand implements ICommand {
     }
 
     try {
-      // Replace %1 or "%1" with the actual file path (quoted)
-      let command = applicationCommand
-        .replace(/"%1"/g, `"${absolutePath}"`)
-        .replace(/%1/g, `"${absolutePath}"`);
+      let command: string;
 
-      // If no %1 placeholder, append the file path
-      if (!applicationCommand.includes('%1')) {
-        command = `${command} "${absolutePath}"`;
+      // macOS: Use 'open -a' command for .app bundles
+      if (process.platform === 'darwin') {
+        // Extract the app path from the command
+        // Command format from frontend: "/Applications/TextEdit.app" "%1"
+        const appPathMatch = applicationCommand.match(/^"?([^"]+\.app)"?/);
+
+        if (appPathMatch) {
+          const appPath = appPathMatch[1];
+          // Use 'open -a' to launch the app with the file
+          command = `open -a "${appPath}" "${absolutePath}"`;
+        } else {
+          // Fallback: try to execute directly (might not work for .app)
+          command = applicationCommand
+            .replace(/"%1"/g, `"${absolutePath}"`)
+            .replace(/%1/g, `"${absolutePath}"`);
+
+          if (!applicationCommand.includes('%1')) {
+            command = `${command} "${absolutePath}"`;
+          }
+        }
+      } else {
+        // Windows/Linux: Replace %1 or "%1" with the actual file path (quoted)
+        command = applicationCommand
+          .replace(/"%1"/g, `"${absolutePath}"`)
+          .replace(/%1/g, `"${absolutePath}"`);
+
+        // If no %1 placeholder, append the file path
+        if (!applicationCommand.includes('%1')) {
+          command = `${command} "${absolutePath}"`;
+        }
       }
 
       console.log(`[OpenWithApp] Executing: ${command}`);
@@ -2538,7 +2562,7 @@ export class FileOperationsCommand implements ICommand {
       // Execute the command
       await execPromise(command, {
         timeout: 5000,
-        windowsHide: true,
+        windowsHide: process.platform === 'win32',
       });
 
       return {
