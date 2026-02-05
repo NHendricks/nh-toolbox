@@ -344,62 +344,70 @@ export class KeyboardHandler {
 
   /**
    * Handle standard keys (function keys, arrows, etc.)
+   * Uses event.code for F-keys to work properly on macOS
    */
   private handleStandardKeys(event: KeyboardEvent): void {
-    switch (event.key) {
-      // Function keys
-      case 'F1':
-        event.preventDefault()
-        this.commander.openHelp()
-        break
+    // Use event.code for function keys to work on macOS (with Fn key)
+    const code = event.code
+    const key = event.key
 
-      case 'F2':
-        event.preventDefault()
-        this.commander.handleF2()
-        break
+    // Handle function keys using event.code (works with Fn on Mac)
+    if (code.startsWith('F') && code.match(/^F\d+$/)) {
+      event.preventDefault()
 
-      case 'F3':
-        event.preventDefault()
-        this.commander.handleF3()
-        break
+      switch (code) {
+        case 'F1':
+          this.commander.openHelp()
+          return
 
-      case 'F5':
-        event.preventDefault()
-        this.commander.handleF5()
-        break
+        case 'F2':
+          this.commander.handleF2()
+          return
 
-      case 'F6':
-        event.preventDefault()
-        this.commander.handleF6()
-        break
+        case 'F3':
+          this.commander.handleF3()
+          return
 
-      case 'F8':
-      case 'Delete':
-        event.preventDefault()
-        this.commander.handleF8()
-        break
+        case 'F5':
+          this.commander.handleF5()
+          return
 
-      case 'F9':
-        event.preventDefault()
-        this.commander.handleF9()
-        break
+        case 'F6':
+          this.commander.handleF6()
+          return
 
-      case 'F10':
-        // SHIFT + F10 opens context menu
-        if (event.shiftKey) {
-          event.preventDefault()
-          this.commander.openContextMenu()
-        } else {
-          event.preventDefault()
-          this.commander.handleF10()
-        }
-        break
+        case 'F8':
+          this.commander.handleF8()
+          return
 
-      case 'F12':
-        event.preventDefault()
-        this.commander.handleF12()
-        break
+        case 'F9':
+          this.commander.handleF9()
+          return
 
+        case 'F10':
+          // SHIFT + F10 opens context menu
+          if (event.shiftKey) {
+            this.commander.openContextMenu()
+          } else {
+            this.commander.handleF10()
+          }
+          return
+
+        case 'F12':
+          this.commander.handleF12()
+          return
+      }
+    }
+
+    // Handle Delete key separately (not a function key)
+    if (key === 'Delete') {
+      event.preventDefault()
+      this.commander.handleF8()
+      return
+    }
+
+    // Handle other standard keys using event.key
+    switch (key) {
       // Enter key
       case 'Enter':
         // Don't handle Enter if certain dialogs are open (they handle it themselves)
