@@ -1,11 +1,8 @@
 commander:
-- drive list: add smb-share for windows
-- find files by text or name (in ctrl+f dialog, enable rekurse search here)
+- show size of directory with all recurse files when clicking Ctrl+s 
 - regex enhance with examples (dropdown and help)
-- change filter behaviour in compare dialog (more intuitive)
-- new logo
-- warn for overwrite
-- support \\paths (Windows only) ? Or better map to drive … .
+- find files by text or name (in ctrl+f dialog, enable recurse search here)
+- new logo (retry with thinner letters and move letter 5% down)
 
 other:
 - rename appname in github-action-build 

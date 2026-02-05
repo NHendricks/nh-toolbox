@@ -337,19 +337,19 @@ export class CompareDialog extends LitElement {
   } | null = null
 
   @property({ type: Boolean })
-  hideIdentical = false
+  hideIdentical = true
 
   @property({ type: Boolean })
   hideDirectories = false
 
   @property({ type: Boolean })
-  showOnlyLeft = false
+  showLeft = true
 
   @property({ type: Boolean })
-  showOnlyRight = false
+  showRight = true
 
   @property({ type: Boolean })
-  showOnlyDifferent = false
+  showDifferent = true
 
   @property({ type: String })
   regexFilter = ''
@@ -405,7 +405,7 @@ export class CompareDialog extends LitElement {
 
     this.result.onlyInLeft.forEach((item: any) => {
       if (this.hideDirectories && item.isDirectory) return
-      if (this.showOnlyRight || this.showOnlyDifferent) return
+      if (!this.showLeft) return
       if (!this.matchesRegexFilter(item.path)) return
       items.push({
         name: item.path,
@@ -419,7 +419,7 @@ export class CompareDialog extends LitElement {
 
     this.result.onlyInRight.forEach((item: any) => {
       if (this.hideDirectories && item.isDirectory) return
-      if (this.showOnlyLeft || this.showOnlyDifferent) return
+      if (!this.showRight) return
       if (!this.matchesRegexFilter(item.path)) return
       items.push({
         name: item.path,
@@ -437,7 +437,7 @@ export class CompareDialog extends LitElement {
         (item.leftIsDirectory || item.rightIsDirectory)
       )
         return
-      if (this.showOnlyLeft || this.showOnlyRight) return
+      if (!this.showDifferent) return
       if (!this.matchesRegexFilter(item.path)) return
       items.push({
         name: item.path,
@@ -463,8 +463,6 @@ export class CompareDialog extends LitElement {
     if (!this.hideIdentical) {
       this.result.identical.forEach((item: any) => {
         if (this.hideDirectories && item.isDirectory) return
-        if (this.showOnlyLeft || this.showOnlyRight || this.showOnlyDifferent)
-          return
         if (!this.matchesRegexFilter(item.path)) return
         items.push({
           name: item.path,
@@ -617,38 +615,38 @@ export class CompareDialog extends LitElement {
               📁
             </label>
 
-            <label class=${this.showOnlyLeft ? 'active' : ''} title="Left only">
+            <label class=${this.showLeft ? 'active' : ''} title="Show left only">
               <input
                 type="checkbox"
-                .checked=${this.showOnlyLeft}
+                .checked=${this.showLeft}
                 @change=${(e: Event) =>
-                  (this.showOnlyLeft = (e.target as HTMLInputElement).checked)}
+                  (this.showLeft = (e.target as HTMLInputElement).checked)}
               />
               ⬅
             </label>
 
             <label
-              class=${this.showOnlyRight ? 'active' : ''}
-              title="Right only"
+              class=${this.showRight ? 'active' : ''}
+              title="Show right only"
             >
               <input
                 type="checkbox"
-                .checked=${this.showOnlyRight}
+                .checked=${this.showRight}
                 @change=${(e: Event) =>
-                  (this.showOnlyRight = (e.target as HTMLInputElement).checked)}
+                  (this.showRight = (e.target as HTMLInputElement).checked)}
               />
               ➡
             </label>
 
             <label
-              class=${this.showOnlyDifferent ? 'active' : ''}
-              title="Different only"
+              class=${this.showDifferent ? 'active' : ''}
+              title="Show different"
             >
               <input
                 type="checkbox"
-                .checked=${this.showOnlyDifferent}
+                .checked=${this.showDifferent}
                 @change=${(e: Event) =>
-                  (this.showOnlyDifferent = (
+                  (this.showDifferent = (
                     e.target as HTMLInputElement
                   ).checked)}
               />
