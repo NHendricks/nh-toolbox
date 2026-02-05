@@ -330,6 +330,88 @@ export class FileOperationsCommand implements ICommand {
   }
 
   /**
+   * Mount a network share on macOS and return the mount point
+   * Converts \\computer\share to smb://computer/share and mounts it
+   */
+  private async mountNetworkShareOnMac(uncPath: string): Promise<{
+    success: boolean;
+    mountPoint?: string;
+    error?: string;
+  }> {
+    try {
+      // Convert UNC path to SMB URL
+      // \\computer\share\subfolder -> smb://computer/share/subfolder
+      const cleanPath = uncPath.replace(/^\\\\/, '').replace(/\\/g, '/');
+      const pathParts = cleanPath.split('/');
+
+      if (pathParts.length < 2) {
+        return {
+          success: false,
+          error: 'Invalid UNC path format. Expected: \\\\computer\\share',
+        };
+      }
+
+      const computer = pathParts[0];
+      const share = pathParts[1];
+      const subPath = pathParts.slice(2).join('/');
+
+      // SMB URL for mounting
+      const smbUrl = `smb://${computer}/${share}`;
+
+      // Mount point will be at /Volumes/share
+      const mountPoint = `/Volumes/${share}`;
+      const fullPath = subPath ? `${mountPoint}/${subPath}` : mountPoint;
+
+      // Check if already mounted
+      if (fs.existsSync(mountPoint)) {
+        console.log(`[Mac] Share already mounted at: ${mountPoint}`);
+        return {
+          success: true,
+          mountPoint: fullPath,
+        };
+      }
+
+      console.log(`[Mac] Mounting ${smbUrl} to ${mountPoint}`);
+
+      // Use 'open' command to mount the share (prompts for credentials if needed)
+      // This is user-friendly as it uses Finder's mount dialog
+      try {
+        await execPromise(`open "${smbUrl}"`, {
+          timeout: 10000,
+        });
+
+        // Wait a bit for the mount to complete
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+
+        // Check if mount succeeded
+        if (fs.existsSync(mountPoint)) {
+          console.log(`[Mac] Successfully mounted at: ${mountPoint}`);
+          return {
+            success: true,
+            mountPoint: fullPath,
+          };
+        } else {
+          return {
+            success: false,
+            error: 'Mount point not found after mounting attempt',
+          };
+        }
+      } catch (error: any) {
+        console.error(`[Mac] Mount error:`, error);
+        return {
+          success: false,
+          error: `Failed to mount: ${error.message}`,
+        };
+      }
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+  }
+
+  /**
    * Get total size of a directory including all files recursively
    */
   private async getDirectorySize(dirPath: string): Promise<any> {
@@ -438,6 +520,19 @@ export class FileOperationsCommand implements ICommand {
   private async listFiles(folderPath: string): Promise<any> {
     if (!folderPath) {
       throw new Error('folderPath is required for list operation');
+    }
+
+    // On macOS, handle UNC paths (\\computer\share) by mounting them
+    if (process.platform === 'darwin' && folderPath.startsWith('\\\\')) {
+      const mountResult = await this.mountNetworkShareOnMac(folderPath);
+      if (mountResult.success && mountResult.mountPoint) {
+        // Use the mount point instead of the UNC path
+        folderPath = mountResult.mountPoint;
+      } else {
+        throw new Error(
+          `Failed to mount network share: ${mountResult.error || 'Unknown error'}`,
+        );
+      }
     }
 
     // Import ZipHelper dynamically to avoid circular dependencies
