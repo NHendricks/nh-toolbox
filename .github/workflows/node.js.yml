@@ -15,6 +15,7 @@ jobs:
       matrix:
         include:
           - os: windows-latest
+            arch: x64
             build-script: buildWindowsApp
           - os: macos-latest
             arch: arm64
@@ -34,7 +35,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci --arch=${{ matrix.arch }}
+        run: npm ci
         env:
           npm_config_arch: ${{ matrix.arch }}
           ELECTRON_ARCH: ${{ matrix.arch }}
@@ -43,6 +44,7 @@ jobs:
         env:
           npm_config_arch: ${{ matrix.arch }}
           ELECTRON_ARCH: ${{ matrix.arch }}
+
 
       # Optional: upload build artifacts
       - name: Upload build artifacts

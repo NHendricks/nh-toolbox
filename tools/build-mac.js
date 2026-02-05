@@ -298,10 +298,12 @@ if (fs.existsSync(infoPlistPath)) {
   console.log('   ⚠️  Info.plist not found!');
 }
 
-// Step 8: Create ZIP archive
+// Step 10: Create ZIP archive
 const distDir = path.join(rootDir, 'target', 'dist');
-const zipPath = path.join(distDir, 'nh-toolbox-mac.zip'); // rename per OS if needed
-console.log('\n🗜️  Step 8: Creating ZIP archive...');
+
+const arch = process.env.ELECTRON_ARCH || process.arch;
+const zipPath = path.join(distDir, `nh-toolbox-mac-${arch}.zip`);
+console.log('\n🗜️  Step 10: Creating ZIP archive...');
 
 // Ensure dist directory exists
 fs.mkdirSync(distDir, { recursive: true });
@@ -326,7 +328,7 @@ console.log(
   `   ✅ ZIP created: ${zipPath} (${(zipSize / 1024 / 1024).toFixed(2)} MB)`,
 );
 
-// Step 10: Summary
+// Step 11: Summary
 console.log('\n✅ Build completed successfully!\n');
 console.log('🗜️  ZIP archive:', zipPath);
 console.log('📂 Output directory:', outputDir);
