@@ -269,14 +269,33 @@ export class KeyboardHandler {
   }
 
   /**
-   * Handle Alt/Meta key combinations
+   * Handle Alt/Meta/Ctrl key combinations
    */
   private handleModifierKeys(event: KeyboardEvent): boolean {
     if (event.altKey || event.metaKey) {
       return this.handleAltMetaKeys(event)
     }
 
+    if (event.ctrlKey) {
+      return this.handleCtrlKeys(event)
+    }
+
     return false
+  }
+
+  /**
+   * Handle Ctrl + key combinations
+   */
+  private handleCtrlKeys(event: KeyboardEvent): boolean {
+    switch (event.key.toLowerCase()) {
+      case 's':
+        event.preventDefault()
+        this.commander.showDirectorySize()
+        return true
+
+      default:
+        return false
+    }
   }
 
   /**

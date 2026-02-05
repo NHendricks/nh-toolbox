@@ -1012,6 +1012,55 @@ export class Commander extends LitElement {
     }
   }
 
+  async showDirectorySize() {
+    const pane = this.getActivePane()
+    const item = pane.items[pane.focusedIndex]
+    console.log('[UI] showDirectorySize called, item:', item)
+
+    if (!item) {
+      this.setStatus('No item selected', 'error')
+      return
+    }
+
+    console.log('[UI] item.isDirectory:', item.isDirectory)
+    if (!item.isDirectory) {
+      // For files, just show the file size
+      this.setStatus(
+        `${item.name}: ${this.formatFileSize(item.size)}`,
+        'success',
+      )
+      return
+    }
+
+    try {
+      this.setStatus(`Calculating size of "${item.name}"...`, 'normal')
+
+      const { FileService } = await import(
+        './commander/services/FileService.js'
+      )
+      console.log('[UI] Calling FileService.getDirectorySize with:', item.path)
+      const response = await FileService.getDirectorySize(item.path)
+      console.log('[UI] Response:', response)
+
+      if (response.success && response.data) {
+        const data = response.data
+        const sizeStr = this.formatFileSize(data.totalSize || 0)
+        const fileCount = data.fileCount || 0
+        const dirCount = data.directoryCount || 0
+        console.log('[UI] Setting status:', sizeStr, fileCount, dirCount)
+        this.setStatus(
+          `${item.name}: ${sizeStr} (${fileCount} files, ${dirCount} folders)`,
+          'success',
+        )
+      } else {
+        this.setStatus(`Error: ${response.error}`, 'error')
+      }
+    } catch (error: any) {
+      this.setStatus(`Error: ${error.message}`, 'error')
+      console.error('Directory size error:', error)
+    }
+  }
+
   moveFocus(delta: number, withSelection: boolean) {
     const pane = this.getActivePane()
     const newSelected = new Set(pane.selectedIndices)

@@ -1,5 +1,6 @@
 commander:
 - show size of directory with all recurse files when clicking Ctrl+s 
+- remember added shares in favorites
 - find files by text or name (in ctrl+f dialog, enable recurse search here)
 - new logo (retry with thinner letters and move letter 5% down)
 

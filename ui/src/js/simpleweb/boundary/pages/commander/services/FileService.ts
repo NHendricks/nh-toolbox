@@ -218,4 +218,22 @@ export class FileService {
       { operation: 'browse-computer-shares', computerName },
     )
   }
+
+  /**
+   * Get total size of a directory including all files recursively
+   */
+  static async getDirectorySize(dirPath: string): Promise<{
+    success: boolean
+    path?: string
+    totalSize?: number
+    fileCount?: number
+    directoryCount?: number
+    error?: string
+  }> {
+    return (window as any).electron.ipcRenderer.invoke(
+      'cli-execute',
+      'file-operations',
+      { operation: 'directory-size', dirPath },
+    )
+  }
 }

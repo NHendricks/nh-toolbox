@@ -100,6 +100,8 @@ export class FileOperationsCommand implements ICommand {
           return await this.listNetworkComputers();
         case 'browse-computer-shares':
           return await this.browseComputerShares(params.computerName);
+        case 'directory-size':
+          return await this.getDirectorySize(params.dirPath);
         default:
           return {
             success: false,
@@ -325,6 +327,114 @@ export class FileOperationsCommand implements ICommand {
         error: error.message,
       };
     }
+  }
+
+  /**
+   * Get total size of a directory including all files recursively
+   */
+  private async getDirectorySize(dirPath: string): Promise<any> {
+    console.log('[DirectorySize] Called with dirPath:', dirPath);
+
+    if (!dirPath) {
+      throw new Error('dirPath is required for directory-size operation');
+    }
+
+    const absolutePath = path.resolve(dirPath);
+    console.log('[DirectorySize] Absolute path:', absolutePath);
+
+    // Check if directory exists
+    if (!fs.existsSync(absolutePath)) {
+      throw new Error(`Directory does not exist: ${absolutePath}`);
+    }
+
+    const stats = await stat(absolutePath);
+    if (!stats.isDirectory()) {
+      throw new Error(`Path is not a directory: ${absolutePath}`);
+    }
+
+    // Calculate size recursively
+    const result = await this.calculateDirectorySizeRecursive(absolutePath);
+    console.log('[DirectorySize] Result:', result);
+
+    return {
+      success: true,
+      operation: 'directory-size',
+      path: absolutePath,
+      totalSize: result.totalSize,
+      fileCount: result.fileCount,
+      directoryCount: result.directoryCount,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  /**
+   * Recursively calculate directory size
+   */
+  private async calculateDirectorySizeRecursive(
+    dirPath: string,
+  ): Promise<{ totalSize: number; fileCount: number; directoryCount: number }> {
+    let totalSize = 0;
+    let fileCount = 0;
+    let directoryCount = 0;
+
+    try {
+      const entries = await readdir(dirPath, { withFileTypes: true });
+      console.log(
+        `[DirectorySize] Reading ${dirPath}: found ${entries.length} entries`,
+      );
+
+      for (const entry of entries) {
+        const fullPath = path.join(dirPath, entry.name);
+        console.log(
+          `[DirectorySize] Processing: ${entry.name}, isDir=${entry.isDirectory()}, isFile=${entry.isFile()}`,
+        );
+
+        try {
+          // Use stat to get file size and follow symlinks
+          const fileStats = await stat(fullPath);
+          console.log(
+            `[DirectorySize] Stat: isDir=${fileStats.isDirectory()}, isFile=${fileStats.isFile()}, size=${fileStats.size}`,
+          );
+
+          // Check if directory - use both stat and Dirent for robustness
+          const isDir =
+            fileStats.isDirectory() ||
+            entry.isDirectory() ||
+            entry.name.startsWith('OneDrive '); // Windows OneDrive hack
+
+          if (isDir) {
+            directoryCount++;
+            const subResult =
+              await this.calculateDirectorySizeRecursive(fullPath);
+            totalSize += subResult.totalSize;
+            fileCount += subResult.fileCount;
+            directoryCount += subResult.directoryCount;
+          } else {
+            // If not a directory, count as file and add its size
+            totalSize += fileStats.size;
+            fileCount++;
+            console.log(
+              `[DirectorySize] Counted file: ${entry.name}, size=${fileStats.size}`,
+            );
+          }
+        } catch (error: any) {
+          // Skip files that are locked or inaccessible
+          console.warn(
+            `Warning: Unable to access ${fullPath}: ${error.message}`,
+          );
+          continue;
+        }
+      }
+    } catch (error: any) {
+      console.warn(
+        `Warning: Unable to read directory ${dirPath}: ${error.message}`,
+      );
+    }
+
+    console.log(
+      `[DirectorySize] Dir ${dirPath} totals: size=${totalSize}, files=${fileCount}, dirs=${directoryCount}`,
+    );
+    return { totalSize, fileCount, directoryCount };
   }
 
   /**
