@@ -178,6 +178,11 @@ export class KeyboardHandler {
       return true
     }
 
+    if (this.commander.compareDialog) {
+      this.commander.closeCompare()
+      return true
+    }
+
     // Clear filter if active
     const pane = this.commander.getActivePane()
     if (pane.filterActive) {
