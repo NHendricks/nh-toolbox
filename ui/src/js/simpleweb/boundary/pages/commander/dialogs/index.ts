@@ -2,6 +2,7 @@
 export * from './CommandDialog.js'
 export * from './ContextMenuDialog.js'
 export * from './DeleteDialog.js'
+export * from './DirectorySizeDialog.js'
 export * from './DriveSelectorDialog.js'
 export * from './HelpDialog.js'
 export * from './OpenWithDialog.js'

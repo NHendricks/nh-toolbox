@@ -1,8 +1,16 @@
+dbeaver
+open cmd window mac or windows
 commander:
+- compare directories - show status of processing (should be ok ...)
+- mac: image wrong
+- mac: fix network connect
+- mac: no context menu (keyboard layout?)
+- command "code ." shows dialog too late
+- copy from zip (or from zip in zip) doesnt work or is very slow
+- show progress for copy file (big files)
+- enhance help
 - fix show size of file, not only for directories
 - show size of directory with all recurse files when clicking Ctrl+s 
-  - finish this:
-    show a popup instead of in status and also show progress of visiting files
   - add ESC button and cancel search process then
 - add text editor in context menu. create an own simple text editor for this action.
 - find files by text or name (in ctrl+f dialog, enable recurse search here)

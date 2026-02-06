@@ -1059,7 +1059,7 @@ export class Commander extends LitElement {
 
     console.log('[UI] item.isDirectory:', item.isDirectory)
     if (!item.isDirectory) {
-      // For files, just show the file size
+      // For files, just show the file size in status bar
       this.setStatus(
         `${item.name}: ${this.formatFileSize(item.size)}`,
         'success',
@@ -1067,9 +1067,18 @@ export class Commander extends LitElement {
       return
     }
 
-    try {
-      this.setStatus(`Calculating size of "${item.name}"...`, 'normal')
+    // Open dialog immediately in calculating state
+    this.directorySizeDialog = {
+      name: item.name,
+      path: item.path,
+      isCalculating: true,
+      totalSize: 0,
+      fileCount: 0,
+      directoryCount: 0,
+      currentFile: '',
+    }
 
+    try {
       const { FileService } = await import(
         './commander/services/FileService.js'
       )
@@ -1089,16 +1098,22 @@ export class Commander extends LitElement {
           dirCount,
         })
 
-        const sizeStr = this.formatFileSize(totalSize)
-        console.log('[UI] Setting status:', sizeStr, fileCount, dirCount)
-        this.setStatus(
-          `${item.name}: ${sizeStr} (${fileCount} files, ${dirCount} folders)`,
-          'success',
-        )
+        // Update dialog with results
+        this.directorySizeDialog = {
+          name: item.name,
+          path: item.path,
+          isCalculating: false,
+          totalSize,
+          fileCount,
+          directoryCount: dirCount,
+          currentFile: '',
+        }
       } else {
+        this.directorySizeDialog = null
         this.setStatus(`Error: ${response.error}`, 'error')
       }
     } catch (error: any) {
+      this.directorySizeDialog = null
       this.setStatus(`Error: ${error.message}`, 'error')
       console.error('Directory size error:', error)
     }
@@ -1919,6 +1934,10 @@ export class Commander extends LitElement {
     this.showSettingsDialog = false
   }
 
+  closeDirectorySizeDialog() {
+    this.directorySizeDialog = null
+  }
+
   async handleExportSettings() {
     try {
       // Show save dialog first
@@ -2371,6 +2390,12 @@ export class Commander extends LitElement {
               @import=${(e: CustomEvent) => this.handleImportSettings(e.detail)}
               @clear-all=${this.handleClearAllSettings}
             ></settings-dialog>`
+          : ''}
+        ${this.directorySizeDialog
+          ? html`<directory-size-dialog
+              .data=${this.directorySizeDialog}
+              @close=${this.closeDirectorySizeDialog}
+            ></directory-size-dialog>`
           : ''}
       </div>
     `
