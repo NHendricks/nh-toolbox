@@ -277,6 +277,11 @@ export class TextEditorDialog extends LitElement {
       this.searchMatches = matches ? matches.length : 0
       this.currentMatchIndex = this.searchMatches > 0 ? 0 : -1
       this.requestUpdate()
+
+      // Auto-scroll to first match
+      if (this.searchMatches > 0) {
+        setTimeout(() => this.scrollToCurrentMatch(), 0)
+      }
     } catch (e) {
       this.searchMatches = 0
       this.currentMatchIndex = -1
@@ -326,7 +331,7 @@ export class TextEditorDialog extends LitElement {
     }
   }
 
-  private findNext() {
+  private scrollToCurrentMatch() {
     if (!this.searchQuery || this.searchMatches === 0) return
 
     const textarea = this.shadowRoot?.querySelector(
@@ -334,109 +339,101 @@ export class TextEditorDialog extends LitElement {
     ) as HTMLTextAreaElement
     if (!textarea) return
 
-    const flags = this.caseSensitive ? 'g' : 'gi'
-    const regex = this.useRegex
-      ? new RegExp(this.searchQuery, flags)
-      : new RegExp(
-          this.searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
-          flags,
-        )
+    try {
+      const flags = this.caseSensitive ? 'g' : 'gi'
+      const regex = this.useRegex
+        ? new RegExp(this.searchQuery, flags)
+        : new RegExp(
+            this.searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
+            flags,
+          )
 
-    const matches = [...this.editedContent.matchAll(regex)]
-    if (matches.length === 0) return
+      const matches = [...this.editedContent.matchAll(regex)]
+      if (matches.length === 0 || this.currentMatchIndex < 0) return
 
-    this.currentMatchIndex = (this.currentMatchIndex + 1) % matches.length
+      const match = matches[this.currentMatchIndex]
+      if (match.index !== undefined) {
+        // Set selection
+        textarea.setSelectionRange(match.index, match.index + match[0].length)
+
+        // Calculate scroll position to center the match
+        const textBeforeMatch = this.editedContent.substring(0, match.index)
+        const linesBeforeMatch = textBeforeMatch.split('\n').length
+        const lineHeight = 1.5 * 0.9 * 16 // line-height * font-size * 16px
+        const viewportHeight = textarea.clientHeight
+        const targetScrollTop =
+          linesBeforeMatch * lineHeight - viewportHeight / 2
+
+        textarea.scrollTop = Math.max(0, targetScrollTop)
+
+        // Sync highlight layer
+        this.syncScroll({ target: textarea } as any)
+      }
+    } catch (e) {
+      // Ignore errors
+    }
+  }
+
+  private findNext() {
+    if (!this.searchQuery || this.searchMatches === 0) return
+
+    this.currentMatchIndex = (this.currentMatchIndex + 1) % this.searchMatches
     this.requestUpdate()
 
-    const match = matches[this.currentMatchIndex]
-
-    if (match.index !== undefined) {
-      textarea.focus()
-      textarea.setSelectionRange(match.index, match.index + match[0].length)
-
-      // Scroll to match
-      const lineHeight = 1.5 * 0.9 // line-height * font-size in rem
-      const linesBeforeMatch = this.editedContent
-        .substring(0, match.index)
-        .split('\n').length
-      const scrollPosition = (linesBeforeMatch - 5) * lineHeight * 16 // Convert rem to px
-      textarea.scrollTop = Math.max(0, scrollPosition)
-
-      // Sync highlight layer
-      this.syncScroll({ target: textarea } as any)
-    }
+    setTimeout(() => {
+      this.scrollToCurrentMatch()
+      const textarea = this.shadowRoot?.querySelector(
+        '.editor-textarea',
+      ) as HTMLTextAreaElement
+      textarea?.focus()
+    }, 0)
   }
 
   private findPrevious() {
     if (!this.searchQuery || this.searchMatches === 0) return
 
-    const textarea = this.shadowRoot?.querySelector(
-      '.editor-textarea',
-    ) as HTMLTextAreaElement
-    if (!textarea) return
-
-    const flags = this.caseSensitive ? 'g' : 'gi'
-    const regex = this.useRegex
-      ? new RegExp(this.searchQuery, flags)
-      : new RegExp(
-          this.searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
-          flags,
-        )
-
-    const matches = [...this.editedContent.matchAll(regex)]
-    if (matches.length === 0) return
-
     this.currentMatchIndex =
-      (this.currentMatchIndex - 1 + matches.length) % matches.length
+      (this.currentMatchIndex - 1 + this.searchMatches) % this.searchMatches
     this.requestUpdate()
 
-    const match = matches[this.currentMatchIndex]
-
-    if (match.index !== undefined) {
-      textarea.focus()
-      textarea.setSelectionRange(match.index, match.index + match[0].length)
-
-      // Scroll to match
-      const lineHeight = 1.5 * 0.9
-      const linesBeforeMatch = this.editedContent
-        .substring(0, match.index)
-        .split('\n').length
-      const scrollPosition = (linesBeforeMatch - 5) * lineHeight * 16
-      textarea.scrollTop = Math.max(0, scrollPosition)
-
-      // Sync highlight layer
-      this.syncScroll({ target: textarea } as any)
-    }
+    setTimeout(() => {
+      this.scrollToCurrentMatch()
+      const textarea = this.shadowRoot?.querySelector(
+        '.editor-textarea',
+      ) as HTMLTextAreaElement
+      textarea?.focus()
+    }, 0)
   }
 
   private replaceNext() {
     if (!this.searchQuery || this.searchMatches === 0) return
 
-    const textarea = this.shadowRoot?.querySelector(
-      '.editor-textarea',
-    ) as HTMLTextAreaElement
-    if (!textarea) return
+    try {
+      const flags = this.caseSensitive ? 'g' : 'gi'
+      const regex = this.useRegex
+        ? new RegExp(this.searchQuery, flags)
+        : new RegExp(
+            this.searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
+            flags,
+          )
 
-    const flags = this.caseSensitive ? 'g' : 'gi'
-    const regex = this.useRegex
-      ? new RegExp(this.searchQuery, flags)
-      : new RegExp(
-          this.searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
-          flags,
-        )
+      const matches = [...this.editedContent.matchAll(regex)]
+      if (matches.length === 0 || this.currentMatchIndex < 0) return
 
-    const matches = [...this.editedContent.matchAll(regex)]
-    if (matches.length === 0 || this.currentMatchIndex < 0) return
+      const match = matches[this.currentMatchIndex]
+      if (match.index !== undefined) {
+        this.editedContent =
+          this.editedContent.substring(0, match.index) +
+          this.replaceQuery +
+          this.editedContent.substring(match.index + match[0].length)
+        this.isModified = true
+        this.updateSearchMatches()
 
-    const match = matches[this.currentMatchIndex]
-    if (match.index !== undefined) {
-      this.editedContent =
-        this.editedContent.substring(0, match.index) +
-        this.replaceQuery +
-        this.editedContent.substring(match.index + match[0].length)
-      this.isModified = true
-      this.updateSearchMatches()
-      this.requestUpdate()
+        // Scroll to next match after replace
+        setTimeout(() => this.scrollToCurrentMatch(), 0)
+      }
+    } catch (e) {
+      console.error('Replace error:', e)
     }
   }
 
