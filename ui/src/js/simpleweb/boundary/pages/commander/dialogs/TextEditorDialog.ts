@@ -95,10 +95,40 @@ export class TextEditorDialog extends LitElement {
       min-height: 0;
     }
 
+    .highlight-layer {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      padding: 1rem;
+      border: 2px solid transparent;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.9rem;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      overflow: hidden;
+      pointer-events: none;
+      color: transparent;
+      box-sizing: border-box;
+    }
+
+    .highlight-layer mark {
+      background: #facc15;
+      color: transparent;
+      border-radius: 2px;
+    }
+
+    .highlight-layer mark.current {
+      background: #f97316;
+    }
+
     .editor-textarea {
+      position: relative;
       width: 100%;
       height: 100%;
-      background: #0a0f1a;
+      background: transparent;
       border: 2px solid #475569;
       color: #e2e8f0;
       font-family: 'JetBrains Mono', monospace;
@@ -230,6 +260,7 @@ export class TextEditorDialog extends LitElement {
     if (!this.searchQuery) {
       this.searchMatches = 0
       this.currentMatchIndex = -1
+      this.requestUpdate()
       return
     }
 
@@ -245,9 +276,53 @@ export class TextEditorDialog extends LitElement {
       const matches = this.editedContent.match(regex)
       this.searchMatches = matches ? matches.length : 0
       this.currentMatchIndex = this.searchMatches > 0 ? 0 : -1
+      this.requestUpdate()
     } catch (e) {
       this.searchMatches = 0
       this.currentMatchIndex = -1
+      this.requestUpdate()
+    }
+  }
+
+  private getHighlightedContent(): string {
+    if (!this.searchQuery) return this.escapeHtml(this.editedContent)
+
+    try {
+      const flags = this.caseSensitive ? 'g' : 'gi'
+      const regex = this.useRegex
+        ? new RegExp(this.searchQuery, flags)
+        : new RegExp(
+            this.searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
+            flags,
+          )
+
+      let matchIndex = 0
+      const highlighted = this.editedContent.replace(regex, (match) => {
+        const className = matchIndex === this.currentMatchIndex ? 'current' : ''
+        matchIndex++
+        return `<mark class="${className}">${this.escapeHtml(match)}</mark>`
+      })
+
+      return highlighted
+    } catch (e) {
+      return this.escapeHtml(this.editedContent)
+    }
+  }
+
+  private escapeHtml(text: string): string {
+    const div = document.createElement('div')
+    div.textContent = text
+    return div.innerHTML
+  }
+
+  private syncScroll(e: Event) {
+    const textarea = e.target as HTMLTextAreaElement
+    const highlightLayer = this.shadowRoot?.querySelector(
+      '.highlight-layer',
+    ) as HTMLElement
+    if (highlightLayer) {
+      highlightLayer.scrollTop = textarea.scrollTop
+      highlightLayer.scrollLeft = textarea.scrollLeft
     }
   }
 
@@ -271,14 +346,24 @@ export class TextEditorDialog extends LitElement {
     if (matches.length === 0) return
 
     this.currentMatchIndex = (this.currentMatchIndex + 1) % matches.length
+    this.requestUpdate()
+
     const match = matches[this.currentMatchIndex]
 
     if (match.index !== undefined) {
       textarea.focus()
       textarea.setSelectionRange(match.index, match.index + match[0].length)
-      textarea.scrollTop =
-        (match.index / this.editedContent.length) *
-        (textarea.scrollHeight - textarea.clientHeight)
+
+      // Scroll to match
+      const lineHeight = 1.5 * 0.9 // line-height * font-size in rem
+      const linesBeforeMatch = this.editedContent
+        .substring(0, match.index)
+        .split('\n').length
+      const scrollPosition = (linesBeforeMatch - 5) * lineHeight * 16 // Convert rem to px
+      textarea.scrollTop = Math.max(0, scrollPosition)
+
+      // Sync highlight layer
+      this.syncScroll({ target: textarea } as any)
     }
   }
 
@@ -303,14 +388,24 @@ export class TextEditorDialog extends LitElement {
 
     this.currentMatchIndex =
       (this.currentMatchIndex - 1 + matches.length) % matches.length
+    this.requestUpdate()
+
     const match = matches[this.currentMatchIndex]
 
     if (match.index !== undefined) {
       textarea.focus()
       textarea.setSelectionRange(match.index, match.index + match[0].length)
-      textarea.scrollTop =
-        (match.index / this.editedContent.length) *
-        (textarea.scrollHeight - textarea.clientHeight)
+
+      // Scroll to match
+      const lineHeight = 1.5 * 0.9
+      const linesBeforeMatch = this.editedContent
+        .substring(0, match.index)
+        .split('\n').length
+      const scrollPosition = (linesBeforeMatch - 5) * lineHeight * 16
+      textarea.scrollTop = Math.max(0, scrollPosition)
+
+      // Sync highlight layer
+      this.syncScroll({ target: textarea } as any)
     }
   }
 
@@ -495,6 +590,10 @@ export class TextEditorDialog extends LitElement {
             : null}
 
           <div class="editor-wrapper">
+            <div
+              class="highlight-layer"
+              .innerHTML=${this.getHighlightedContent()}
+            ></div>
             <textarea
               class="editor-textarea"
               .value=${this.editedContent}
@@ -505,6 +604,7 @@ export class TextEditorDialog extends LitElement {
                   this.updateSearchMatches()
                 }
               }}
+              @scroll=${this.syncScroll}
               spellcheck="false"
             ></textarea>
           </div>
