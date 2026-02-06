@@ -7,7 +7,7 @@ export class HelpDialog extends LitElement {
   static styles = css`
     .help-content {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
       gap: 1.5rem;
       padding: 1rem;
     }
@@ -31,7 +31,7 @@ export class HelpDialog extends LitElement {
       font-family: monospace;
       color: #0ea5e9;
       font-size: 0.85rem;
-      min-width: 80px;
+      min-width: 100px;
       text-align: center;
     }
     .help-description {
@@ -50,71 +50,57 @@ export class HelpDialog extends LitElement {
     return html`
       <simple-dialog
         .open=${this.open}
-        .title=${'❓ shortcuts'}
-        .width=${'700px'}
-        .maxHeight=${'80vh'}
+        .title=${'❓ keyboard shortcuts'}
+        .width=${'850px'}
+        .maxHeight=${'85vh'}
         @dialog-close=${this.close}
       >
         <div class="help-content">
           <div class="help-section">
-            <h3>navigate</h3>
+            <h3>navigation</h3>
             <div class="help-item">
               <div class="help-key">↑ / ↓</div>
               <div class="help-description">move focus</div>
             </div>
             <div class="help-item">
               <div class="help-key">Enter</div>
-              <div class="help-description">open directory</div>
+              <div class="help-description">open / execute</div>
             </div>
             <div class="help-item">
               <div class="help-key">Tab</div>
               <div class="help-description">switch panels</div>
             </div>
             <div class="help-item">
+              <div class="help-key">PageUp/Down</div>
+              <div class="help-description">page navigation</div>
+            </div>
+            <div class="help-item">
+              <div class="help-key">Home / End</div>
+              <div class="help-description">first / last item</div>
+            </div>
+            <div class="help-item">
+              <div class="help-key">Alt+← / Alt+→</div>
+              <div class="help-description">history back/forward</div>
+            </div>
+            <div class="help-item">
               <div class="help-key">Alt+1 / Alt+2</div>
               <div class="help-description">select drive</div>
             </div>
+            <div class="help-item">
+              <div class="help-key">a-z, 0-9</div>
+              <div class="help-description">quick search</div>
+            </div>
           </div>
           <div class="help-section">
-            <h3>files</h3>
+            <h3>file operations</h3>
             <div class="help-item">
               <div class="help-key">F2</div>
-              <div class="help-description">rename file/folder</div>
+              <div class="help-description">rename</div>
             </div>
             <div class="help-item">
               <div class="help-key">F3</div>
-              <div class="help-description">show file/image</div>
+              <div class="help-description">view file/image</div>
             </div>
-            <div class="help-item">
-              <div class="help-key">F8 / Delete</div>
-              <div class="help-description">deletes file</div>
-            </div>
-            <div class="help-item">
-              <div class="help-key">← / →</div>
-              <div class="help-description">navigate</div>
-            </div>
-            <div class="help-item">
-              <div class="help-key">double click</div>
-              <div class="help-description">open file / folder</div>
-            </div>
-          </div>
-          <div class="help-section">
-            <h3>select</h3>
-            <div class="help-item">
-              <div class="help-key">ctrl+click</div>
-              <div class="help-description">(de)select</div>
-            </div>
-            <div class="help-item">
-              <div class="help-key">ctrl+↑ / ctrl+↓</div>
-              <div class="help-description">(de)select</div>
-            </div>
-            <div class="help-item">
-              <div class="help-key">ctrl+space</div>
-              <div class="help-description">(de)select)</div>
-            </div>
-          </div>
-          <div class="help-section">
-            <h3>functions</h3>
             <div class="help-item">
               <div class="help-key">F5</div>
               <div class="help-description">copy</div>
@@ -124,27 +110,80 @@ export class HelpDialog extends LitElement {
               <div class="help-description">move</div>
             </div>
             <div class="help-item">
-              <div class="help-key">F7</div>
-              <div class="help-description">refresh</div>
+              <div class="help-key">F8 / Del</div>
+              <div class="help-description">delete</div>
+            </div>
+            <div class="help-item">
+              <div class="help-key">F10</div>
+              <div class="help-description">open with...</div>
             </div>
             <div class="help-item">
               <div class="help-key">F12</div>
-              <div class="help-description">zip files</div>
+              <div class="help-description">create zip</div>
+            </div>
+            <div class="help-item">
+              <div class="help-key">Ctrl+S</div>
+              <div class="help-description">show size</div>
             </div>
           </div>
           <div class="help-section">
-            <h3>other</h3>
+            <h3>selection</h3>
             <div class="help-item">
-              <div class="help-key">ALT+f</div>
+              <div class="help-key">Ctrl+Click</div>
+              <div class="help-description">toggle select</div>
+            </div>
+            <div class="help-item">
+              <div class="help-key">Ctrl+↑ / ↓</div>
+              <div class="help-description">extend selection</div>
+            </div>
+            <div class="help-item">
+              <div class="help-key">Ctrl+Space</div>
+              <div class="help-description">toggle select</div>
+            </div>
+          </div>
+          <div class="help-section">
+            <h3>panels</h3>
+            <div class="help-item">
+              <div class="help-key">Ctrl+←</div>
+              <div class="help-description">sync left to right</div>
+            </div>
+            <div class="help-item">
+              <div class="help-key">Ctrl+→</div>
+              <div class="help-description">sync right to left</div>
+            </div>
+          </div>
+          <div class="help-section">
+            <h3>tools</h3>
+            <div class="help-item">
+              <div class="help-key">F9</div>
+              <div class="help-description">command dialog</div>
+            </div>
+            <div class="help-item">
+              <div class="help-key">Shift+F9</div>
+              <div class="help-description">open terminal</div>
+            </div>
+            <div class="help-item">
+              <div class="help-key">Shift+F10</div>
+              <div class="help-description">context menu</div>
+            </div>
+            <div class="help-item">
+              <div class="help-key">Alt+F</div>
               <div class="help-description">filter files</div>
             </div>
+          </div>
+          <div class="help-section">
+            <h3>general</h3>
             <div class="help-item">
               <div class="help-key">F1</div>
               <div class="help-description">show help</div>
             </div>
             <div class="help-item">
               <div class="help-key">ESC</div>
-              <div class="help-description">close</div>
+              <div class="help-description">close / cancel</div>
+            </div>
+            <div class="help-item">
+              <div class="help-key">← / → (image)</div>
+              <div class="help-description">prev / next image</div>
             </div>
           </div>
         </div>
