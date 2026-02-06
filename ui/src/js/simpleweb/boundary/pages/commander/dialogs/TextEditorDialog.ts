@@ -9,18 +9,21 @@ export class TextEditorDialog extends LitElement {
       display: flex;
       flex-direction: column;
       height: 100%;
-      padding: 0.5rem;
+      gap: 0.5rem;
+      position: relative;
     }
+
     .editor-info {
       display: flex;
-      justify-content: space-between;
       align-items: center;
+      gap: 0.5rem;
       padding: 0.5rem;
       background: #0f172a;
       border-radius: 4px;
       margin-bottom: 0.5rem;
       font-size: 0.85rem;
     }
+
     .file-path {
       color: #94a3b8;
       overflow: hidden;
@@ -28,62 +31,119 @@ export class TextEditorDialog extends LitElement {
       white-space: nowrap;
       flex: 1;
     }
+
     .modified-indicator {
       color: #f59e0b;
       font-weight: bold;
-      margin-left: 1rem;
     }
-    .editor-textarea {
+
+    .search-bar {
+      display: flex;
+      gap: 0.5rem;
+      padding: 0.5rem;
+      background: #020617;
+      border: 1px solid #334155;
+      border-radius: 4px;
+      margin-bottom: 0.5rem;
+      align-items: center;
+    }
+
+    .search-bar input {
       flex: 1;
-      width: 100%;
-      min-height: 400px;
       background: #0f172a;
+      border: 1px solid #475569;
+      color: #e2e8f0;
+      padding: 0.4rem 0.6rem;
+      border-radius: 4px;
+      font-family: inherit;
+    }
+
+    .search-bar button {
+      background: #334155;
+      border: none;
+      color: #fff;
+      padding: 0.4rem 0.8rem;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.8rem;
+      min-width: 60px;
+    }
+
+    .search-bar button:hover {
+      background: #475569;
+    }
+
+    .search-bar button.active {
+      background: #0ea5e9;
+    }
+
+    .search-controls {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+    }
+
+    .search-info {
+      color: #94a3b8;
+      font-size: 0.8rem;
+      white-space: nowrap;
+    }
+
+    .editor-wrapper {
+      position: relative;
+      flex: 1;
+      min-height: 0;
+    }
+
+    .editor-textarea {
+      width: 100%;
+      height: 100%;
+      background: #0a0f1a;
       border: 2px solid #475569;
       color: #e2e8f0;
-      font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      font-family: 'JetBrains Mono', monospace;
       font-size: 0.9rem;
       line-height: 1.5;
       padding: 1rem;
       border-radius: 4px;
-      resize: vertical;
+      resize: none;
       box-sizing: border-box;
     }
+
     .editor-textarea:focus {
       outline: none;
       border-color: #0ea5e9;
     }
+
     .dialog-buttons {
       display: flex;
       gap: 1rem;
-      padding: 1rem;
       justify-content: flex-end;
     }
+
     .btn {
       padding: 0.75rem 1.5rem;
       border: none;
       border-radius: 4px;
       cursor: pointer;
       font-weight: bold;
-      font-size: 0.9rem;
     }
+
     .btn-save {
       background: #059669;
       color: #fff;
     }
-    .btn-save:hover {
-      background: #047857;
-    }
+
     .btn-save:disabled {
       background: #475569;
       cursor: not-allowed;
     }
+
     .btn-cancel {
       background: #475569;
       color: #fff;
     }
-    .btn-cancel:hover {
-      background: #64748b;
-    }
+
     .loading-overlay {
       position: absolute;
       inset: 0;
@@ -92,8 +152,9 @@ export class TextEditorDialog extends LitElement {
       align-items: center;
       justify-content: center;
       flex-direction: column;
-      gap: 1rem;
+      z-index: 10;
     }
+
     .spinner {
       width: 40px;
       height: 40px;
@@ -102,89 +163,212 @@ export class TextEditorDialog extends LitElement {
       border-radius: 50%;
       animation: spin 1s linear infinite;
     }
+
     @keyframes spin {
       to {
         transform: rotate(360deg);
       }
     }
-    .loading-text {
-      color: #cbd5e1;
-    }
+
     .error-message {
       color: #ef4444;
-      padding: 1rem;
+      padding: 0.5rem;
       background: #1e293b;
       border: 1px solid #ef4444;
       border-radius: 4px;
-      margin: 1rem;
+      margin-bottom: 0.5rem;
     }
   `
 
-  @property({ type: String }) filePath = ''
-  @property({ type: String }) fileName = ''
+  @property() filePath = ''
+  @property() fileName = ''
   @property({ type: Boolean }) loading = false
   @property({ type: Boolean }) saving = false
-  @property({ type: String }) error = ''
-  @property({ type: String }) content = ''
+  @property() error = ''
+  @property() content = ''
 
   @state() private editedContent = ''
   @state() private isModified = false
-
-  private boundWindowKeyDown = this.handleWindowKeyDown.bind(this)
+  @state() private showSearch = false
+  @state() private searchQuery = ''
+  @state() private replaceQuery = ''
+  @state() private useRegex = false
+  @state() private caseSensitive = false
+  @state() private searchMatches = 0
+  @state() private currentMatchIndex = -1
 
   connectedCallback() {
     super.connectedCallback()
-    window.addEventListener('keydown', this.boundWindowKeyDown)
+    window.addEventListener('keydown', this.handleWindowKeyDown)
   }
 
   disconnectedCallback() {
+    window.removeEventListener('keydown', this.handleWindowKeyDown)
     super.disconnectedCallback()
-    window.removeEventListener('keydown', this.boundWindowKeyDown)
   }
 
-  private handleWindowKeyDown(e: KeyboardEvent) {
-    // ESC to close - works even during loading/saving
-    if (e.key === 'Escape') {
-      e.preventDefault()
-      e.stopPropagation()
-      this.close()
-      return
-    }
-    // Ctrl+S to save (window-level, in case textarea doesn't have focus)
+  private handleWindowKeyDown = (e: KeyboardEvent) => {
+    if (e.key === 'Escape') this.close()
     if (e.ctrlKey && e.key === 's') {
       e.preventDefault()
-      if (this.isModified && !this.saving && !this.loading) {
-        this.save()
-      }
+      if (this.isModified) this.save()
+    }
+    if (e.ctrlKey && e.key === 'f') {
+      e.preventDefault()
+      this.showSearch = true
     }
   }
 
-  updated(changedProperties: Map<string, unknown>) {
-    if (changedProperties.has('content')) {
+  updated(changed: Map<string, unknown>) {
+    if (changed.has('content')) {
       this.editedContent = this.content
       this.isModified = false
     }
   }
 
-  private handleContentChange(e: Event) {
-    const textarea = e.target as HTMLTextAreaElement
-    this.editedContent = textarea.value
-    this.isModified = this.editedContent !== this.content
+  private updateSearchMatches() {
+    if (!this.searchQuery) {
+      this.searchMatches = 0
+      this.currentMatchIndex = -1
+      return
+    }
+
+    try {
+      const flags = this.caseSensitive ? 'g' : 'gi'
+      const regex = this.useRegex
+        ? new RegExp(this.searchQuery, flags)
+        : new RegExp(
+            this.searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
+            flags,
+          )
+
+      const matches = this.editedContent.match(regex)
+      this.searchMatches = matches ? matches.length : 0
+      this.currentMatchIndex = this.searchMatches > 0 ? 0 : -1
+    } catch (e) {
+      this.searchMatches = 0
+      this.currentMatchIndex = -1
+    }
   }
 
-  private handleKeyDown(e: KeyboardEvent) {
-    // Tab key for indentation (textarea-specific)
-    if (e.key === 'Tab') {
-      e.preventDefault()
-      const textarea = e.target as HTMLTextAreaElement
-      const start = textarea.selectionStart
-      const end = textarea.selectionEnd
-      const value = textarea.value
-      textarea.value = value.substring(0, start) + '  ' + value.substring(end)
-      textarea.selectionStart = textarea.selectionEnd = start + 2
-      this.editedContent = textarea.value
-      this.isModified = this.editedContent !== this.content
+  private findNext() {
+    if (!this.searchQuery || this.searchMatches === 0) return
+
+    const textarea = this.shadowRoot?.querySelector(
+      '.editor-textarea',
+    ) as HTMLTextAreaElement
+    if (!textarea) return
+
+    const flags = this.caseSensitive ? 'g' : 'gi'
+    const regex = this.useRegex
+      ? new RegExp(this.searchQuery, flags)
+      : new RegExp(
+          this.searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
+          flags,
+        )
+
+    const matches = [...this.editedContent.matchAll(regex)]
+    if (matches.length === 0) return
+
+    this.currentMatchIndex = (this.currentMatchIndex + 1) % matches.length
+    const match = matches[this.currentMatchIndex]
+
+    if (match.index !== undefined) {
+      textarea.focus()
+      textarea.setSelectionRange(match.index, match.index + match[0].length)
+      textarea.scrollTop =
+        (match.index / this.editedContent.length) *
+        (textarea.scrollHeight - textarea.clientHeight)
     }
+  }
+
+  private findPrevious() {
+    if (!this.searchQuery || this.searchMatches === 0) return
+
+    const textarea = this.shadowRoot?.querySelector(
+      '.editor-textarea',
+    ) as HTMLTextAreaElement
+    if (!textarea) return
+
+    const flags = this.caseSensitive ? 'g' : 'gi'
+    const regex = this.useRegex
+      ? new RegExp(this.searchQuery, flags)
+      : new RegExp(
+          this.searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
+          flags,
+        )
+
+    const matches = [...this.editedContent.matchAll(regex)]
+    if (matches.length === 0) return
+
+    this.currentMatchIndex =
+      (this.currentMatchIndex - 1 + matches.length) % matches.length
+    const match = matches[this.currentMatchIndex]
+
+    if (match.index !== undefined) {
+      textarea.focus()
+      textarea.setSelectionRange(match.index, match.index + match[0].length)
+      textarea.scrollTop =
+        (match.index / this.editedContent.length) *
+        (textarea.scrollHeight - textarea.clientHeight)
+    }
+  }
+
+  private replaceNext() {
+    if (!this.searchQuery || this.searchMatches === 0) return
+
+    const textarea = this.shadowRoot?.querySelector(
+      '.editor-textarea',
+    ) as HTMLTextAreaElement
+    if (!textarea) return
+
+    const flags = this.caseSensitive ? 'g' : 'gi'
+    const regex = this.useRegex
+      ? new RegExp(this.searchQuery, flags)
+      : new RegExp(
+          this.searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
+          flags,
+        )
+
+    const matches = [...this.editedContent.matchAll(regex)]
+    if (matches.length === 0 || this.currentMatchIndex < 0) return
+
+    const match = matches[this.currentMatchIndex]
+    if (match.index !== undefined) {
+      this.editedContent =
+        this.editedContent.substring(0, match.index) +
+        this.replaceQuery +
+        this.editedContent.substring(match.index + match[0].length)
+      this.isModified = true
+      this.updateSearchMatches()
+      this.requestUpdate()
+    }
+  }
+
+  private replaceAll() {
+    if (!this.searchQuery || this.searchMatches === 0) return
+
+    try {
+      const flags = this.caseSensitive ? 'g' : 'gi'
+      const regex = this.useRegex
+        ? new RegExp(this.searchQuery, flags)
+        : new RegExp(
+            this.searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
+            flags,
+          )
+
+      this.editedContent = this.editedContent.replace(regex, this.replaceQuery)
+      this.isModified = true
+      this.updateSearchMatches()
+      this.requestUpdate()
+    } catch (e) {
+      console.error('Replace all error:', e)
+    }
+  }
+
+  private handleSearchInput(e: Event) {
+    this.searchQuery = (e.target as HTMLInputElement).value
+    this.updateSearchMatches()
   }
 
   private save() {
@@ -198,15 +382,8 @@ export class TextEditorDialog extends LitElement {
   }
 
   private close() {
-    if (this.isModified) {
-      if (
-        confirm('You have unsaved changes. Are you sure you want to close?')
-      ) {
-        this.dispatchEvent(new CustomEvent('close'))
-      }
-    } else {
-      this.dispatchEvent(new CustomEvent('close'))
-    }
+    if (this.isModified && !confirm('Discard unsaved changes?')) return
+    this.dispatchEvent(new CustomEvent('close'))
   }
 
   render() {
@@ -215,41 +392,122 @@ export class TextEditorDialog extends LitElement {
         .open=${true}
         .title=${'Edit: ' + this.fileName}
         .width=${'90%'}
-        .maxHeight=${'90vh'}
+        .height=${'90vh'}
         @dialog-close=${this.close}
       >
-        <div class="editor-container" style="position: relative;">
+        <div class="editor-container">
           ${this.loading || this.saving
             ? html`
                 <div class="loading-overlay">
                   <div class="spinner"></div>
-                  <div class="loading-text">
-                    ${this.loading ? 'Loading file...' : 'Saving file...'}
+                </div>
+              `
+            : null}
+          ${this.error
+            ? html`<div class="error-message">${this.error}</div>`
+            : null}
+
+          <div class="editor-info">
+            <span class="file-path">${this.filePath}</span>
+            <button
+              class="btn"
+              @click=${() => (this.showSearch = !this.showSearch)}
+            >
+              🔍 Find & Replace
+            </button>
+            ${this.isModified
+              ? html`<span class="modified-indicator">Modified</span>`
+              : null}
+          </div>
+
+          ${this.showSearch
+            ? html`
+                <div class="search-bar">
+                  <input
+                    placeholder="Find"
+                    .value=${this.searchQuery}
+                    @input=${this.handleSearchInput}
+                    @keydown=${(e: KeyboardEvent) => {
+                      if (e.key === 'Enter') {
+                        e.shiftKey ? this.findPrevious() : this.findNext()
+                      }
+                    }}
+                  />
+                  <input
+                    placeholder="Replace"
+                    .value=${this.replaceQuery}
+                    @input=${(e: Event) =>
+                      (this.replaceQuery = (
+                        e.target as HTMLInputElement
+                      ).value)}
+                    @keydown=${(e: KeyboardEvent) => {
+                      if (e.key === 'Enter') {
+                        this.replaceNext()
+                      }
+                    }}
+                  />
+                  <div class="search-controls">
+                    <span class="search-info">
+                      ${this.searchMatches > 0
+                        ? `${this.currentMatchIndex + 1}/${this.searchMatches}`
+                        : this.searchQuery
+                          ? '0 matches'
+                          : ''}
+                    </span>
+                    <button
+                      @click=${this.findPrevious}
+                      title="Previous (Shift+Enter)"
+                    >
+                      ↑
+                    </button>
+                    <button @click=${this.findNext} title="Next (Enter)">
+                      ↓
+                    </button>
+                    <button
+                      class=${this.useRegex ? 'active' : ''}
+                      @click=${() => {
+                        this.useRegex = !this.useRegex
+                        this.updateSearchMatches()
+                      }}
+                      title="Use Regular Expression"
+                    >
+                      .*
+                    </button>
+                    <button
+                      class=${this.caseSensitive ? 'active' : ''}
+                      @click=${() => {
+                        this.caseSensitive = !this.caseSensitive
+                        this.updateSearchMatches()
+                      }}
+                      title="Case Sensitive"
+                    >
+                      Aa
+                    </button>
+                    <button @click=${this.replaceNext} title="Replace">
+                      Replace
+                    </button>
+                    <button @click=${this.replaceAll} title="Replace All">
+                      All
+                    </button>
                   </div>
                 </div>
               `
-            : ''}
-          ${this.error
-            ? html`<div class="error-message">${this.error}</div>`
-            : ''}
+            : null}
 
-          <div class="editor-info">
-            <span class="file-path" title="${this.filePath}"
-              >${this.filePath}</span
-            >
-            ${this.isModified
-              ? html`<span class="modified-indicator">Modified</span>`
-              : ''}
+          <div class="editor-wrapper">
+            <textarea
+              class="editor-textarea"
+              .value=${this.editedContent}
+              @input=${(e: Event) => {
+                this.editedContent = (e.target as HTMLTextAreaElement).value
+                this.isModified = true
+                if (this.searchQuery) {
+                  this.updateSearchMatches()
+                }
+              }}
+              spellcheck="false"
+            ></textarea>
           </div>
-
-          <textarea
-            class="editor-textarea"
-            .value=${this.editedContent}
-            @input=${this.handleContentChange}
-            @keydown=${this.handleKeyDown}
-            ?disabled=${this.loading || this.saving}
-            spellcheck="false"
-          ></textarea>
         </div>
 
         <div slot="footer" class="dialog-buttons">
@@ -258,8 +516,8 @@ export class TextEditorDialog extends LitElement {
           </button>
           <button
             class="btn btn-save"
-            @click=${this.save}
             ?disabled=${!this.isModified || this.saving}
+            @click=${this.save}
           >
             Save (Ctrl+S)
           </button>
