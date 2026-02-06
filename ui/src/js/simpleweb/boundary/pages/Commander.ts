@@ -1587,7 +1587,12 @@ export class Commander extends LitElement {
 
       // Open dialog immediately with empty result and waiting state
       this.compareWaiting = true
-      this.compareProgress = null
+      this.compareProgress = {
+        current: 0,
+        total: 0,
+        percentage: 0,
+        fileName: 'Preparing...',
+      }
       this.compareDialog = {
         result: {
           summary: {
