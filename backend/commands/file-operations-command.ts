@@ -466,6 +466,11 @@ export class FileOperationsCommand implements ICommand {
       const entries = await readdir(dirPath, { withFileTypes: true });
 
       for (const entry of entries) {
+        // Check for cancellation before processing each entry
+        if (this.cancelled) {
+          throw new Error('Operation cancelled by user');
+        }
+
         const fullPath = path.join(dirPath, entry.name);
 
         try {

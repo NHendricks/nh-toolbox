@@ -1971,6 +1971,12 @@ export class Commander extends LitElement {
     this.directorySizeDialog = null
   }
 
+  async cancelDirectorySize() {
+    // Cancel any ongoing file operation
+    await (window as any).electron.ipcRenderer.invoke('cancel-file-operation')
+    this.directorySizeDialog = null
+  }
+
   async handleExportSettings() {
     try {
       // Show save dialog first
@@ -2428,6 +2434,7 @@ export class Commander extends LitElement {
           ? html`<directory-size-dialog
               .data=${this.directorySizeDialog}
               @close=${this.closeDirectorySizeDialog}
+              @cancel=${this.cancelDirectorySize}
             ></directory-size-dialog>`
           : ''}
       </div>

@@ -112,6 +112,10 @@ export class DirectorySizeDialog extends LitElement {
     this.dispatchEvent(new CustomEvent('close'))
   }
 
+  private cancel() {
+    this.dispatchEvent(new CustomEvent('cancel'))
+  }
+
   private formatFileSize(bytes: number): string {
     if (bytes === 0) return '0 B'
     const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
@@ -120,9 +124,13 @@ export class DirectorySizeDialog extends LitElement {
   }
 
   private handleKeyDown(e: KeyboardEvent) {
-    if (e.key === 'Escape' && !this.data?.isCalculating) {
+    if (e.key === 'Escape') {
       e.preventDefault()
-      this.close()
+      if (this.data?.isCalculating) {
+        this.cancel()
+      } else {
+        this.close()
+      }
     }
   }
 
@@ -196,13 +204,17 @@ export class DirectorySizeDialog extends LitElement {
         </div>
 
         <div slot="footer" class="dialog-buttons">
-          ${!isCalculating
+          ${isCalculating
             ? html`
+                <button class="btn-close" @click=${this.cancel}>
+                  Cancel (ESC)
+                </button>
+              `
+            : html`
                 <button class="btn-close" @click=${this.close}>
                   Close (ESC)
                 </button>
-              `
-            : ''}
+              `}
         </div>
       </simple-dialog>
     `
