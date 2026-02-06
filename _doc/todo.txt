@@ -8,6 +8,7 @@ commander:
 other:
 - build app for linux
 - integrate more cmdline-Tools
+  - versioning (git simple)
   - dirsorter for jpegs
   - mp3metatagsetter for mp3s
   - imdb finder

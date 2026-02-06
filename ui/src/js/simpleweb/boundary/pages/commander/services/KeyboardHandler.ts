@@ -373,6 +373,10 @@ export class KeyboardHandler {
           this.commander.handleF3()
           return
 
+        case 'F4':
+          this.commander.handleEditFile()
+          return
+
         case 'F5':
           this.commander.handleF5()
           return

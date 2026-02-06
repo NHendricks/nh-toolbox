@@ -102,6 +102,10 @@ export class HelpDialog extends LitElement {
               <div class="help-description">view file/image</div>
             </div>
             <div class="help-item">
+              <div class="help-key">F4</div>
+              <div class="help-description">edit file</div>
+            </div>
+            <div class="help-item">
               <div class="help-key">F5</div>
               <div class="help-description">copy</div>
             </div>

@@ -191,6 +191,16 @@ export class Commander extends LitElement {
     loading: boolean
   } | null = null
 
+  @property({ type: Object })
+  textEditorDialog: {
+    fileName: string
+    filePath: string
+    content: string
+    loading: boolean
+    saving: boolean
+    error: string
+  } | null = null
+
   @property({ type: Boolean })
   showSettingsDialog = false
 
@@ -1721,6 +1731,9 @@ export class Commander extends LitElement {
       case 'open-with':
         this.handleOpenWith()
         break
+      case 'edit':
+        this.handleEditFile()
+        break
       case 'rename':
         this.handleF2()
         break
@@ -1965,6 +1978,110 @@ export class Commander extends LitElement {
 
   closeSettings() {
     this.showSettingsDialog = false
+  }
+
+  async handleEditFile() {
+    const pane = this.getActivePane()
+    const item = pane.items[pane.focusedIndex]
+
+    if (!item || item.name === '..' || item.isDirectory) {
+      this.setStatus('Please select a file to edit', 'error')
+      return
+    }
+
+    // Open dialog with loading state
+    this.textEditorDialog = {
+      fileName: item.name,
+      filePath: item.path,
+      content: '',
+      loading: true,
+      saving: false,
+      error: '',
+    }
+
+    try {
+      const { FileService } = await import(
+        './commander/services/FileService.js'
+      )
+      const response = await FileService.readFile(item.path)
+
+      if (response.success && response.data) {
+        // Check if it's a binary/image file
+        if (response.data.isImage) {
+          this.textEditorDialog = null
+          this.setStatus('Cannot edit binary/image files', 'error')
+          return
+        }
+
+        this.textEditorDialog = {
+          ...this.textEditorDialog!,
+          content: response.data.content,
+          loading: false,
+        }
+      } else {
+        this.textEditorDialog = {
+          ...this.textEditorDialog!,
+          loading: false,
+          error: response.error || 'Failed to read file',
+        }
+      }
+    } catch (error: any) {
+      this.textEditorDialog = {
+        ...this.textEditorDialog!,
+        loading: false,
+        error: error.message,
+      }
+    }
+  }
+
+  closeTextEditor() {
+    this.textEditorDialog = null
+  }
+
+  async saveTextEditor(content: string) {
+    if (!this.textEditorDialog) return
+
+    const { filePath, fileName } = this.textEditorDialog
+
+    this.textEditorDialog = {
+      ...this.textEditorDialog,
+      saving: true,
+      error: '',
+    }
+
+    try {
+      const { FileService } = await import(
+        './commander/services/FileService.js'
+      )
+      const response = await FileService.writeFile(filePath, content)
+
+      if (response.success) {
+        this.textEditorDialog = {
+          ...this.textEditorDialog,
+          content: content,
+          saving: false,
+        }
+        this.setStatus(`Saved: ${fileName}`, 'success')
+
+        // Refresh the current directory to update file size
+        await this.loadDirectory(
+          this.activePane,
+          this.getActivePane().currentPath,
+        )
+      } else {
+        this.textEditorDialog = {
+          ...this.textEditorDialog,
+          saving: false,
+          error: response.error || 'Failed to save file',
+        }
+      }
+    } catch (error: any) {
+      this.textEditorDialog = {
+        ...this.textEditorDialog,
+        saving: false,
+        error: error.message,
+      }
+    }
   }
 
   closeDirectorySizeDialog() {
@@ -2264,6 +2381,10 @@ export class Commander extends LitElement {
             <span class="function-key-label">F3</span>
             <span class="function-key-action">view</span>
           </div>
+          <div class="function-key" @click=${() => this.handleEditFile()}>
+            <span class="function-key-label">F4</span>
+            <span class="function-key-action">edit</span>
+          </div>
           <div class="function-key" @click=${() => this.handleF5()}>
             <span class="function-key-label">F5</span>
             <span class="function-key-action">copy</span>
@@ -2420,6 +2541,19 @@ export class Commander extends LitElement {
               @remove-app=${(e: CustomEvent) =>
                 this.handleRemoveCustomApp(e.detail)}
             ></open-with-dialog>`
+          : ''}
+        ${this.textEditorDialog
+          ? html`<text-editor-dialog
+              .fileName=${this.textEditorDialog.fileName}
+              .filePath=${this.textEditorDialog.filePath}
+              .content=${this.textEditorDialog.content}
+              .loading=${this.textEditorDialog.loading}
+              .saving=${this.textEditorDialog.saving}
+              .error=${this.textEditorDialog.error}
+              @close=${this.closeTextEditor}
+              @save=${(e: CustomEvent) =>
+                this.saveTextEditor(e.detail.content)}
+            ></text-editor-dialog>`
           : ''}
         ${this.showSettingsDialog
           ? html`<settings-dialog

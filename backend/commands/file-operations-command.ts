@@ -102,6 +102,8 @@ export class FileOperationsCommand implements ICommand {
           return await this.browseComputerShares(params.computerName);
         case 'directory-size':
           return await this.getDirectorySize(params.dirPath);
+        case 'write-file':
+          return await this.writeFile(params.filePath, params.content);
         default:
           return {
             success: false,
@@ -2499,6 +2501,44 @@ export class FileOperationsCommand implements ICommand {
       return {
         success: false,
         operation: 'write-settings',
+        error: error.message,
+        timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
+  /**
+   * Write content to a text file
+   */
+  private async writeFile(filePath: string, content: string): Promise<any> {
+    if (!filePath) {
+      throw new Error('filePath is required for write-file operation');
+    }
+    if (content === undefined || content === null) {
+      throw new Error('content is required for write-file operation');
+    }
+
+    const absolutePath = path.resolve(filePath);
+
+    try {
+      // Write the file
+      fs.writeFileSync(absolutePath, content, 'utf-8');
+
+      const stats = await stat(absolutePath);
+
+      return {
+        success: true,
+        operation: 'write-file',
+        data: {
+          path: absolutePath,
+          size: stats.size,
+        },
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        operation: 'write-file',
         error: error.message,
         timestamp: new Date().toISOString(),
       };

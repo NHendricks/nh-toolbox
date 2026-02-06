@@ -201,6 +201,13 @@ export class ContextMenuDialog extends LitElement {
     })
 
     items.push({
+      label: 'Edit',
+      icon: '📝',
+      action: 'edit',
+      enabled: this.selectedCount <= 1 && !this.isDirectory,
+    })
+
+    items.push({
       label: 'Rename',
       icon: '✏️',
       action: 'rename',

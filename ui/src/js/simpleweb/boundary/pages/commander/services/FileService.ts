@@ -60,6 +60,24 @@ export class FileService {
   }
 
   /**
+   * Write content to a text file
+   */
+  static async writeFile(
+    filePath: string,
+    content: string,
+  ): Promise<{
+    success: boolean
+    data?: { path: string; size: number }
+    error?: string
+  }> {
+    return (window as any).electron.ipcRenderer.invoke(
+      'cli-execute',
+      'file-operations',
+      { operation: 'write-file', filePath, content },
+    )
+  }
+
+  /**
    * Copy file/directory
    */
   static async copy(sourcePath: string, destinationPath: string) {
