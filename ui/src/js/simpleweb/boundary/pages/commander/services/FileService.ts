@@ -194,10 +194,47 @@ export class FileService {
       | 'zip-progress'
       | 'copy-progress'
       | 'compare-progress'
-      | 'directory-size-progress',
+      | 'directory-size-progress'
+      | 'search-progress',
     callback: (data: any) => void,
   ) {
     ;(window as any).electron.ipcRenderer.on(channel, callback)
+  }
+
+  /**
+   * Search for files by name or content
+   */
+  static async search(
+    searchPath: string,
+    searchText: string,
+    searchByContent: boolean,
+    recursive: boolean,
+    caseSensitive: boolean,
+  ): Promise<{
+    success: boolean
+    data?: {
+      searchPath: string
+      searchText: string
+      searchByContent: boolean
+      recursive: boolean
+      caseSensitive: boolean
+      results: Array<{
+        path: string
+        name: string
+        isDirectory: boolean
+        matchLine?: number
+        matchContext?: string
+      }>
+      filesScanned: number
+      truncated: boolean
+    }
+    error?: string
+  }> {
+    return (window as any).electron.ipcRenderer.invoke(
+      'cli-execute',
+      'file-operations',
+      { operation: 'search', searchPath, searchText, searchByContent, recursive, caseSensitive },
+    )
   }
 
   /**

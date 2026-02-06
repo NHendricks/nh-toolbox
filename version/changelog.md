@@ -20,6 +20,7 @@ ou can find the binary downloads here: https://github.com/NHendricks/nh-toolbox/
 - Fix OneDrive Links recognition on Windows (hacky)
 - open cmdline window with SHIFT+F9
 - add text editor (F4)
+- find files by text or name (ctrl+f)
 
 ### v1.5.0 (31.01.2026)
 

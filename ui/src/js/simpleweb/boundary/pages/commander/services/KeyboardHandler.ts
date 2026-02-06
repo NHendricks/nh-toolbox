@@ -298,6 +298,11 @@ export class KeyboardHandler {
         this.commander.showDirectorySize()
         return true
 
+      case 'f':
+        event.preventDefault()
+        this.commander.openSearch()
+        return true
+
       default:
         return false
     }

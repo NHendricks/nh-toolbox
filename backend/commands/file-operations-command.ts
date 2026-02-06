@@ -104,6 +104,15 @@ export class FileOperationsCommand implements ICommand {
           return await this.getDirectorySize(params.dirPath);
         case 'write-file':
           return await this.writeFile(params.filePath, params.content);
+        case 'search':
+          return await this.searchFiles(
+            params.searchPath,
+            params.searchText,
+            params.searchByContent,
+            params.recursive,
+            params.caseSensitive,
+            this.progressCallback,
+          );
         default:
           return {
             success: false,
@@ -2628,6 +2637,152 @@ export class FileOperationsCommand implements ICommand {
         timestamp: new Date().toISOString(),
       };
     }
+  }
+
+  /**
+   * Search for files by name or content
+   */
+  private async searchFiles(
+    searchPath: string,
+    searchText: string,
+    searchByContent: boolean,
+    recursive: boolean,
+    caseSensitive: boolean,
+    progressCallback?: (current: number, total: number, fileName: string) => void,
+  ): Promise<any> {
+    const results: Array<{
+      path: string;
+      name: string;
+      isDirectory: boolean;
+      matchLine?: number;
+      matchContext?: string;
+    }> = [];
+
+    let filesScanned = 0;
+    const maxResults = 500; // Limit results to prevent overwhelming UI
+
+    const searchPattern = caseSensitive
+      ? searchText
+      : searchText.toLowerCase();
+
+    const searchDir = async (dirPath: string): Promise<void> => {
+      if (this.cancelled || results.length >= maxResults) return;
+
+      try {
+        const entries = await readdir(dirPath, { withFileTypes: true });
+
+        for (const entry of entries) {
+          if (this.cancelled || results.length >= maxResults) break;
+
+          const fullPath = path.join(dirPath, entry.name);
+          const entryName = caseSensitive ? entry.name : entry.name.toLowerCase();
+
+          if (searchByContent) {
+            // Search in file content
+            if (entry.isFile()) {
+              filesScanned++;
+              if (progressCallback) {
+                progressCallback(filesScanned, 0, entry.name);
+              }
+
+              try {
+                // Only search in text files (skip binary)
+                const ext = path.extname(entry.name).toLowerCase();
+                const textExtensions = [
+                  '.txt', '.md', '.json', '.js', '.ts', '.tsx', '.jsx',
+                  '.html', '.htm', '.css', '.scss', '.less', '.xml', '.yaml', '.yml',
+                  '.py', '.rb', '.php', '.java', '.c', '.cpp', '.h', '.hpp',
+                  '.cs', '.go', '.rs', '.swift', '.kt', '.sh', '.bash', '.zsh',
+                  '.sql', '.log', '.csv', '.ini', '.cfg', '.conf', '.env',
+                  '.gitignore', '.editorconfig', '.prettierrc', '.eslintrc',
+                ];
+
+                if (textExtensions.includes(ext) || !ext) {
+                  const stats = await stat(fullPath);
+                  // Skip files larger than 1MB for performance
+                  if (stats.size < 1024 * 1024) {
+                    const content = await readFile(fullPath, 'utf-8');
+                    const lines = content.split('\n');
+
+                    for (let i = 0; i < lines.length; i++) {
+                      const line = caseSensitive ? lines[i] : lines[i].toLowerCase();
+                      if (line.includes(searchPattern)) {
+                        results.push({
+                          path: fullPath,
+                          name: entry.name,
+                          isDirectory: false,
+                          matchLine: i + 1,
+                          matchContext: lines[i].trim().substring(0, 200),
+                        });
+                        break; // Only report first match per file
+                      }
+                    }
+                  }
+                }
+              } catch {
+                // Skip files that can't be read
+              }
+            }
+
+            // Recurse into directories
+            if (entry.isDirectory() && recursive) {
+              await searchDir(fullPath);
+            }
+          } else {
+            // Search by filename
+            filesScanned++;
+            if (progressCallback && filesScanned % 100 === 0) {
+              progressCallback(filesScanned, 0, entry.name);
+            }
+
+            // Use wildcard matching if pattern contains * or ?
+            let matches = false;
+            if (searchPattern.includes('*') || searchPattern.includes('?')) {
+              const regexPattern = searchPattern
+                .replace(/\./g, '\\.')
+                .replace(/\*/g, '.*')
+                .replace(/\?/g, '.');
+              const regex = new RegExp(`^${regexPattern}$`, caseSensitive ? '' : 'i');
+              matches = regex.test(entry.name);
+            } else {
+              matches = entryName.includes(searchPattern);
+            }
+
+            if (matches) {
+              results.push({
+                path: fullPath,
+                name: entry.name,
+                isDirectory: entry.isDirectory(),
+              });
+            }
+
+            // Recurse into directories
+            if (entry.isDirectory() && recursive) {
+              await searchDir(fullPath);
+            }
+          }
+        }
+      } catch {
+        // Skip directories that can't be read
+      }
+    };
+
+    await searchDir(searchPath);
+
+    return {
+      success: true,
+      operation: 'search',
+      data: {
+        searchPath,
+        searchText,
+        searchByContent,
+        recursive,
+        caseSensitive,
+        results,
+        filesScanned,
+        truncated: results.length >= maxResults,
+      },
+    };
   }
 
   getDescription(): string {

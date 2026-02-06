@@ -201,6 +201,12 @@ export class Commander extends LitElement {
     error: string
   } | null = null
 
+  @property({ type: Object })
+  searchDialog: {
+    searchPath: string
+    searching: boolean
+  } | null = null
+
   @property({ type: Boolean })
   showSettingsDialog = false
 
@@ -2084,6 +2090,117 @@ export class Commander extends LitElement {
     }
   }
 
+  // Search Dialog Methods
+  openSearch() {
+    const pane = this.getActivePane()
+    this.searchDialog = {
+      searchPath: pane.currentPath,
+      searching: false,
+    }
+  }
+
+  async executeSearch(detail: {
+    searchText: string
+    searchByContent: boolean
+    recursive: boolean
+    caseSensitive: boolean
+  }) {
+    if (!this.searchDialog) return
+
+    this.searchDialog = {
+      ...this.searchDialog,
+      searching: true,
+    }
+
+    const { FileService } = await import(
+      './commander/services/FileService.js'
+    )
+
+    // Setup progress listener
+    FileService.onProgress('search-progress', (data: any) => {
+      const dialog = this.shadowRoot?.querySelector('search-dialog') as any
+      if (dialog) {
+        dialog.updateProgress(data)
+      }
+    })
+
+    try {
+      const response = await FileService.search(
+        this.searchDialog.searchPath,
+        detail.searchText,
+        detail.searchByContent,
+        detail.recursive,
+        detail.caseSensitive,
+      )
+
+      this.searchDialog = {
+        ...this.searchDialog!,
+        searching: false,
+      }
+
+      const dialog = this.shadowRoot?.querySelector('search-dialog') as any
+      if (dialog && response.success && response.data?.data) {
+        dialog.setResults(response.data.data)
+      } else if (!response.success) {
+        this.setStatus(`Search error: ${response.error}`, 'error')
+      }
+    } catch (error: any) {
+      this.searchDialog = {
+        ...this.searchDialog!,
+        searching: false,
+      }
+      this.setStatus(`Search error: ${error.message}`, 'error')
+    }
+  }
+
+  async cancelSearch() {
+    const { FileService } = await import(
+      './commander/services/FileService.js'
+    )
+    await FileService.cancelOperation()
+    if (this.searchDialog) {
+      this.searchDialog = {
+        ...this.searchDialog,
+        searching: false,
+      }
+    }
+  }
+
+  async handleSearchResult(result: {
+    path: string
+    name: string
+    isDirectory: boolean
+    matchLine?: number
+  }) {
+    // Close search dialog
+    this.searchDialog = null
+
+    // Navigate to the directory containing the file
+    // Handle both Windows (\) and Unix (/) path separators
+    const lastSeparator = Math.max(
+      result.path.lastIndexOf('\\'),
+      result.path.lastIndexOf('/'),
+    )
+    const dirPath = result.isDirectory
+      ? result.path
+      : result.path.substring(0, lastSeparator)
+
+    await this.navigateToDirectory(dirPath)
+
+    // Find and focus the file in the list
+    const pane = this.getActivePane()
+    const index = pane.items.findIndex((item) => item.name === result.name)
+    if (index >= 0) {
+      this.updateActivePane({ focusedIndex: index })
+    }
+
+    this.setStatus(`Found: ${result.name}`, 'success')
+  }
+
+  closeSearch() {
+    this.searchDialog = null
+  }
+
   closeDirectorySizeDialog() {
     this.directorySizeDialog = null
   }
@@ -2570,6 +2687,17 @@ export class Commander extends LitElement {
               @close=${this.closeDirectorySizeDialog}
               @cancel=${this.cancelDirectorySize}
             ></directory-size-dialog>`
+          : ''}
+        ${this.searchDialog
+          ? html`<search-dialog
+              .searchPath=${this.searchDialog.searchPath}
+              .searching=${this.searchDialog.searching}
+              @search=${(e: CustomEvent) => this.executeSearch(e.detail)}
+              @cancel-search=${this.cancelSearch}
+              @select-result=${(e: CustomEvent) =>
+                this.handleSearchResult(e.detail)}
+              @close=${this.closeSearch}
+            ></search-dialog>`
           : ''}
       </div>
     `
