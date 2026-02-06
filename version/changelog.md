@@ -19,6 +19,7 @@ ou can find the binary downloads here: https://github.com/NHendricks/nh-toolbox/
 - improve filter icon behaviour (more intuitive)
 - Fix OneDrive Links recognition on Windows (hacky)
 - open cmdline window with SHIFT+F9
+- add text editor (F4)
 
 ### v1.5.0 (31.01.2026)
 

@@ -130,6 +130,35 @@ export class TextEditorDialog extends LitElement {
   @state() private editedContent = ''
   @state() private isModified = false
 
+  private boundWindowKeyDown = this.handleWindowKeyDown.bind(this)
+
+  connectedCallback() {
+    super.connectedCallback()
+    window.addEventListener('keydown', this.boundWindowKeyDown)
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback()
+    window.removeEventListener('keydown', this.boundWindowKeyDown)
+  }
+
+  private handleWindowKeyDown(e: KeyboardEvent) {
+    // ESC to close - works even during loading/saving
+    if (e.key === 'Escape') {
+      e.preventDefault()
+      e.stopPropagation()
+      this.close()
+      return
+    }
+    // Ctrl+S to save (window-level, in case textarea doesn't have focus)
+    if (e.ctrlKey && e.key === 's') {
+      e.preventDefault()
+      if (this.isModified && !this.saving && !this.loading) {
+        this.save()
+      }
+    }
+  }
+
   updated(changedProperties: Map<string, unknown>) {
     if (changedProperties.has('content')) {
       this.editedContent = this.content
@@ -144,19 +173,7 @@ export class TextEditorDialog extends LitElement {
   }
 
   private handleKeyDown(e: KeyboardEvent) {
-    // Ctrl+S to save
-    if (e.ctrlKey && e.key === 's') {
-      e.preventDefault()
-      if (this.isModified && !this.saving) {
-        this.save()
-      }
-    }
-    // ESC to close (only if not modified, otherwise ask)
-    if (e.key === 'Escape') {
-      e.preventDefault()
-      this.close()
-    }
-    // Tab key for indentation
+    // Tab key for indentation (textarea-specific)
     if (e.key === 'Tab') {
       e.preventDefault()
       const textarea = e.target as HTMLTextAreaElement
