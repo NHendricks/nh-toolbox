@@ -160,6 +160,7 @@ export class Commander extends LitElement {
     directoryCount: number
     currentFile: string
     isFile?: boolean
+    currentSize?: number
   } | null = null
 
   // Directory history for back/forward navigation (max 5 entries per pane)
@@ -262,6 +263,7 @@ export class Commander extends LitElement {
             ...this.directorySizeDialog,
             currentFile: data.fileName,
             fileCount: data.current,
+            currentSize: data.totalSize,
           }
           // Force UI update
           this.requestUpdate()

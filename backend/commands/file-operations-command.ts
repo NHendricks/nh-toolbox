@@ -432,7 +432,7 @@ export class FileOperationsCommand implements ICommand {
     }
 
     // Track progress state
-    const progressState = { processedFiles: 0 };
+    const progressState = { processedFiles: 0, totalSize: 0 };
 
     // Calculate size recursively with progress reporting
     const result = await this.calculateDirectorySizeRecursive(
@@ -456,7 +456,7 @@ export class FileOperationsCommand implements ICommand {
    */
   private async calculateDirectorySizeRecursive(
     dirPath: string,
-    progressState: { processedFiles: number },
+    progressState: { processedFiles: number; totalSize: number },
   ): Promise<{ totalSize: number; fileCount: number; directoryCount: number }> {
     let totalSize = 0;
     let fileCount = 0;
@@ -492,12 +492,13 @@ export class FileOperationsCommand implements ICommand {
             totalSize += fileStats.size;
             fileCount++;
             progressState.processedFiles++;
+            progressState.totalSize += fileStats.size;
 
             // Report progress every file
             if (this.progressCallback) {
               this.progressCallback(
                 progressState.processedFiles,
-                0, // We don't know total upfront
+                progressState.totalSize,
                 entry.name,
               );
             }

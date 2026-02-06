@@ -76,12 +76,21 @@ export function registerCommands(ipcMain: any, version: string) {
           // Set up progress callback to send events to renderer
           (command as any).setProgressCallback?.(
             (current: number, total: number, fileName: string) => {
-              event.sender?.send(eventName, {
-                current,
-                total,
-                fileName,
-                percentage: Math.round((current / total) * 100),
-              });
+              // For directory-size, 'total' is the accumulated size, not a count
+              if (params.operation === 'directory-size') {
+                event.sender?.send(eventName, {
+                  current,
+                  totalSize: total,
+                  fileName,
+                });
+              } else {
+                event.sender?.send(eventName, {
+                  current,
+                  total,
+                  fileName,
+                  percentage: Math.round((current / total) * 100),
+                });
+              }
             },
           );
         }

@@ -105,6 +105,7 @@ export class DirectorySizeDialog extends LitElement {
     directoryCount: number
     currentFile: string
     isFile?: boolean
+    currentSize?: number
   } | null = null
 
   private close() {
@@ -138,7 +139,7 @@ export class DirectorySizeDialog extends LitElement {
   render() {
     if (!this.data) return ''
 
-    const { name, isCalculating, totalSize, fileCount, directoryCount, currentFile, isFile } = this.data
+    const { name, isCalculating, totalSize, fileCount, directoryCount, currentFile, isFile, currentSize } = this.data
 
     return html`
       <simple-dialog
@@ -159,8 +160,13 @@ export class DirectorySizeDialog extends LitElement {
                     Calculating size...
                   </div>
                   <div class="file-count">
-                    Files scanned: ${fileCount}
+                    Files scanned: ${fileCount.toLocaleString()}
                   </div>
+                  ${currentSize !== undefined && currentSize > 0
+                    ? html`<div style="color: #22c55e; font-weight: bold; margin-top: 0.5rem;">
+                        Current size: ${this.formatFileSize(currentSize)}
+                      </div>`
+                    : ''}
                   ${currentFile
                     ? html`<div class="current-file" title="${currentFile}">
                         ${currentFile}
