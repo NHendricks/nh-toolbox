@@ -32,6 +32,16 @@ export class Commander extends LitElement {
     return (ext && this.fileIcons[ext]) ?? '📄'
   }
 
+  /**
+   * Mask password in FTP URL for display
+   * ftp://user:password@host:port/path -> ftp://user:***@host:port/path
+   */
+  maskFtpPassword(path: string): string {
+    if (!path.startsWith('ftp://')) return path
+    // Match ftp://user:password@host pattern
+    return path.replace(/^(ftp:\/\/[^:]+:)[^@]+(@)/, '$1***$2')
+  }
+
   @property({ type: Object })
   leftPane: PaneState = {
     currentPath: '/',
@@ -3010,7 +3020,7 @@ export class Commander extends LitElement {
             this.handlePathClick()
           }}
         >
-          <span class="path-display">${pane.currentPath}</span>
+          <span class="path-display">${this.maskFtpPassword(pane.currentPath)}</span>
           <span class="item-count">
             ${filteredItems.length}${pane.filterActive && pane.filter
               ? ` / ${pane.items.length}`
