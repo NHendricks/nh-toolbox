@@ -6,8 +6,16 @@ commander:
 - add support for browse into asar files
 - refactor commander (try again now with claude code)
 - test and fix ftps
+- in ftp dir up => got to dir where we came from
+- Ctrl+a select all files
+- ctrl+pageup/down: select all files between these
+- improve readability light blie in drive selection => colors
+- better make cleaar which window is active (colors)
 other:
 - build app for linux
+- show size of dirs of a folder
+  - show like treesize
+  - add cleanup actions
 - integrate more cmdline-Tools
   - versioning (git simple)
   - dirsorter for jpegs

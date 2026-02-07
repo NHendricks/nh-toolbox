@@ -55,7 +55,7 @@ export const commanderStyles = css`
   }
 
   .pane.active {
-    background: #1e293b;
+    background: #062b66;
   }
 
   .pane-header {
