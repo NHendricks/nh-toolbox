@@ -6,7 +6,6 @@ commander:
 - copy from zip (or from zip in zip) doesnt work or is very slow
 - add support for browse into asar files
 - refactor commander (try again now with claude code)
-- use simple crypto function for passwords in settings export/import
 - test and fix ftps
 other:
 - build app for linux

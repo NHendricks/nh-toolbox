@@ -42,6 +42,38 @@ export class Commander extends LitElement {
     return path.replace(/^(ftp:\/\/[^:]+:)[^@]+(@)/, '$1***$2')
   }
 
+  /**
+   * Simple XOR-based obfuscation for passwords in settings export
+   * Not cryptographically secure, but prevents plain text passwords in JSON
+   */
+  private encryptPassword(password: string): string {
+    const key = 'nh-toolbox-settings-key'
+    let result = ''
+    for (let i = 0; i < password.length; i++) {
+      result += String.fromCharCode(
+        password.charCodeAt(i) ^ key.charCodeAt(i % key.length),
+      )
+    }
+    return btoa(result) // Base64 encode for safe JSON storage
+  }
+
+  private decryptPassword(encrypted: string): string {
+    try {
+      const decoded = atob(encrypted) // Base64 decode
+      const key = 'nh-toolbox-settings-key'
+      let result = ''
+      for (let i = 0; i < decoded.length; i++) {
+        result += String.fromCharCode(
+          decoded.charCodeAt(i) ^ key.charCodeAt(i % key.length),
+        )
+      }
+      return result
+    } catch {
+      // If decryption fails, return as-is (backwards compatibility)
+      return encrypted
+    }
+  }
+
   @property({ type: Object })
   leftPane: PaneState = {
     currentPath: '/',
@@ -2489,12 +2521,18 @@ export class Commander extends LitElement {
         customApplications = {}
       }
 
-      // Safely parse FTP connections
+      // Safely parse FTP connections and encrypt passwords
       let ftpConnections: any[] = []
       try {
         const ftpJson = localStorage.getItem('ftp-connections')
         if (ftpJson) {
-          ftpConnections = JSON.parse(ftpJson)
+          const connections = JSON.parse(ftpJson)
+          // Encrypt passwords for export
+          ftpConnections = connections.map((conn: any) => ({
+            ...conn,
+            password: conn.password ? this.encryptPassword(conn.password) : '',
+            _encrypted: true, // Mark as encrypted
+          }))
         }
       } catch (parseError) {
         console.warn('Failed to parse FTP connections:', parseError)
@@ -2601,11 +2639,18 @@ export class Commander extends LitElement {
         )
       }
 
-      // Import FTP connections
+      // Import FTP connections (decrypt passwords)
       if (settings.ftpConnections) {
+        const decryptedConnections = settings.ftpConnections.map((conn: any) => ({
+          ...conn,
+          password: conn._encrypted
+            ? this.decryptPassword(conn.password)
+            : conn.password,
+          _encrypted: undefined, // Remove the marker
+        }))
         localStorage.setItem(
           'ftp-connections',
-          JSON.stringify(settings.ftpConnections),
+          JSON.stringify(decryptedConnections),
         )
       }
 
