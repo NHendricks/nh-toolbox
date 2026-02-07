@@ -8,18 +8,30 @@ import type { FileItem, PaneState } from './commander/commander.types.js'
 import { HistoryService } from './commander/services/HistoryService.js'
 import { KeyboardHandler } from './commander/services/KeyboardHandler.js'
 import { PaneManager } from './commander/services/PaneManager.js'
+import { FavoritesService } from './commander/services/FavoritesService.js'
+import { settingsService } from './commander/services/SettingsService.js'
+import {
+  executeFileOperation,
+  executeDelete,
+  executeZip,
+  executeRename,
+  executeMkdir,
+  cancelOperation,
+} from './commander/services/FileOperationsHandler.js'
 import { FILE_ICONS } from './commander/utils/file-utils.js'
+import { getParentPath, maskFtpPassword, getPathSeparator } from './commander/utils/PathUtils.js'
+import { formatFileSize } from './commander/utils/FormatUtils.js'
+import { sortItems, getNextSortState } from './commander/utils/SortUtils.js'
 
 // Import dialog components
 import './commander/dialogs/index.js'
-
-// Import context menu extension
 
 export class Commander extends LitElement {
   static styles = commanderStyles
 
   // Service instances
   private historyService = new HistoryService()
+  private favoritesService = new FavoritesService()
   private paneManager!: PaneManager
   private keyboardHandler!: KeyboardHandler
 
@@ -32,47 +44,8 @@ export class Commander extends LitElement {
     return (ext && this.fileIcons[ext]) ?? '📄'
   }
 
-  /**
-   * Mask password in FTP URL for display
-   * ftp://user:password@host:port/path -> ftp://user:***@host:port/path
-   */
-  maskFtpPassword(path: string): string {
-    if (!path.startsWith('ftp://')) return path
-    // Match ftp://user:password@host pattern
-    return path.replace(/^(ftp:\/\/[^:]+:)[^@]+(@)/, '$1***$2')
-  }
-
-  /**
-   * Simple XOR-based obfuscation for passwords in settings export
-   * Not cryptographically secure, but prevents plain text passwords in JSON
-   */
-  private encryptPassword(password: string): string {
-    const key = 'nh-toolbox-settings-key'
-    let result = ''
-    for (let i = 0; i < password.length; i++) {
-      result += String.fromCharCode(
-        password.charCodeAt(i) ^ key.charCodeAt(i % key.length),
-      )
-    }
-    return btoa(result) // Base64 encode for safe JSON storage
-  }
-
-  private decryptPassword(encrypted: string): string {
-    try {
-      const decoded = atob(encrypted) // Base64 decode
-      const key = 'nh-toolbox-settings-key'
-      let result = ''
-      for (let i = 0; i < decoded.length; i++) {
-        result += String.fromCharCode(
-          decoded.charCodeAt(i) ^ key.charCodeAt(i % key.length),
-        )
-      }
-      return result
-    } catch {
-      // If decryption fails, return as-is (backwards compatibility)
-      return encrypted
-    }
-  }
+  // Delegate to imported utility
+  maskFtpPassword = maskFtpPassword
 
   @property({ type: Object })
   leftPane: PaneState = {
@@ -337,48 +310,24 @@ export class Commander extends LitElement {
   }
 
   loadFavorites() {
-    const saved = localStorage.getItem('commander-favorites')
-    if (saved) {
-      try {
-        this.favoritePaths = JSON.parse(saved)
-      } catch (error) {
-        console.error('Failed to load favorites:', error)
-        this.favoritePaths = []
-      }
-    }
-  }
-
-  saveFavorites() {
-    localStorage.setItem(
-      'commander-favorites',
-      JSON.stringify(this.favoritePaths),
-    )
+    this.favoritePaths = this.favoritesService.load()
   }
 
   toggleFavorite(path: string) {
-    const index = this.favoritePaths.indexOf(path)
-    if (index >= 0) {
-      // Remove from favorites
-      this.favoritePaths = this.favoritePaths.filter((_, i) => i !== index)
-      this.setStatus(`Removed from favorites: ${path}`, 'success')
-    } else {
-      // Add to favorites
-      this.favoritePaths = [...this.favoritePaths, path]
-      this.setStatus(`Added to favorites: ${path}`, 'success')
-    }
-    this.saveFavorites()
+    const result = this.favoritesService.toggle(path)
+    this.favoritePaths = this.favoritesService.getAll()
+    this.setStatus(result.message, 'success')
   }
 
   addToFavorites(path: string) {
-    if (!this.favoritePaths.includes(path)) {
-      this.favoritePaths = [...this.favoritePaths, path]
-      this.saveFavorites()
+    if (this.favoritesService.add(path)) {
+      this.favoritePaths = this.favoritesService.getAll()
       this.setStatus(`Added to favorites: ${path}`, 'success')
     }
   }
 
   isFavorite(path: string): boolean {
-    return this.favoritePaths.includes(path)
+    return this.favoritesService.isFavorite(path)
   }
 
   async loadDrives() {
@@ -710,60 +659,8 @@ export class Commander extends LitElement {
     }
   }
 
-  getParentPath(currentPath: string): string {
-    // Detect OS: Windows paths have drive letters (e.g., "C:\"), Unix paths start with "/"
-    const isWindows = /^[a-zA-Z]:[\\\/]/.test(currentPath)
-    const separator = isWindows ? '\\' : '/'
-
-    // Normalize separators for consistency
-    const normalized = isWindows
-      ? currentPath.replace(/\//g, '\\')
-      : currentPath.replace(/\\/g, '/')
-
-    // Check if we're at root
-    if (isWindows) {
-      // Windows root: "d:\" or "d:"
-      if (normalized.match(/^[a-zA-Z]:\\?$/)) {
-        return normalized
-      }
-    } else {
-      // Unix root: "/"
-      if (normalized === '/') {
-        return '/'
-      }
-    }
-
-    // Remove trailing separator if present (but not if it's the root)
-    const minLength = isWindows ? 3 : 1
-    const cleanPath =
-      normalized.endsWith(separator) && normalized.length > minLength
-        ? normalized.slice(0, -1)
-        : normalized
-
-    // Find last separator
-    const lastSeparator = cleanPath.lastIndexOf(separator)
-    if (lastSeparator === -1) {
-      return normalized
-    }
-
-    // Return everything up to the last separator
-    const parentPath = cleanPath.substring(0, lastSeparator)
-
-    // Handle edge cases
-    if (isWindows) {
-      // If parent path is just drive letter, add backslash
-      if (parentPath.match(/^[a-zA-Z]:$/)) {
-        return parentPath + '\\'
-      }
-    } else {
-      // If parent path is empty, return root
-      if (parentPath === '') {
-        return '/'
-      }
-    }
-
-    return parentPath || normalized
-  }
+  // Delegate to imported utility
+  getParentPath = getParentPath
 
   setStatus(message: string, type: 'normal' | 'success' | 'error') {
     this.statusMessage = message
@@ -1047,42 +944,12 @@ export class Commander extends LitElement {
       return
     }
 
-    try {
-      let response
-      if (currentPath.startsWith('ftp://')) {
-        // FTP mkdir
-        const ftpUrl = currentPath.endsWith('/')
-          ? `${currentPath}${folderName}`
-          : `${currentPath}/${folderName}`
-        response = await (window as any).electron.ipcRenderer.invoke(
-          'cli-execute',
-          'ftp',
-          { operation: 'mkdir', ftpUrl },
-        )
-      } else {
-        // Local mkdir
-        const dirPath =
-          currentPath + (currentPath.endsWith('/') ? '' : '/') + folderName
-        response = await (window as any).electron.ipcRenderer.invoke(
-          'cli-execute',
-          'file-operations',
-          { operation: 'mkdir', dirPath },
-        )
-      }
+    const result = await executeMkdir(currentPath, folderName)
+    this.setStatus(result.message, result.success ? 'success' : 'error')
 
-      if (response.success && response.data?.success) {
-        this.setStatus(`Created folder: ${folderName}`, 'success')
-        this.mkdirDialog = null
-        // Refresh the current directory
-        await this.loadDirectory(this.activePane, currentPath)
-      } else {
-        this.setStatus(
-          `Error: ${response.data?.error || response.error || 'Unknown error'}`,
-          'error',
-        )
-      }
-    } catch (error: any) {
-      this.setStatus(`Error: ${error.message}`, 'error')
+    if (result.success) {
+      this.mkdirDialog = null
+      await this.loadDirectory(this.activePane, currentPath)
     }
   }
 
@@ -1145,56 +1012,29 @@ export class Commander extends LitElement {
 
     const { files, zipFileName } = this.zipDialog
     const destPane = this.getInactivePane()
-    const separator = destPane.currentPath.includes('\\') ? '\\' : '/'
+    const separator = getPathSeparator(destPane.currentPath)
     const zipFilePath = destPane.currentPath + separator + zipFileName
 
-    try {
-      // Reset progress
-      this.zipProgress = null
+    this.zipProgress = null
+    this.setStatus(`Zipping ${files.length} file(s)...`, 'normal')
 
-      this.setStatus(`Zipping ${files.length} file(s)...`, 'normal')
-      console.log('zip params:' + JSON.stringify(files))
+    const result = await executeZip(files, zipFilePath)
+    this.zipProgress = null
 
-      const response = await (window as any).electron.ipcRenderer.invoke(
-        'cli-execute',
-        'file-operations',
-        {
-          operation: 'zip',
-          files: files,
-          zipFilePath: zipFilePath,
-        },
+    this.setStatus(result.message, result.success ? 'success' : 'error')
+
+    if (result.success) {
+      await this.loadDirectory(
+        this.activePane === 'left' ? 'right' : 'left',
+        destPane.currentPath,
       )
-
-      // Clear progress
-      this.zipProgress = null
-
-      if (response.success && response.data) {
-        this.setStatus(
-          `Successfully zipped ${response.data.filesAdded} file(s) to ${zipFileName}`,
-          'success',
-        )
-
-        // Refresh inactive pane to show the new ZIP file
-        await this.loadDirectory(
-          this.activePane === 'left' ? 'right' : 'left',
-          destPane.currentPath,
-        )
-      } else {
-        this.setStatus(`Error zipping: ${response.error}`, 'error')
-      }
-
-      this.zipDialog = null
-    } catch (error: any) {
-      this.setStatus(`Error: ${error.message}`, 'error')
-      this.zipDialog = null
-      this.zipProgress = null
     }
+
+    this.zipDialog = null
   }
 
   async cancelZip() {
-    // Cancel any ongoing file operation
-    await (window as any).electron.ipcRenderer.invoke('cancel-file-operation')
-
+    await cancelOperation()
     this.zipDialog = null
     this.zipProgress = null
   }
@@ -1458,153 +1298,32 @@ export class Commander extends LitElement {
     if (!this.operationDialog) return
 
     const { type, files, destination } = this.operationDialog
+    this.copyProgress = null
 
-    console.log('[UI] executeOperation started:', { type, files, destination })
+    this.setStatus(
+      `${type === 'copy' ? 'Copying' : 'Moving'} ${files.length} file(s)...`,
+      'normal',
+    )
 
-    try {
-      // Reset progress
-      this.copyProgress = null
+    const result = await executeFileOperation(type, files, destination)
+    this.copyProgress = null
 
-      this.setStatus(
-        `${type === 'copy' ? 'Copying' : 'Moving'} ${files.length} file(s)...`,
-        'normal',
+    this.setStatus(result.message, result.success ? 'success' : 'error')
+
+    if (result.success) {
+      // Refresh both panes
+      await this.loadDirectory(this.activePane, this.getActivePane().currentPath)
+      await this.loadDirectory(
+        this.activePane === 'left' ? 'right' : 'left',
+        this.getInactivePane().currentPath,
       )
-
-      let successCount = 0
-      for (const file of files) {
-        const fileName = file.split(/[/\\\/]/).pop() || 'file'
-        const isSourceFTP = file.startsWith('ftp://')
-        const isDestFTP = destination.startsWith('ftp://')
-
-        console.log('[UI] File operation:', {
-          file,
-          fileName,
-          isSourceFTP,
-          isDestFTP,
-        })
-
-        // Handle FTP operations
-        if (isSourceFTP && !isDestFTP) {
-          // Download from FTP to local
-          const separator = destination.includes('\\') ? '\\' : '/'
-          const localPath = destination + separator + fileName
-
-          console.log('[UI] FTP Download:', file, '→', localPath)
-
-          const response = await (window as any).electron.ipcRenderer.invoke(
-            'cli-execute',
-            'ftp',
-            {
-              operation: 'download',
-              ftpUrl: file,
-              localPath: localPath,
-            },
-          )
-
-          if (response.success) {
-            successCount++
-          } else {
-            this.setStatus(
-              `Error downloading ${fileName}: ${response.error}`,
-              'error',
-            )
-            break
-          }
-        } else if (!isSourceFTP && isDestFTP) {
-          // Upload from local to FTP
-          const ftpPath = destination.endsWith('/')
-            ? destination + fileName
-            : destination + '/' + fileName
-
-          console.log('[UI] FTP Upload:', file, '→', ftpPath)
-
-          const response = await (window as any).electron.ipcRenderer.invoke(
-            'cli-execute',
-            'ftp',
-            {
-              operation: 'upload',
-              localPath: file,
-              ftpUrl: ftpPath,
-            },
-          )
-
-          if (response.success) {
-            successCount++
-          } else {
-            this.setStatus(
-              `Error uploading ${fileName}: ${response.error}`,
-              'error',
-            )
-            break
-          }
-        } else if (isSourceFTP && isDestFTP) {
-          // FTP to FTP not supported yet
-          this.setStatus('FTP to FTP copy not supported yet', 'error')
-          break
-        } else {
-          // Normal local file operation
-          const separator = destination.includes('\\') ? '\\' : '/'
-          const destPath = destination + separator + fileName
-
-          console.log('[UI] Invoking local copy operation:', {
-            operation: type,
-            sourcePath: file,
-            destinationPath: destPath,
-          })
-
-          const response = await (window as any).electron.ipcRenderer.invoke(
-            'cli-execute',
-            'file-operations',
-            {
-              operation: type,
-              sourcePath: file,
-              destinationPath: destPath,
-            },
-          )
-
-          console.log('[UI] Copy operation response:', response)
-
-          if (response.success) {
-            successCount++
-          } else {
-            this.setStatus(`Error with ${fileName}: ${response.error}`, 'error')
-            break
-          }
-        }
-      }
-
-      // Clear progress
-      this.copyProgress = null
-
-      if (successCount === files.length) {
-        this.setStatus(
-          `${successCount} file(s) successfully ${type === 'copy' ? 'copied' : 'moved'}`,
-          'success',
-        )
-
-        // Refresh both panes
-        await this.loadDirectory(
-          this.activePane,
-          this.getActivePane().currentPath,
-        )
-        await this.loadDirectory(
-          this.activePane === 'left' ? 'right' : 'left',
-          this.getInactivePane().currentPath,
-        )
-      }
-
-      this.operationDialog = null
-    } catch (error: any) {
-      this.setStatus(`Error: ${error.message}`, 'error')
-      // Clear progress on error
-      this.copyProgress = null
     }
+
+    this.operationDialog = null
   }
 
   async cancelOperation() {
-    // Cancel any ongoing file operation
-    await (window as any).electron.ipcRenderer.invoke('cancel-file-operation')
-
+    await cancelOperation()
     this.operationDialog = null
     this.copyProgress = null
   }
@@ -1622,45 +1341,16 @@ export class Commander extends LitElement {
     if (!this.deleteDialog) return
 
     const { files } = this.deleteDialog
+    this.setStatus(`Deleting ${files.length} file(s)...`, 'normal')
 
-    try {
-      this.setStatus(`Deleting ${files.length} file(s)...`, 'normal')
+    const result = await executeDelete(files)
+    this.setStatus(result.message, result.success ? 'success' : 'error')
 
-      let successCount = 0
-      const { FileService } = await import(
-        './commander/services/FileService.js'
-      )
-
-      for (const file of files) {
-        const fileName = file.split(/[/\\]/).pop() || 'file'
-
-        const response = await FileService.delete(file)
-
-        if (response.success) {
-          successCount++
-        } else {
-          this.setStatus(`Error with ${fileName}: ${response.error}`, 'error')
-          break
-        }
-      }
-
-      if (successCount === files.length) {
-        this.setStatus(
-          `${successCount} file(s) successfully deleted`,
-          'success',
-        )
-
-        // Refresh active pane
-        await this.loadDirectory(
-          this.activePane,
-          this.getActivePane().currentPath,
-        )
-      }
-
-      this.deleteDialog = null
-    } catch (error: any) {
-      this.setStatus(`Error: ${error.message}`, 'error')
+    if (result.success) {
+      await this.loadDirectory(this.activePane, this.getActivePane().currentPath)
     }
+
+    this.deleteDialog = null
   }
 
   cancelDelete() {
@@ -1852,53 +1542,16 @@ export class Commander extends LitElement {
     if (!this.renameDialog || !this.renameDialog.newName.trim()) return
 
     const { filePath, newName } = this.renameDialog
-    const isFTP = filePath.startsWith('ftp://')
+    this.setStatus(`Renaming...`, 'normal')
 
-    try {
-      this.setStatus(`Renaming...`, 'normal')
+    const result = await executeRename(filePath, newName)
+    this.setStatus(result.message, result.success ? 'success' : 'error')
 
-      let response
-      if (isFTP) {
-        // Use FTP command for FTP paths
-        response = await (window as any).electron.ipcRenderer.invoke(
-          'cli-execute',
-          'ftp',
-          {
-            operation: 'rename',
-            ftpUrl: filePath,
-            newName: newName,
-          },
-        )
-      } else {
-        // Use file-operations for local paths
-        response = await (window as any).electron.ipcRenderer.invoke(
-          'cli-execute',
-          'file-operations',
-          {
-            operation: 'rename',
-            sourcePath: filePath,
-            destinationPath: newName,
-          },
-        )
-      }
-
-      if (response.success) {
-        this.setStatus(`Renamed successfully`, 'success')
-
-        // Refresh active pane
-        await this.loadDirectory(
-          this.activePane,
-          this.getActivePane().currentPath,
-        )
-      } else {
-        this.setStatus(`Error renaming: ${response.error}`, 'error')
-      }
-
-      this.renameDialog = null
-    } catch (error: any) {
-      this.setStatus(`Error: ${error.message}`, 'error')
-      this.renameDialog = null
+    if (result.success) {
+      await this.loadDirectory(this.activePane, this.getActivePane().currentPath)
     }
+
+    this.renameDialog = null
   }
 
   cancelRename() {
@@ -2226,7 +1879,7 @@ export class Commander extends LitElement {
   async handleCustomAppSelect(detail: { path: string; name: string }) {
     if (!this.openWithDialog) return
 
-    const { filePath, fileName } = this.openWithDialog
+    const { fileName } = this.openWithDialog
     const extension = fileName.includes('.')
       ? '.' + fileName.split('.').pop()?.toLowerCase()
       : ''
@@ -2501,7 +2154,6 @@ export class Commander extends LitElement {
         filters: [{ name: 'JSON Files', extensions: ['json'] }],
       })
 
-      // Check if user cancelled
       if (saveDialogResponse.canceled || !saveDialogResponse.filePath) {
         this.setStatus('Export cancelled', 'normal')
         return
@@ -2509,62 +2161,23 @@ export class Commander extends LitElement {
 
       const filePath = saveDialogResponse.filePath
 
-      // Safely parse custom applications
-      let customApplications = {}
-      try {
-        const customAppsJson = localStorage.getItem('commander-custom-apps')
-        if (customAppsJson) {
-          customApplications = JSON.parse(customAppsJson)
-        }
-      } catch (parseError) {
-        console.warn('Failed to parse custom applications:', parseError)
-        customApplications = {}
-      }
-
-      // Safely parse FTP connections and encrypt passwords
-      let ftpConnections: any[] = []
-      try {
-        const ftpJson = localStorage.getItem('ftp-connections')
-        if (ftpJson) {
-          const connections = JSON.parse(ftpJson)
-          // Encrypt passwords for export
-          ftpConnections = connections.map((conn: any) => ({
-            ...conn,
-            password: conn.password ? this.encryptPassword(conn.password) : '',
-            _encrypted: true, // Mark as encrypted
-          }))
-        }
-      } catch (parseError) {
-        console.warn('Failed to parse FTP connections:', parseError)
-        ftpConnections = []
-      }
-
-      // Collect all settings
-      const settings = {
-        version: '1.0.0',
-        exportDate: new Date().toISOString(),
-        favorites: this.favoritePaths,
-        customApplications: customApplications,
-        ftpConnections: ftpConnections,
-        leftPane: {
-          path: this.leftPane.currentPath,
-          sort: {
-            sortBy: this.leftPane.sortBy,
-            sortDirection: this.leftPane.sortDirection,
-          },
+      // Collect settings using the service
+      const settings = settingsService.collectSettings(
+        {
+          currentPath: this.leftPane.currentPath,
+          sortBy: this.leftPane.sortBy,
+          sortDirection: this.leftPane.sortDirection,
         },
-        rightPane: {
-          path: this.rightPane.currentPath,
-          sort: {
-            sortBy: this.rightPane.sortBy,
-            sortDirection: this.rightPane.sortDirection,
-          },
+        {
+          currentPath: this.rightPane.currentPath,
+          sortBy: this.rightPane.sortBy,
+          sortDirection: this.rightPane.sortDirection,
         },
-      }
+      )
 
       const jsonString = JSON.stringify(settings, null, 2)
 
-      // Use IPC to write file with the selected path
+      // Write file
       const response = await (window as any).electron.ipcRenderer.invoke(
         'cli-execute',
         'file-operations',
@@ -2575,15 +2188,8 @@ export class Commander extends LitElement {
         },
       )
 
-      if (
-        response.success &&
-        response.data?.success &&
-        response.data?.data?.path
-      ) {
-        this.setStatus(
-          `Settings exported to: ${response.data.data.path}`,
-          'success',
-        )
+      if (response.success && response.data?.success && response.data?.data?.path) {
+        this.setStatus(`Settings exported to: ${response.data.data.path}`, 'success')
       } else {
         this.setStatus(
           `Export error: ${response.data?.error || response.error || 'Unknown error'}`,
@@ -2597,71 +2203,18 @@ export class Commander extends LitElement {
 
   async handleImportSettings(file: File) {
     try {
-      // Read file content
       const text = await file.text()
       const settings = JSON.parse(text)
 
-      // Validate
-      if (!settings.version) {
-        this.setStatus('Invalid settings file', 'error')
+      const result = settingsService.importSettings(settings)
+
+      if (!result.success) {
+        this.setStatus(result.error || 'Import failed', 'error')
         return
       }
 
-      // Import favorites
-      if (settings.favorites) {
-        localStorage.setItem(
-          'commander-favorites',
-          JSON.stringify(settings.favorites),
-        )
-        this.loadFavorites()
-      }
-
-      // Import custom applications
-      if (settings.customApplications) {
-        localStorage.setItem(
-          'commander-custom-apps',
-          JSON.stringify(settings.customApplications),
-        )
-      }
-
-      // Import pane paths
-      if (settings.leftPane?.path) {
-        localStorage.setItem('commander-left-path', settings.leftPane.path)
-      }
-      if (settings.rightPane?.path) {
-        localStorage.setItem('commander-right-path', settings.rightPane.path)
-      }
-
-      // Import sort settings
-      if (settings.leftPane?.sort) {
-        localStorage.setItem(
-          'commander-left-sort',
-          JSON.stringify(settings.leftPane.sort),
-        )
-      }
-      if (settings.rightPane?.sort) {
-        localStorage.setItem(
-          'commander-right-sort',
-          JSON.stringify(settings.rightPane.sort),
-        )
-      }
-
-      // Import FTP connections (decrypt passwords)
-      if (settings.ftpConnections) {
-        const decryptedConnections = settings.ftpConnections.map(
-          (conn: any) => ({
-            ...conn,
-            password: conn._encrypted
-              ? this.decryptPassword(conn.password)
-              : conn.password,
-            _encrypted: undefined, // Remove the marker
-          }),
-        )
-        localStorage.setItem(
-          'ftp-connections',
-          JSON.stringify(decryptedConnections),
-        )
-      }
+      // Reload favorites
+      this.loadFavorites()
 
       this.setStatus('Settings imported successfully', 'success')
 
@@ -2680,25 +2233,13 @@ export class Commander extends LitElement {
 
   async handleClearAllSettings() {
     try {
-      // Clear all settings from localStorage
-      const keys = [
-        'commander-favorites',
-        'commander-custom-apps',
-        'commander-left-path',
-        'commander-right-path',
-        'commander-left-sort',
-        'commander-right-sort',
-        'ftp-connections',
-      ]
-      keys.forEach((key) => localStorage.removeItem(key))
+      settingsService.clearAll()
 
       this.setStatus('All settings cleared', 'success')
-
-      // Reset favorites
       this.favoritePaths = []
 
       // Reload both panes to root/default
-      const defaultPath = process.platform === 'win32' ? 'C:\\' : '/'
+      const defaultPath = settingsService.getDefaultPath()
       await this.loadDirectory('left', defaultPath)
       await this.loadDirectory('right', defaultPath)
     } catch (error: any) {
@@ -2706,68 +2247,19 @@ export class Commander extends LitElement {
     }
   }
 
-  formatFileSize(bytes: number): string {
-    if (bytes === 0) return ''
-    const sizes = ['B', 'KB', 'MB', 'GB']
-    const i = Math.floor(Math.log(bytes) / Math.log(1024))
-    return Math.round((bytes / Math.pow(1024, i)) * 100) / 100 + ' ' + sizes[i]
-  }
-
-  sortItems(
-    items: FileItem[],
-    sortBy: string,
-    sortDirection: string,
-  ): FileItem[] {
-    // Separate parent directory (..) from other items
-    const parentDir = items.find((item) => item.name === '..')
-    const itemsToSort = items.filter((item) => item.name !== '..')
-
-    const sorted = [...itemsToSort].sort((a, b) => {
-      let comparison = 0
-
-      switch (sortBy) {
-        case 'name':
-          comparison = a.name.localeCompare(b.name, undefined, {
-            numeric: true,
-          })
-          break
-        case 'size':
-          comparison = a.size - b.size
-          break
-        case 'modified':
-          comparison =
-            new Date(a.modified).getTime() - new Date(b.modified).getTime()
-          break
-        case 'extension':
-          const extA = a.isDirectory ? '' : a.name.split('.').pop() || ''
-          const extB = b.isDirectory ? '' : b.name.split('.').pop() || ''
-          comparison = extA.localeCompare(extB)
-          if (comparison === 0) {
-            comparison = a.name.localeCompare(b.name, undefined, {
-              numeric: true,
-            })
-          }
-          break
-      }
-
-      return sortDirection === 'asc' ? comparison : -comparison
-    })
-
-    // Add parent directory back at the beginning if it exists
-    return parentDir ? [parentDir, ...sorted] : sorted
-  }
+  // Delegate to imported utilities
+  formatFileSize = formatFileSize
+  sortItems = sortItems
 
   toggleSort(sortBy: 'name' | 'size' | 'modified' | 'extension') {
     const pane = this.getActivePane()
+    const nextState = getNextSortState(
+      pane.sortBy as any,
+      pane.sortDirection as any,
+      sortBy,
+    )
 
-    if (pane.sortBy === sortBy) {
-      // Toggle direction
-      const newDirection = pane.sortDirection === 'asc' ? 'desc' : 'asc'
-      this.updateActivePane({ sortDirection: newDirection })
-    } else {
-      // Change sort field
-      this.updateActivePane({ sortBy, sortDirection: 'asc' })
-    }
+    this.updateActivePane(nextState)
 
     // Save sort settings through PaneManager
     this.paneManager.setActivePane(this.activePane)

@@ -1,4 +1,3 @@
-dbeaver
 commander:
 - add examples for replace in texteditor (e.g. line feeds)
 - new dos2unix and unix2dos actions in text editor (show current format bottom right)
@@ -9,10 +8,14 @@ commander:
 - in ftp dir up => got to dir where we came from
 - Ctrl+a select all files
 - ctrl+pageup/down: select all files between these
-- improve readability light blie in drive selection => colors
-- better make cleaar which window is active (colors)
+- at startup no ftp and no sambe restore
+- loading directory... should show whole path
+- compare dir, then fiel: move down for both files synch scrolling
 other:
 - build app for linux
+- db tool like bweaver
+- quick launcher ctrl+Space (global shortcut)
+- quick text inserter (global shortcut)
 - show size of dirs of a folder
   - show like treesize
   - add cleanup actions
