@@ -181,58 +181,83 @@ export class FileOperationsCommand implements ICommand {
 
   /**
    * Get drive info including free space for a given path
-   * Uses wmic on Windows to get disk space information
+   * Cross-platform: Windows (PowerShell), Linux/Mac (df command)
    */
   private async getDriveInfo(drivePath: string): Promise<any> {
     if (!drivePath) {
       return { success: false, error: 'No drive path provided' };
     }
 
-    // Extract drive letter from path (e.g., "C:" from "C:\Users\...")
-    const driveMatch = drivePath.match(/^([A-Za-z]:)/);
-    if (!driveMatch) {
-      // Not a standard drive path (could be UNC path)
-      return {
-        success: true,
-        operation: 'drive-info',
-        drivePath,
-        freeSpace: null,
-        totalSpace: null,
-      };
-    }
-
-    const driveLetter = driveMatch[1].toUpperCase();
-
     try {
-      // Use PowerShell to get drive info (more reliable than wmic)
-      const psCommand = `(Get-PSDrive -Name '${driveLetter.charAt(0)}' -ErrorAction SilentlyContinue | Select-Object @{N='Free';E={$_.Free}},@{N='Used';E={$_.Used}} | ConvertTo-Json)`;
-      const { stdout } = await execPromise(
-        `powershell -NoProfile -Command "${psCommand}"`,
-        { encoding: 'utf8', timeout: 5000 },
-      );
+      if (process.platform === 'win32') {
+        // Windows: Extract drive letter and use PowerShell
+        const driveMatch = drivePath.match(/^([A-Za-z]:)/);
+        if (!driveMatch) {
+          // UNC path - no drive info available
+          return {
+            success: true,
+            operation: 'drive-info',
+            drivePath,
+            freeSpace: null,
+            totalSpace: null,
+          };
+        }
 
-      const trimmed = stdout.trim();
-      if (trimmed) {
-        const data = JSON.parse(trimmed);
-        const freeSpace = data.Free || 0;
-        const usedSpace = data.Used || 0;
-        const totalSpace = freeSpace + usedSpace;
+        const driveLetter = driveMatch[1].toUpperCase();
+        const psCommand = `(Get-PSDrive -Name '${driveLetter.charAt(0)}' -ErrorAction SilentlyContinue | Select-Object @{N='Free';E={$_.Free}},@{N='Used';E={$_.Used}} | ConvertTo-Json)`;
+        const { stdout } = await execPromise(
+          `powershell -NoProfile -Command "${psCommand}"`,
+          { encoding: 'utf8', timeout: 5000 },
+        );
 
-        return {
-          success: true,
-          operation: 'drive-info',
-          drivePath,
-          driveLetter,
-          freeSpace,
-          totalSpace,
-        };
+        const trimmed = stdout.trim();
+        if (trimmed) {
+          const data = JSON.parse(trimmed);
+          const freeSpace = data.Free || 0;
+          const usedSpace = data.Used || 0;
+          const totalSpace = freeSpace + usedSpace;
+
+          return {
+            success: true,
+            operation: 'drive-info',
+            drivePath,
+            driveLetter,
+            freeSpace,
+            totalSpace,
+          };
+        }
+      } else {
+        // Linux/Mac: Use df command
+        // Escape single quotes in path for shell
+        const escapedPath = drivePath.replace(/'/g, "'\\''");
+        const { stdout } = await execPromise(
+          `df -B1 '${escapedPath}' 2>/dev/null | tail -1`,
+          { encoding: 'utf8', timeout: 5000 },
+        );
+
+        const trimmed = stdout.trim();
+        if (trimmed) {
+          // df output: Filesystem 1B-blocks Used Available Use% Mounted
+          const parts = trimmed.split(/\s+/);
+          if (parts.length >= 4) {
+            const totalSpace = parseInt(parts[1], 10) || 0;
+            const freeSpace = parseInt(parts[3], 10) || 0;
+
+            return {
+              success: true,
+              operation: 'drive-info',
+              drivePath,
+              freeSpace,
+              totalSpace,
+            };
+          }
+        }
       }
 
       return {
         success: true,
         operation: 'drive-info',
         drivePath,
-        driveLetter,
         freeSpace: null,
         totalSpace: null,
       };
