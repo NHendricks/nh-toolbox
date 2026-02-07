@@ -61,6 +61,8 @@ export class FileOperationsCommand implements ICommand {
           return await this.listFiles(folderPath);
         case 'drives':
           return await this.listDrives();
+        case 'drive-info':
+          return await this.getDriveInfo(params.drivePath);
         case 'read':
           return await this.readFile(filePath);
         case 'copy':
@@ -175,6 +177,71 @@ export class FileOperationsCommand implements ICommand {
       operation: 'drives',
       drives: drives,
     };
+  }
+
+  /**
+   * Get drive info including free space for a given path
+   * Uses wmic on Windows to get disk space information
+   */
+  private async getDriveInfo(drivePath: string): Promise<any> {
+    if (!drivePath) {
+      return { success: false, error: 'No drive path provided' };
+    }
+
+    // Extract drive letter from path (e.g., "C:" from "C:\Users\...")
+    const driveMatch = drivePath.match(/^([A-Za-z]:)/);
+    if (!driveMatch) {
+      // Not a standard drive path (could be UNC path)
+      return {
+        success: true,
+        operation: 'drive-info',
+        drivePath,
+        freeSpace: null,
+        totalSpace: null,
+      };
+    }
+
+    const driveLetter = driveMatch[1].toUpperCase();
+
+    try {
+      // Use PowerShell to get drive info (more reliable than wmic)
+      const psCommand = `(Get-PSDrive -Name '${driveLetter.charAt(0)}' -ErrorAction SilentlyContinue | Select-Object @{N='Free';E={$_.Free}},@{N='Used';E={$_.Used}} | ConvertTo-Json)`;
+      const { stdout } = await execPromise(
+        `powershell -NoProfile -Command "${psCommand}"`,
+        { encoding: 'utf8', timeout: 5000 },
+      );
+
+      const trimmed = stdout.trim();
+      if (trimmed) {
+        const data = JSON.parse(trimmed);
+        const freeSpace = data.Free || 0;
+        const usedSpace = data.Used || 0;
+        const totalSpace = freeSpace + usedSpace;
+
+        return {
+          success: true,
+          operation: 'drive-info',
+          drivePath,
+          driveLetter,
+          freeSpace,
+          totalSpace,
+        };
+      }
+
+      return {
+        success: true,
+        operation: 'drive-info',
+        drivePath,
+        driveLetter,
+        freeSpace: null,
+        totalSpace: null,
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.message || 'Failed to get drive info',
+      };
+    }
   }
 
   /**

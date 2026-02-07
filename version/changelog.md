@@ -9,6 +9,8 @@ ou can find the binary downloads here: https://github.com/NHendricks/nh-toolbox/
 
 (you can download and test the dev version from https://github.com/NHendricks/nice-2-have-toolbox/actions/workflows/node.js.yml)
 
+- fix file diff in directory compare
+
 ### v1.7.0 (07.02.2026)
 
 - in drive dialog support keyboard navigation

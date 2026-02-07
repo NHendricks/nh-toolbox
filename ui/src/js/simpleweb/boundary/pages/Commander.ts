@@ -101,6 +101,18 @@ export class Commander extends LitElement {
   @property({ type: Array })
   availableNetworkShares: any[] = []
 
+  @property({ type: Object })
+  leftDriveInfo: { freeSpace: number | null; totalSpace: number | null } = {
+    freeSpace: null,
+    totalSpace: null,
+  }
+
+  @property({ type: Object })
+  rightDriveInfo: { freeSpace: number | null; totalSpace: number | null } = {
+    freeSpace: null,
+    totalSpace: null,
+  }
+
   @property({ type: Array })
   favoritePaths: string[] = []
 
@@ -602,6 +614,8 @@ export class Commander extends LitElement {
           // Update PaneManager and save to localStorage
           this.paneManager.setPane('left', this.leftPane)
           this.paneManager.savePanePaths()
+          // Fetch drive info for status display
+          this.fetchDriveInfo('left', data.path)
         } else {
           this.rightPane = {
             currentPath: data.path,
@@ -616,6 +630,8 @@ export class Commander extends LitElement {
           // Update PaneManager and save to localStorage
           this.paneManager.setPane('right', this.rightPane)
           this.paneManager.savePanePaths()
+          // Fetch drive info for status display
+          this.fetchDriveInfo('right', data.path)
         }
 
         // Display status with safety checks
@@ -671,6 +687,35 @@ export class Commander extends LitElement {
         this.statusMessage = 'Ready'
         this.statusType = 'normal'
       }, 3000)
+    }
+  }
+
+  async fetchDriveInfo(pane: 'left' | 'right', path: string) {
+    try {
+      const response = await (window as any).electron.ipcRenderer.invoke(
+        'cli-execute',
+        'file-operations',
+        { operation: 'drive-info', drivePath: path },
+      )
+
+      console.log('Drive info response:', response)
+
+      // Handle both response structures: response.data.freeSpace or response.freeSpace
+      const data = response.data || response
+      if (data && (data.freeSpace !== undefined || data.totalSpace !== undefined)) {
+        const info = {
+          freeSpace: data.freeSpace ?? null,
+          totalSpace: data.totalSpace ?? null,
+        }
+        console.log('Setting drive info:', pane, info)
+        if (pane === 'left') {
+          this.leftDriveInfo = info
+        } else {
+          this.rightDriveInfo = info
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch drive info:', error)
     }
   }
 
@@ -2575,6 +2620,12 @@ export class Commander extends LitElement {
       }
     })
 
+    const driveInfo = side === 'left' ? this.leftDriveInfo : this.rightDriveInfo
+    const freeSpaceText =
+      driveInfo.freeSpace !== null
+        ? this.formatFileSize(driveInfo.freeSpace) + ' free'
+        : ''
+
     return html`
       <div
         class="pane ${isActive ? 'active' : ''}"
@@ -2592,6 +2643,7 @@ export class Commander extends LitElement {
             >${this.maskFtpPassword(pane.currentPath)}</span
           >
           <span class="item-count">
+            ${freeSpaceText ? html`<span style="color: #22c55e; margin-right: 0.5rem;">${freeSpaceText}</span>` : ''}
             ${filteredItems.length}${pane.filterActive && pane.filter
               ? ` / ${pane.items.length}`
               : ''}

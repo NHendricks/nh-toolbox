@@ -76,6 +76,8 @@ export interface DriveInfo {
   letter: string
   path: string
   label: string
+  freeSpace?: number
+  totalSpace?: number
 }
 
 export interface NetworkShareInfo {
