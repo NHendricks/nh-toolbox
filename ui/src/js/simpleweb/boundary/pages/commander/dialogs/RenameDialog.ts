@@ -65,6 +65,17 @@ export class RenameDialog extends LitElement {
   @property({ type: String }) oldName = ''
   @property({ type: String }) newName = ''
 
+  protected firstUpdated() {
+    // Focus the input field after render
+    setTimeout(() => {
+      const input = this.shadowRoot?.querySelector('input')
+      if (input) {
+        input.focus()
+        input.select()
+      }
+    }, 50)
+  }
+
   private close() {
     this.dispatchEvent(new CustomEvent('close'))
   }

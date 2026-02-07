@@ -1736,22 +1736,38 @@ export class Commander extends LitElement {
     if (!this.renameDialog || !this.renameDialog.newName.trim()) return
 
     const { filePath, newName } = this.renameDialog
+    const isFTP = filePath.startsWith('ftp://')
 
     try {
-      this.setStatus(`Renaming file...`, 'normal')
+      this.setStatus(`Renaming...`, 'normal')
 
-      const response = await (window as any).electron.ipcRenderer.invoke(
-        'cli-execute',
-        'file-operations',
-        {
-          operation: 'rename',
-          sourcePath: filePath,
-          destinationPath: newName,
-        },
-      )
+      let response
+      if (isFTP) {
+        // Use FTP command for FTP paths
+        response = await (window as any).electron.ipcRenderer.invoke(
+          'cli-execute',
+          'ftp',
+          {
+            operation: 'rename',
+            ftpUrl: filePath,
+            newName: newName,
+          },
+        )
+      } else {
+        // Use file-operations for local paths
+        response = await (window as any).electron.ipcRenderer.invoke(
+          'cli-execute',
+          'file-operations',
+          {
+            operation: 'rename',
+            sourcePath: filePath,
+            destinationPath: newName,
+          },
+        )
+      }
 
       if (response.success) {
-        this.setStatus(`File renamed successfully`, 'success')
+        this.setStatus(`Renamed successfully`, 'success')
 
         // Refresh active pane
         await this.loadDirectory(

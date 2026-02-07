@@ -1,12 +1,13 @@
 dbeaver
 commander:
 - add F2 button for rename
-- add F7 create folder for fies and ftp
+- add F7 create folder for files and ftp
 - fix rename files for ftp
-- dos2unix and unix2dos in text editor
-- enable search text in named files. move the content search radio button to a new scetion
-- add examples for replace in textediotr (e.g. line feeds)
 - copy from zip (or from zip in zip) doesnt work or is very slow
+- add support for browse into asar files
+- dos2unix and unix2dos in text editor
+- enable search text in named files. remove the content search radio button and create a new sestion
+- add examples for replace in texteditor (e.g. line feeds)
 - refactor commander (try again now with claude code)
 other:
 - build app for linux

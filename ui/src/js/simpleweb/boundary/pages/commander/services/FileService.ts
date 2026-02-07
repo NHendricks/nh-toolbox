@@ -103,6 +103,14 @@ export class FileService {
    * Delete file/directory
    */
   static async delete(sourcePath: string) {
+    // Use FTP command for FTP paths
+    if (sourcePath.startsWith('ftp://')) {
+      return (window as any).electron.ipcRenderer.invoke(
+        'cli-execute',
+        'ftp',
+        { operation: 'delete', ftpUrl: sourcePath },
+      )
+    }
     return (window as any).electron.ipcRenderer.invoke(
       'cli-execute',
       'file-operations',
