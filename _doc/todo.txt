@@ -1,5 +1,6 @@
 dbeaver
 commander:
+- up and down in context menu should not be propagated. the file selection changes currently.
 - add F2 button for rename
 - add F7 create folder for files and ftp
 - fix rename files for ftp
@@ -9,6 +10,7 @@ commander:
 - enable search text in named files. remove the content search radio button and create a new sestion
 - add examples for replace in texteditor (e.g. line feeds)
 - refactor commander (try again now with claude code)
+- fix ftps
 other:
 - build app for linux
 - integrate more cmdline-Tools

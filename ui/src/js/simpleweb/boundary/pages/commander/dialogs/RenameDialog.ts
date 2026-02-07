@@ -106,9 +106,11 @@ export class RenameDialog extends LitElement {
               @keydown=${(e: KeyboardEvent) => {
                 if (e.key === 'Enter') {
                   e.preventDefault()
+                  e.stopPropagation()
                   this.execute()
                 } else if (e.key === 'Escape') {
                   e.preventDefault()
+                  e.stopPropagation()
                   this.close()
                 }
               }}

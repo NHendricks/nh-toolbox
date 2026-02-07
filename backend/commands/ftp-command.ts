@@ -40,6 +40,7 @@ export class FTPCommand implements ICommand {
     connection: FTPConnectionInfo;
     remotePath: string;
   } {
+    console.log('[FTP] Parsing URL:', ftpUrl);
     // Remove ftp:// prefix
     const url = ftpUrl.replace(/^ftp:\/\//, '');
 
@@ -83,6 +84,7 @@ export class FTPCommand implements ICommand {
       port = parseInt(parts[1], 10) || 21;
     }
 
+    console.log('[FTP] Parsed:', { host, port, user, password: '***', remotePath });
     return {
       connection: { host, port, user, password },
       remotePath: remotePath || '/',
@@ -105,15 +107,18 @@ export class FTPCommand implements ICommand {
 
     // Reuse existing session if available
     if (session) {
+      console.log('[FTP] Reusing existing session for:', key);
       session.lastUsed = Date.now();
       return session.client;
     }
 
     // Create new session
+    console.log('[FTP] Creating new session for:', key);
     const client = new ftp.Client();
     client.ftp.verbose = false;
 
     try {
+      console.log('[FTP] Connecting to:', conn.host, conn.port, 'as', conn.user);
       await client.access({
         host: conn.host,
         port: conn.port,
@@ -121,6 +126,7 @@ export class FTPCommand implements ICommand {
         password: conn.password,
         secure: conn.secure || false,
       });
+      console.log('[FTP] Connected successfully!');
 
       activeSessions.set(key, { client, lastUsed: Date.now() });
 
@@ -129,6 +135,7 @@ export class FTPCommand implements ICommand {
 
       return client;
     } catch (error: any) {
+      console.log('[FTP] Connection failed:', error.message);
       client.close();
       throw new Error(`FTP connection failed: ${error.message}`);
     }
@@ -270,10 +277,14 @@ export class FTPCommand implements ICommand {
       const files: any[] = [];
       const directories: any[] = [];
 
+      // URL-encode credentials for constructing paths (password needed for reconnection)
+      const encodedUser = encodeURIComponent(connection.user);
+      const encodedPassword = encodeURIComponent(connection.password);
+
       for (const item of fileList) {
         const itemData = {
           name: item.name,
-          path: `ftp://${connection.user}@${connection.host}:${connection.port}${remotePath}/${item.name}`
+          path: `ftp://${encodedUser}:${encodedPassword}@${connection.host}:${connection.port}${remotePath}/${item.name}`
             .replace(/\/+/g, '/')
             .replace(':/', '://'),
           size: item.size,
@@ -376,6 +387,7 @@ export class FTPCommand implements ICommand {
    * Rename file on FTP
    */
   private async renameFile(ftpUrl: string, newName: string): Promise<any> {
+    console.log('[FTP] Rename called:', { ftpUrl, newName });
     const { connection, remotePath } = this.parseFTPUrl(ftpUrl);
     const client = await this.getClient(connection);
 
@@ -385,21 +397,25 @@ export class FTPCommand implements ICommand {
         remotePath.substring(0, remotePath.lastIndexOf('/')) || '/';
       const newPath = `${parentDir}/${newName}`.replace(/\/+/g, '/');
 
+      console.log('[FTP] Renaming:', remotePath, '->', newPath);
       // Rename file
       await client.rename(remotePath, newPath);
+      console.log('[FTP] Rename successful');
 
-      // Invalidate session after rename - connection state may be unreliable
-      this.invalidateSession(ftpUrl);
+      // URL-encode credentials for the destination path (password needed for reconnection)
+      const encodedUser = encodeURIComponent(connection.user);
+      const encodedPassword = encodeURIComponent(connection.password);
 
       return {
         success: true,
         operation: 'rename',
         source: ftpUrl,
-        destination: `ftp://${connection.user}@${connection.host}:${connection.port}${newPath}`,
+        destination: `ftp://${encodedUser}:${encodedPassword}@${connection.host}:${connection.port}${newPath}`,
         newName,
         timestamp: new Date().toISOString(),
       };
     } catch (error: any) {
+      console.log('[FTP] Rename failed:', error.message);
       throw new Error(`Failed to rename file: ${error.message}`);
     }
   }
@@ -419,9 +435,6 @@ export class FTPCommand implements ICommand {
         // If that fails, try as directory
         await client.removeDir(remotePath);
       }
-
-      // Invalidate session after delete - connection state may be unreliable
-      this.invalidateSession(ftpUrl);
 
       return {
         success: true,
