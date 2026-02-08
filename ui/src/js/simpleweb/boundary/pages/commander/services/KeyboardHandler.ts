@@ -378,6 +378,9 @@ export class KeyboardHandler {
 
     // Handle function keys using event.code (works with Fn on Mac)
     if (code.startsWith('F') && code.match(/^F\d+$/)) {
+      // Don't intercept ALT+F4 (close window on Windows)
+      if (code === 'F4' && event.altKey) return
+
       event.preventDefault()
 
       switch (code) {

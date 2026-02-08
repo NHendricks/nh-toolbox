@@ -1,5 +1,6 @@
 Commander:
-- at startup no ftp and no sambe restore, always start with local folders (last used), save history to settings
+- fix ALT F4
+- for ftp or samba connect show connect dialog and provide cancel button
 - in ftp dir up => go to dir where we came from
 - dir size dialog cannot be cancelled
 - loading directory... should show whole path
