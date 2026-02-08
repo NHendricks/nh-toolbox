@@ -247,6 +247,11 @@ export class Commander extends LitElement {
   @property({ type: Boolean })
   showFTPDialog = false
 
+  @property({ type: String })
+  pendingFtpUrl: string | null = null
+
+  private ftpConnectionCancelled = false
+
   async connectedCallback() {
     super.connectedCallback()
 
@@ -545,9 +550,10 @@ export class Commander extends LitElement {
           )
           return
         } else {
-          this.setStatus(`FTP Error: ${ftpResponse.error}`, 'error')
-          console.error('FTP Error:', ftpResponse.error)
-          return
+          const errorMsg = ftpResponse.error || 'Connection failed'
+          this.setStatus(`FTP Error: ${errorMsg}`, 'error')
+          console.error('FTP Error:', errorMsg)
+          throw new Error(errorMsg)
         }
       }
 
@@ -2526,11 +2532,29 @@ export class Commander extends LitElement {
           : ''}
         ${this.showFTPDialog
           ? html`<ftp-connection-dialog
+              id="ftp-dialog"
               .open=${true}
               @close=${() => (this.showFTPDialog = false)}
-              @connect=${(e: CustomEvent) => {
-                this.showFTPDialog = false
-                this.navigateToDirectory(e.detail)
+              @cancel-connection=${() => {
+                this.ftpConnectionCancelled = true
+              }}
+              @connect=${async (e: CustomEvent) => {
+                this.ftpConnectionCancelled = false
+                this.pendingFtpUrl = e.detail
+                try {
+                  await this.navigateToDirectory(e.detail)
+                  if (!this.ftpConnectionCancelled) {
+                    const dialog = this.shadowRoot?.querySelector('#ftp-dialog') as any
+                    dialog?.connectionSuccess()
+                    this.showFTPDialog = false
+                  }
+                } catch (error: any) {
+                  if (!this.ftpConnectionCancelled) {
+                    const dialog = this.shadowRoot?.querySelector('#ftp-dialog') as any
+                    dialog?.connectionFailed(error.message || 'Unknown error')
+                  }
+                }
+                this.pendingFtpUrl = null
               }}
             ></ftp-connection-dialog>`
           : ''}

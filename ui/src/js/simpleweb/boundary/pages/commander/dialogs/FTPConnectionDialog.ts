@@ -340,6 +340,24 @@ export class FTPConnectionDialog extends LitElement {
     )
   }
 
+  private cancelConnection() {
+    this.connecting = false
+    this.setStatus('Connection cancelled', 'info')
+    this.dispatchEvent(new CustomEvent('cancel-connection'))
+  }
+
+  // Called by parent when connection succeeds
+  connectionSuccess() {
+    this.connecting = false
+    this.close()
+  }
+
+  // Called by parent when connection fails
+  connectionFailed(error: string) {
+    this.connecting = false
+    this.setStatus(`Connection failed: ${error}`, 'error')
+  }
+
   private close() {
     this.dispatchEvent(new CustomEvent('close'))
   }
@@ -530,10 +548,9 @@ export class FTPConnectionDialog extends LitElement {
             </button>
             <button
               class="btn btn-cancel"
-              @click=${this.close}
-              ?disabled=${this.testing || this.connecting}
+              @click=${this.connecting ? this.cancelConnection : this.close}
             >
-              Cancel
+              ${this.connecting ? '⛔ Cancel Connection' : 'Cancel'}
             </button>
           </div>
         </div>

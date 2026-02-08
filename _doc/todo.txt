@@ -1,5 +1,4 @@
 Commander:
-- fix ALT F4
 - for ftp or samba connect show connect dialog and provide cancel button
 - in ftp dir up => go to dir where we came from
 - dir size dialog cannot be cancelled
