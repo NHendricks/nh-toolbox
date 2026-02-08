@@ -116,7 +116,8 @@ export class FileOperationsCommand implements ICommand {
           return await this.searchFiles(
             params.searchPath,
             params.filenamePattern || params.searchText, // backwards compatibility
-            params.contentText || (params.searchByContent ? params.searchText : ''),
+            params.contentText ||
+              (params.searchByContent ? params.searchText : ''),
             params.recursive,
             params.caseSensitive,
             this.progressCallback,
@@ -603,7 +604,10 @@ export class FileOperationsCommand implements ICommand {
    * @param uncPath - UNC path like \\computer\share
    * @param smbUrl - Optional authenticated SMB URL like smb://user:pass@computer/share
    */
-  private async mountNetworkShareOnLinux(uncPath: string, smbUrl?: string): Promise<{
+  private async mountNetworkShareOnLinux(
+    uncPath: string,
+    smbUrl?: string,
+  ): Promise<{
     success: boolean;
     mountPoint?: string;
     error?: string;
@@ -612,7 +616,10 @@ export class FileOperationsCommand implements ICommand {
     try {
       // Convert UNC path to components
       // \\computer\share\subfolder -> computer, share, subfolder
-      const cleanPath = uncPath.replace(/^\\\\/, '').replace(/^\/\//, '').replace(/\\/g, '/');
+      const cleanPath = uncPath
+        .replace(/^\\\\/, '')
+        .replace(/^\/\//, '')
+        .replace(/\\/g, '/');
       const pathParts = cleanPath.split('/');
 
       if (pathParts.length < 2) {
@@ -649,8 +656,12 @@ export class FileOperationsCommand implements ICommand {
       // Check /media/{username}/{share} mount point
       const mediaMountPoint = `/media/${username}/${share}`;
       if (fs.existsSync(mediaMountPoint)) {
-        const fullPath = subPath ? `${mediaMountPoint}/${subPath}` : mediaMountPoint;
-        console.log(`[Linux] Share already mounted at media: ${mediaMountPoint}`);
+        const fullPath = subPath
+          ? `${mediaMountPoint}/${subPath}`
+          : mediaMountPoint;
+        console.log(
+          `[Linux] Share already mounted at media: ${mediaMountPoint}`,
+        );
         return {
           success: true,
           mountPoint: fullPath,
@@ -660,7 +671,9 @@ export class FileOperationsCommand implements ICommand {
       // Check /mnt/{share} mount point
       const mntMountPoint = `/mnt/${share}`;
       if (fs.existsSync(mntMountPoint)) {
-        const fullPath = subPath ? `${mntMountPoint}/${subPath}` : mntMountPoint;
+        const fullPath = subPath
+          ? `${mntMountPoint}/${subPath}`
+          : mntMountPoint;
         console.log(`[Linux] Share already mounted at mnt: ${mntMountPoint}`);
         return {
           success: true,
@@ -674,31 +687,42 @@ export class FileOperationsCommand implements ICommand {
       try {
         // If credentials are provided, try using mount.cifs (more reliable for SMB)
         if (smbUrl && smbUrl.includes('@')) {
-          console.log(`[Linux] Attempting to mount with credentials using mount.cifs`);
+          console.log(
+            `[Linux] Attempting to mount with credentials using mount.cifs`,
+          );
 
           // Extract credentials from SMB URL: smb://[domain;]username:password@server/share
-          const urlMatch = smbUrl.match(/smb:\/\/(?:([^;]+);)?([^:]+):([^@]+)@([^\/]+)\/(.+)/);
+          const urlMatch = smbUrl.match(
+            /smb:\/\/(?:([^;]+);)?([^:]+):([^@]+)@([^\/]+)\/(.+)/,
+          );
           if (urlMatch) {
             const [, domain, username, password, server, shareName] = urlMatch;
 
             // Resolve hostname to IPv4 address (mount.cifs has issues with IPv6)
             let serverAddress = server;
             try {
-              const dnsResult = await execPromise(`getent ahosts ${server} | grep -v ':' | grep STREAM | head -1 | awk '{print $1}'`, { timeout: 5000 });
+              const dnsResult = await execPromise(
+                `getent ahosts ${server} | grep -v ':' | grep STREAM | head -1 | awk '{print $1}'`,
+                { timeout: 5000 },
+              );
               const ipv4 = dnsResult.stdout?.trim();
               if (ipv4 && ipv4.match(/^\d+\.\d+\.\d+\.\d+$/)) {
                 console.log(`[Linux] Resolved ${server} to IPv4: ${ipv4}`);
                 serverAddress = ipv4;
               }
             } catch (e) {
-              console.log(`[Linux] Failed to resolve IPv4 for ${server}, using hostname`);
+              console.log(
+                `[Linux] Failed to resolve IPv4 for ${server}, using hostname`,
+              );
             }
 
             // Create mount point in /tmp if it doesn't exist
             const tmpMountPoint = `/tmp/smb-${server}-${shareName}`;
             try {
               if (!fs.existsSync(tmpMountPoint)) {
-                await execPromise(`mkdir -p "${tmpMountPoint}"`, { timeout: 5000 });
+                await execPromise(`mkdir -p "${tmpMountPoint}"`, {
+                  timeout: 5000,
+                });
               }
 
               // Try to mount using mount.cifs with IPv4 address
@@ -709,24 +733,34 @@ export class FileOperationsCommand implements ICommand {
                 'uid=' + (process.getuid?.() || 1000),
                 'gid=' + (process.getgid?.() || 1000),
                 'vers=3.0', // Use SMB 3.0 protocol
-              ].filter(Boolean).join(',');
+              ]
+                .filter(Boolean)
+                .join(',');
 
               try {
                 // Try with pkexec for GUI sudo prompt
-                console.log(`[Linux] Attempting mount with pkexec to ${serverAddress} (will show password prompt)`);
+                console.log(
+                  `[Linux] Attempting mount with pkexec to ${serverAddress} (will show password prompt)`,
+                );
                 await execPromise(
                   `pkexec mount -t cifs "//${serverAddress}/${shareName}" "${tmpMountPoint}" -o "${mountOptions}"`,
-                  { timeout: 60000 }
+                  { timeout: 60000 },
                 );
 
-                const fullPath = subPath ? `${tmpMountPoint}/${subPath}` : tmpMountPoint;
-                console.log(`[Linux] Successfully mounted at: ${tmpMountPoint}`);
+                const fullPath = subPath
+                  ? `${tmpMountPoint}/${subPath}`
+                  : tmpMountPoint;
+                console.log(
+                  `[Linux] Successfully mounted at: ${tmpMountPoint}`,
+                );
                 return {
                   success: true,
                   mountPoint: fullPath,
                 };
               } catch (mountError: any) {
-                console.log(`[Linux] mount.cifs with pkexec failed: ${mountError.message}`);
+                console.log(
+                  `[Linux] mount.cifs with pkexec failed: ${mountError.message}`,
+                );
                 // Fall through to try gio mount
               }
             } catch (e) {
@@ -736,7 +770,9 @@ export class FileOperationsCommand implements ICommand {
         }
 
         // Fall back to gio mount
-        console.log(`[Linux] Attempting to mount ${smbUrl ? '(with credentials)' : mountUrl} using gio mount`);
+        console.log(
+          `[Linux] Attempting to mount ${smbUrl ? '(with credentials)' : mountUrl} using gio mount`,
+        );
 
         await execPromise(`gio mount "${mountUrl}"`, {
           timeout: 30000,
@@ -759,14 +795,15 @@ export class FileOperationsCommand implements ICommand {
 
         return {
           success: false,
-          error: 'Mount point not found after mounting attempt. Try opening the share in your file manager first.',
+          error:
+            'Mount point not found after mounting attempt. Try opening the share in your file manager first.',
         };
       } catch (error: any) {
         console.log(`[Linux] gio mount returned: ${error.message}`);
 
         // Check for authentication-related errors
         const authNeededIndicators = [
-          'unterstützt einhängen nicht',  // German: "does not support mounting"
+          'unterstützt einhängen nicht', // German: "does not support mounting"
           'is not supported',
           'operation not supported',
           'authentication',
@@ -781,15 +818,19 @@ export class FileOperationsCommand implements ICommand {
         ];
 
         const errorLower = error.message?.toLowerCase() || '';
-        const needsAuth = !smbUrl && authNeededIndicators.some(indicator =>
-          errorLower.includes(indicator.toLowerCase())
-        );
-        const isAlreadyMounted = alreadyMountedIndicators.some(indicator =>
-          errorLower.includes(indicator.toLowerCase())
+        const needsAuth =
+          !smbUrl &&
+          authNeededIndicators.some((indicator) =>
+            errorLower.includes(indicator.toLowerCase()),
+          );
+        const isAlreadyMounted = alreadyMountedIndicators.some((indicator) =>
+          errorLower.includes(indicator.toLowerCase()),
         );
 
         if (isAlreadyMounted) {
-          console.log(`[Linux] Share appears to be already mounted, checking mount points...`);
+          console.log(
+            `[Linux] Share appears to be already mounted, checking mount points...`,
+          );
 
           // Re-check GVFS mount points (they might exist now or use different casing)
           const gvfsPath = `/run/user/${uid}/gvfs`;
@@ -798,10 +839,16 @@ export class FileOperationsCommand implements ICommand {
               const entries = await fs.promises.readdir(gvfsPath);
               for (const entry of entries) {
                 // Check if this entry matches our share (case-insensitive)
-                if (entry.toLowerCase().includes(`server=${computer.toLowerCase()}`) &&
-                    entry.toLowerCase().includes(`share=${share.toLowerCase()}`)) {
+                if (
+                  entry
+                    .toLowerCase()
+                    .includes(`server=${computer.toLowerCase()}`) &&
+                  entry.toLowerCase().includes(`share=${share.toLowerCase()}`)
+                ) {
                   const mountPoint = path.join(gvfsPath, entry);
-                  const fullPath = subPath ? `${mountPoint}/${subPath}` : mountPoint;
+                  const fullPath = subPath
+                    ? `${mountPoint}/${subPath}`
+                    : mountPoint;
                   console.log(`[Linux] Found existing mount at: ${mountPoint}`);
                   return {
                     success: true,
@@ -821,18 +868,20 @@ export class FileOperationsCommand implements ICommand {
           return {
             success: false,
             needsAuth: true,
-            error: 'Authentication required. Please enter username and password.',
+            error:
+              'Authentication required. Please enter username and password.',
           };
         }
 
         // If gio mount fails with other errors
         return {
           success: false,
-          error: `Failed to mount SMB share.\n` +
-                 `Try one of these options:\n` +
-                 `1. Open the share manually in your file manager: smb://${computer}/${share}\n` +
-                 `2. Mount manually: sudo mount -t cifs //${computer}/${share} /mnt/${share}\n` +
-                 `Error: ${error.message}`,
+          error:
+            `Failed to mount SMB share.\n` +
+            `Try one of these options:\n` +
+            `1. Open the share manually in your file manager: smb://${computer}/${share}\n` +
+            `2. Mount manually: sudo mount -t cifs //${computer}/${share} /mnt/${share}\n` +
+            `Error: ${error.message}`,
         };
       }
     } catch (error: any) {
@@ -961,27 +1010,45 @@ export class FileOperationsCommand implements ICommand {
     }
 
     // Handle UNC paths (\\computer\share or //computer/share) by mounting them
-    const isUncPath = folderPath.startsWith('\\\\') || folderPath.startsWith('//');
+    const isUncPath =
+      folderPath.startsWith('\\\\') || folderPath.startsWith('//');
     if (isUncPath && process.platform !== 'win32') {
-      let mountResult: { success: boolean; mountPoint?: string; error?: string; needsAuth?: boolean };
+      let mountResult: {
+        success: boolean;
+        mountPoint?: string;
+        error?: string;
+        needsAuth?: boolean;
+      };
 
       if (process.platform === 'darwin') {
         mountResult = await this.mountNetworkShareOnMac(folderPath);
       } else if (process.platform === 'linux') {
         mountResult = await this.mountNetworkShareOnLinux(folderPath, smbUrl);
       } else {
-        mountResult = { success: false, error: 'Unsupported platform for SMB shares' };
+        mountResult = {
+          success: false,
+          error: 'Unsupported platform for SMB shares',
+        };
       }
 
-      console.log('[listFiles] Mount result:', JSON.stringify(mountResult, null, 2));
+      console.log(
+        '[listFiles] Mount result:',
+        JSON.stringify(mountResult, null, 2),
+      );
 
       if (mountResult.success && mountResult.mountPoint) {
         // Use the mount point instead of the UNC path
-        console.log('[listFiles] Mount successful, using mount point:', mountResult.mountPoint);
+        console.log(
+          '[listFiles] Mount successful, using mount point:',
+          mountResult.mountPoint,
+        );
         folderPath = mountResult.mountPoint;
       } else {
         // Return the mount result (including needsAuth flag) to the frontend
-        console.log('[listFiles] Mount failed, returning error with needsAuth:', mountResult.needsAuth);
+        console.log(
+          '[listFiles] Mount failed, returning error with needsAuth:',
+          mountResult.needsAuth,
+        );
         const errorResponse = {
           success: false,
           operation: 'list',
@@ -989,7 +1056,10 @@ export class FileOperationsCommand implements ICommand {
           needsAuth: mountResult.needsAuth,
           uncPath: folderPath,
         };
-        console.log('[listFiles] Error response:', JSON.stringify(errorResponse, null, 2));
+        console.log(
+          '[listFiles] Error response:',
+          JSON.stringify(errorResponse, null, 2),
+        );
         return errorResponse;
       }
     }
@@ -3116,7 +3186,11 @@ export class FileOperationsCommand implements ICommand {
     contentText: string,
     recursive: boolean,
     caseSensitive: boolean,
-    progressCallback?: (current: number, total: number, fileName: string) => void,
+    progressCallback?: (
+      current: number,
+      total: number,
+      fileName: string,
+    ) => void,
   ): Promise<any> {
     const results: Array<{
       path: string;
@@ -3136,7 +3210,9 @@ export class FileOperationsCommand implements ICommand {
 
     // Prepare content search pattern
     const contentPattern = contentText
-      ? (caseSensitive ? contentText : contentText.toLowerCase())
+      ? caseSensitive
+        ? contentText
+        : contentText.toLowerCase()
       : '';
 
     const searchDir = async (dirPath: string): Promise<void> => {
@@ -3149,7 +3225,9 @@ export class FileOperationsCommand implements ICommand {
           if (this.cancelled || results.length >= maxResults) break;
 
           const fullPath = path.join(dirPath, entry.name);
-          const entryName = caseSensitive ? entry.name : entry.name.toLowerCase();
+          const entryName = caseSensitive
+            ? entry.name
+            : entry.name.toLowerCase();
 
           filesScanned++;
           if (progressCallback && filesScanned % 100 === 0) {
@@ -3158,12 +3236,18 @@ export class FileOperationsCommand implements ICommand {
 
           // Check if filename matches the pattern
           let filenameMatches = false;
-          if (filenamePatternLower.includes('*') || filenamePatternLower.includes('?')) {
+          if (
+            filenamePatternLower.includes('*') ||
+            filenamePatternLower.includes('?')
+          ) {
             const regexPattern = filenamePatternLower
               .replace(/\./g, '\\.')
               .replace(/\*/g, '.*')
               .replace(/\?/g, '.');
-            const regex = new RegExp(`^${regexPattern}$`, caseSensitive ? '' : 'i');
+            const regex = new RegExp(
+              `^${regexPattern}$`,
+              caseSensitive ? '' : 'i',
+            );
             filenameMatches = regex.test(entry.name);
           } else {
             filenameMatches = entryName.includes(filenamePatternLower);
@@ -3176,12 +3260,48 @@ export class FileOperationsCommand implements ICommand {
                 // Only search in text files (skip binary)
                 const ext = path.extname(entry.name).toLowerCase();
                 const textExtensions = [
-                  '.txt', '.md', '.json', '.js', '.ts', '.tsx', '.jsx',
-                  '.html', '.htm', '.css', '.scss', '.less', '.xml', '.yaml', '.yml',
-                  '.py', '.rb', '.php', '.java', '.c', '.cpp', '.h', '.hpp',
-                  '.cs', '.go', '.rs', '.swift', '.kt', '.sh', '.bash', '.zsh',
-                  '.sql', '.log', '.csv', '.ini', '.cfg', '.conf', '.env',
-                  '.gitignore', '.editorconfig', '.prettierrc', '.eslintrc',
+                  '.txt',
+                  '.md',
+                  '.json',
+                  '.js',
+                  '.ts',
+                  '.tsx',
+                  '.jsx',
+                  '.html',
+                  '.htm',
+                  '.css',
+                  '.scss',
+                  '.less',
+                  '.xml',
+                  '.yaml',
+                  '.yml',
+                  '.py',
+                  '.rb',
+                  '.php',
+                  '.java',
+                  '.c',
+                  '.cpp',
+                  '.h',
+                  '.hpp',
+                  '.cs',
+                  '.go',
+                  '.rs',
+                  '.swift',
+                  '.kt',
+                  '.sh',
+                  '.bash',
+                  '.zsh',
+                  '.sql',
+                  '.log',
+                  '.csv',
+                  '.ini',
+                  '.cfg',
+                  '.conf',
+                  '.env',
+                  '.gitignore',
+                  '.editorconfig',
+                  '.prettierrc',
+                  '.eslintrc',
                 ];
 
                 if (textExtensions.includes(ext) || !ext) {
@@ -3192,7 +3312,9 @@ export class FileOperationsCommand implements ICommand {
                     const lines = content.split('\n');
 
                     for (let i = 0; i < lines.length; i++) {
-                      const line = caseSensitive ? lines[i] : lines[i].toLowerCase();
+                      const line = caseSensitive
+                        ? lines[i]
+                        : lines[i].toLowerCase();
                       if (line.includes(contentPattern)) {
                         results.push({
                           path: fullPath,
