@@ -761,6 +761,41 @@ export class FileOperationsCommand implements ICommand {
                 console.log(
                   `[Linux] mount.cifs with pkexec failed: ${mountError.message}`,
                 );
+
+                // Check if it's "already mounted" error
+                const alreadyMountedIndicators = [
+                  'bereits auf',
+                  'bereits eingehängt',
+                  'already mounted',
+                  'is busy',
+                ];
+                const isAlreadyMounted = alreadyMountedIndicators.some(
+                  (indicator) =>
+                    mountError.message?.toLowerCase().includes(indicator.toLowerCase()),
+                );
+
+                // If already mounted, check if the mount point is accessible
+                if (isAlreadyMounted && fs.existsSync(tmpMountPoint)) {
+                  try {
+                    // Verify we can access the mount point
+                    await fs.promises.access(tmpMountPoint, fs.constants.R_OK);
+                    const fullPath = subPath
+                      ? `${tmpMountPoint}/${subPath}`
+                      : tmpMountPoint;
+                    console.log(
+                      `[Linux] Share already mounted at: ${tmpMountPoint}`,
+                    );
+                    return {
+                      success: true,
+                      mountPoint: fullPath,
+                    };
+                  } catch (accessError) {
+                    console.log(
+                      `[Linux] Mount point exists but not accessible: ${accessError}`,
+                    );
+                  }
+                }
+
                 // Fall through to try gio mount
               }
             } catch (e) {
