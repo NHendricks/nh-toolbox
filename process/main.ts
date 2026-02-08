@@ -119,13 +119,24 @@ async function createWindow() {
   };
 
   // On macOS, the icon is set via the app bundle - don't set it in BrowserWindow
-  // On Windows and other platforms, set the icon explicitly
-  if (process.platform !== 'darwin') {
+  // On Windows and Linux, set the icon explicitly
+  if (process.platform === 'win32') {
+    // Windows uses .ico format
     let iconPath: string;
     if (isDev) {
       iconPath = path.join(__dirname, '../../assets/icons/icon.ico');
     } else {
       iconPath = path.join(process.resourcesPath, '../icon.ico');
+    }
+    windowOptions.icon = iconPath;
+  } else if (process.platform === 'linux') {
+    // Linux uses .png format (256x256 is standard for app icons)
+    let iconPath: string;
+    if (isDev) {
+      iconPath = path.join(__dirname, '../../assets/icons/icon-256.png');
+    } else {
+      // On Linux, icon.png is in the app root directory (same level as the binary)
+      iconPath = path.join(process.resourcesPath, '../icon.png');
     }
     windowOptions.icon = iconPath;
   }

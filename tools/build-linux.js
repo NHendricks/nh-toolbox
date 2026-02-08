@@ -213,14 +213,14 @@ async function build() {
     console.log('   ⚠️  THIRD_PARTY_LICENSES.txt not found!');
   }
 
-  // Copy icon.png to output directory (for Linux desktop integration)
-  const sourceIconPath = path.join(rootDir, 'assets', 'icons', 'icon.png');
+  // Copy icon-256.png as icon.png to output directory (for Linux desktop integration)
+  const sourceIconPath = path.join(rootDir, 'assets', 'icons', 'icon-256.png');
   const targetIconPath = path.join(outputDir, 'icon.png');
   if (fs.existsSync(sourceIconPath)) {
     fs.copySync(sourceIconPath, targetIconPath);
-    console.log('   ✅ icon.png copied to build directory');
+    console.log('   ✅ icon-256.png copied as icon.png to build directory');
   } else {
-    console.log('   ⚠️  icon.png not found at assets/icons/icon.png');
+    console.log('   ⚠️  icon-256.png not found at assets/icons/icon-256.png');
   }
 
   // Step 6: Rename electron binary
