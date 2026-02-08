@@ -202,7 +202,7 @@ export const commanderStyles = css`
   }
 
   .file-name.directory {
-    color: #0cb343;
+    color: #3dff8b;
   }
 
   .file-size {

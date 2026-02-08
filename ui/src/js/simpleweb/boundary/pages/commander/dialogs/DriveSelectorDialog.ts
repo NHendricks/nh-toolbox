@@ -81,7 +81,7 @@ export class DriveSelectorDialog extends LitElement {
     }
     .drive-path {
       font-size: 0.85rem;
-      color: #94a3b8;
+      color: #3dff8b;
     }
     .dialog-footer {
       padding: 1rem;

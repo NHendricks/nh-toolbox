@@ -2574,13 +2574,17 @@ export class Commander extends LitElement {
                 try {
                   await this.navigateToDirectory(e.detail)
                   if (!this.ftpConnectionCancelled) {
-                    const dialog = this.shadowRoot?.querySelector('#ftp-dialog') as any
+                    const dialog = this.shadowRoot?.querySelector(
+                      '#ftp-dialog',
+                    ) as any
                     dialog?.connectionSuccess()
                     this.showFTPDialog = false
                   }
                 } catch (error: any) {
                   if (!this.ftpConnectionCancelled) {
-                    const dialog = this.shadowRoot?.querySelector('#ftp-dialog') as any
+                    const dialog = this.shadowRoot?.querySelector(
+                      '#ftp-dialog',
+                    ) as any
                     dialog?.connectionFailed(error.message || 'Unknown error')
                   }
                 }
@@ -2723,7 +2727,7 @@ export class Commander extends LitElement {
           >
           <span class="item-count">
             ${freeSpaceText
-              ? html`<span style="color: #22c55e; margin-right: 0.5rem;"
+              ? html`<span style="color: #3dff8b; margin-right: 0.5rem;"
                   >${freeSpaceText}</span
                 >`
               : ''}
