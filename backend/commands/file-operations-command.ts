@@ -284,57 +284,123 @@ export class FileOperationsCommand implements ICommand {
   }
 
   /**
-   * List connected network shares (Windows only)
-   * Uses 'net use' command to get mapped network drives
+   * List connected network shares (Windows and Linux)
+   * Windows: Uses 'net use' command to get mapped network drives
+   * Linux: Scans GVFS mount points for SMB shares
    */
   private async listNetworkShares(): Promise<any> {
-    if (process.platform !== 'win32') {
-      return { success: true, operation: 'network-shares', shares: [] };
-    }
+    const shares: {
+      name: string;
+      remotePath: string;
+      status: string;
+      mountPoint?: string;
+    }[] = [];
 
-    try {
-      const { stdout } = await execPromise('net use', {
-        encoding: 'utf8',
-        timeout: 10000,
-      });
+    if (process.platform === 'win32') {
+      try {
+        const { stdout } = await execPromise('net use', {
+          encoding: 'utf8',
+          timeout: 10000,
+        });
 
-      const shares: {
-        name: string;
-        remotePath: string;
-        status: string;
-      }[] = [];
-
-      // Parse net use output
-      // Format: Status       Local     Remote                    Network
-      //         OK           Z:        \\server\share            Microsoft Windows Network
-      const lines = stdout.split('\n');
-      for (const line of lines) {
-        // Match lines with network shares (starts with OK, Disconnected, etc.)
-        const match = line.match(
-          /^(OK|Disconnected|Unavailable)\s+([A-Z]:)?\s+(\\\\[^\s]+)/i,
-        );
-        if (match) {
-          shares.push({
-            status: match[1],
-            name: match[2] || '', // Drive letter if mapped
-            remotePath: match[3], // UNC path
-          });
+        // Parse net use output
+        // Format: Status       Local     Remote                    Network
+        //         OK           Z:        \\server\share            Microsoft Windows Network
+        const lines = stdout.split('\n');
+        for (const line of lines) {
+          // Match lines with network shares (starts with OK, Disconnected, etc.)
+          const match = line.match(
+            /^(OK|Disconnected|Unavailable)\s+([A-Z]:)?\s+(\\\\[^\s]+)/i,
+          );
+          if (match) {
+            shares.push({
+              status: match[1],
+              name: match[2] || '', // Drive letter if mapped
+              remotePath: match[3], // UNC path
+            });
+          }
         }
+      } catch (error: any) {
+        // net use might fail if no shares are connected
       }
+    } else if (process.platform === 'linux') {
+      try {
+        // Check GVFS mount points for SMB shares
+        const uid = process.getuid?.() || 1000;
+        const gvfsDir = `/run/user/${uid}/gvfs`;
 
-      return {
-        success: true,
-        operation: 'network-shares',
-        shares,
-      };
-    } catch (error: any) {
-      // net use might fail if no shares are connected
-      return {
-        success: true,
-        operation: 'network-shares',
-        shares: [],
-      };
+        if (fs.existsSync(gvfsDir)) {
+          const entries = await fs.promises.readdir(gvfsDir, {
+            withFileTypes: true,
+          });
+
+          for (const entry of entries) {
+            if (entry.isDirectory() && entry.name.startsWith('smb-share:')) {
+              // Parse GVFS SMB mount directory name
+              // Format: smb-share:server=hostname,share=sharename
+              const serverMatch = entry.name.match(/server=([^,]+)/);
+              const shareMatch = entry.name.match(/share=([^,]+)/);
+
+              if (serverMatch && shareMatch) {
+                const server = serverMatch[1];
+                const shareName = shareMatch[1];
+                const mountPoint = path.join(gvfsDir, entry.name);
+
+                shares.push({
+                  status: 'OK',
+                  name: shareName,
+                  remotePath: `\\\\${server}\\${shareName}`,
+                  mountPoint: mountPoint,
+                });
+              }
+            }
+          }
+        }
+
+        // Also check /media/{username} for cifs mounts
+        const username = os.userInfo().username;
+        const mediaDir = `/media/${username}`;
+
+        if (fs.existsSync(mediaDir)) {
+          try {
+            // Read /proc/mounts to find cifs mounts
+            const mounts = await readFile('/proc/mounts', 'utf8');
+            const lines = mounts.split('\n');
+
+            for (const line of lines) {
+              if (line.includes(' cifs ') || line.includes(' smb ')) {
+                const parts = line.split(' ');
+                if (parts.length >= 2 && parts[1].startsWith(mediaDir)) {
+                  // Format: //server/share /media/user/mountpoint cifs ...
+                  const remotePath = parts[0];
+                  const mountPoint = parts[1];
+                  const match = remotePath.match(/^\/\/([^/]+)\/(.+)$/);
+
+                  if (match) {
+                    shares.push({
+                      status: 'OK',
+                      name: match[2],
+                      remotePath: `\\\\${match[1]}\\${match[2]}`,
+                      mountPoint: mountPoint,
+                    });
+                  }
+                }
+              }
+            }
+          } catch (e) {
+            // /proc/mounts might not be readable
+          }
+        }
+      } catch (error: any) {
+        // GVFS directory might not exist
+      }
     }
+
+    return {
+      success: true,
+      operation: 'network-shares',
+      shares,
+    };
   }
 
   /**
@@ -531,6 +597,123 @@ export class FileOperationsCommand implements ICommand {
   }
 
   /**
+   * Mount a network share on Linux and return the mount point
+   * Converts \\computer\share to check GVFS mounts or use gio mount
+   */
+  private async mountNetworkShareOnLinux(uncPath: string): Promise<{
+    success: boolean;
+    mountPoint?: string;
+    error?: string;
+  }> {
+    try {
+      // Convert UNC path to components
+      // \\computer\share\subfolder -> computer, share, subfolder
+      const cleanPath = uncPath.replace(/^\\\\/, '').replace(/^\/\//, '').replace(/\\/g, '/');
+      const pathParts = cleanPath.split('/');
+
+      if (pathParts.length < 2) {
+        return {
+          success: false,
+          error: 'Invalid UNC path format. Expected: \\\\computer\\share',
+        };
+      }
+
+      const computer = pathParts[0];
+      const share = pathParts[1];
+      const subPath = pathParts.slice(2).join('/');
+
+      // Check common mount locations for existing mounts
+      const uid = process.getuid?.() || 1000;
+      const username = os.userInfo().username;
+
+      // GVFS mount point (used by GNOME, Nautilus, etc.)
+      const gvfsMountPoint = `/run/user/${uid}/gvfs/smb-share:server=${computer.toLowerCase()},share=${share.toLowerCase()}`;
+      const gvfsMountPointAlt = `/run/user/${uid}/gvfs/smb-share:server=${computer},share=${share}`;
+
+      // Check if already mounted via GVFS
+      for (const mountPoint of [gvfsMountPoint, gvfsMountPointAlt]) {
+        if (fs.existsSync(mountPoint)) {
+          const fullPath = subPath ? `${mountPoint}/${subPath}` : mountPoint;
+          console.log(`[Linux] Share already mounted at GVFS: ${mountPoint}`);
+          return {
+            success: true,
+            mountPoint: fullPath,
+          };
+        }
+      }
+
+      // Check /media/{username}/{share} mount point
+      const mediaMountPoint = `/media/${username}/${share}`;
+      if (fs.existsSync(mediaMountPoint)) {
+        const fullPath = subPath ? `${mediaMountPoint}/${subPath}` : mediaMountPoint;
+        console.log(`[Linux] Share already mounted at media: ${mediaMountPoint}`);
+        return {
+          success: true,
+          mountPoint: fullPath,
+        };
+      }
+
+      // Check /mnt/{share} mount point
+      const mntMountPoint = `/mnt/${share}`;
+      if (fs.existsSync(mntMountPoint)) {
+        const fullPath = subPath ? `${mntMountPoint}/${subPath}` : mntMountPoint;
+        console.log(`[Linux] Share already mounted at mnt: ${mntMountPoint}`);
+        return {
+          success: true,
+          mountPoint: fullPath,
+        };
+      }
+
+      // Try to mount using gio mount (GNOME Virtual File System)
+      // This will prompt for credentials via a GUI dialog if needed
+      const smbUrl = `smb://${computer}/${share}`;
+      console.log(`[Linux] Attempting to mount ${smbUrl} using gio mount`);
+
+      try {
+        await execPromise(`gio mount "${smbUrl}"`, {
+          timeout: 30000, // 30 second timeout for credential prompt
+        });
+
+        // Wait a bit for the mount to complete
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+
+        // Check if mount succeeded at GVFS location
+        for (const mountPoint of [gvfsMountPoint, gvfsMountPointAlt]) {
+          if (fs.existsSync(mountPoint)) {
+            const fullPath = subPath ? `${mountPoint}/${subPath}` : mountPoint;
+            console.log(`[Linux] Successfully mounted at: ${mountPoint}`);
+            return {
+              success: true,
+              mountPoint: fullPath,
+            };
+          }
+        }
+
+        return {
+          success: false,
+          error: 'Mount point not found after mounting attempt. Try opening the share in your file manager first.',
+        };
+      } catch (error: any) {
+        console.error(`[Linux] gio mount error:`, error);
+
+        // If gio mount fails, provide helpful error message
+        return {
+          success: false,
+          error: `Failed to mount SMB share. Try one of these options:\n` +
+                 `1. Open the share in your file manager first (smb://${computer}/${share})\n` +
+                 `2. Mount manually: sudo mount -t cifs //${computer}/${share} /mnt/${share}\n` +
+                 `Error: ${error.message}`,
+        };
+      }
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+  }
+
+  /**
    * Get total size of a directory including all files recursively
    */
   private async getDirectorySize(dirPath: string): Promise<any> {
@@ -647,9 +830,19 @@ export class FileOperationsCommand implements ICommand {
       throw new Error('folderPath is required for list operation');
     }
 
-    // On macOS, handle UNC paths (\\computer\share) by mounting them
-    if (process.platform === 'darwin' && folderPath.startsWith('\\\\')) {
-      const mountResult = await this.mountNetworkShareOnMac(folderPath);
+    // Handle UNC paths (\\computer\share or //computer/share) by mounting them
+    const isUncPath = folderPath.startsWith('\\\\') || folderPath.startsWith('//');
+    if (isUncPath && process.platform !== 'win32') {
+      let mountResult: { success: boolean; mountPoint?: string; error?: string };
+
+      if (process.platform === 'darwin') {
+        mountResult = await this.mountNetworkShareOnMac(folderPath);
+      } else if (process.platform === 'linux') {
+        mountResult = await this.mountNetworkShareOnLinux(folderPath);
+      } else {
+        mountResult = { success: false, error: 'Unsupported platform for SMB shares' };
+      }
+
       if (mountResult.success && mountResult.mountPoint) {
         // Use the mount point instead of the UNC path
         folderPath = mountResult.mountPoint;

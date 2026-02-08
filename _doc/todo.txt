@@ -1,5 +1,4 @@
 GarbageFinder
-- rename to garbage finder
 - fix delete files function (at least show error message when unsuccessful)
 - option to show files here also
 Commander:
@@ -8,7 +7,6 @@ Commander:
   - readme (sudo install.sh)
   - samba share fix
 - support end and pos1 keys 
-- loading directory... should show whole path
 - Ctrl+a should select all files
 - ctrl+pageup/down: select all files between these
 - add examples for replace in texteditor (e.g. line feeds)
