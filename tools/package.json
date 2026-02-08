@@ -7,7 +7,8 @@
     "convert-icon": "node convert-icon.js",
     "generate-icons": "node generate-icons.js",
     "build-win": "node build-win.js",
-    "build-mac": "node build-mac.js"
+    "build-mac": "node build-mac.js",
+    "build-linux": "node build-linux.js"
   },
   "dependencies": {
     "@electron/asar": "^4.0.1",

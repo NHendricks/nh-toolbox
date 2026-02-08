@@ -16,7 +16,7 @@
     "test": "echo nothing",
     "buildWindowsApp": "npm run build && npx rimraf dist && cd tools && npm run build-win",
     "buildMacApp": "npm run build && npx rimraf dist && cd tools && npm run build-mac",
-    "buildLinuxApp": "dont use it but will be easy to implement in the tools project"
+    "buildLinuxApp": "npm run build && npx rimraf dist && cd tools && npm run build-linux"
   },
   "devDependencies": {
     "@types/node": "^25.0.10",

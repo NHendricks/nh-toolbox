@@ -1,5 +1,4 @@
 Commander:
-- in ftp dir up => go to dir where we came from
 - add buildscript for build linux app
 - loading directory... should show whole path
 - Ctrl+a should select all files
