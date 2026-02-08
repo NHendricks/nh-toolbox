@@ -1,6 +1,3 @@
-GarbageFinder:
-- add delete action
-- add sort by size toggle option on top bar nexz to reset button
 Commander:
 - at startup no ftp and no sambe restore, always start with local folders (last used), save history to settings
 - in ftp dir up => go to dir where we came from

@@ -114,3 +114,20 @@ export function joinPath(basePath: string, ...segments: string[]): string {
 export function isFtpPath(path: string): boolean {
   return path ? path.startsWith('ftp://') : false
 }
+
+/**
+ * Check if a path is a Samba/SMB network path
+ * Matches \\server\share or //server/share patterns
+ */
+export function isSambaPath(path: string): boolean {
+  if (!path) return false
+  return path.startsWith('\\\\') || path.startsWith('//')
+}
+
+/**
+ * Check if a path is a local filesystem path (not FTP or Samba)
+ */
+export function isLocalPath(path: string): boolean {
+  if (!path) return false
+  return !isFtpPath(path) && !isSambaPath(path)
+}

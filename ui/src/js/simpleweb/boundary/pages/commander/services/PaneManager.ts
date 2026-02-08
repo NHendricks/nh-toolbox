@@ -1,4 +1,5 @@
 import type { PaneState } from '../commander.types.js'
+import { isLocalPath } from '../utils/PathUtils.js'
 
 /**
  * PaneManager - Manages state for left and right panes
@@ -123,11 +124,15 @@ export class PaneManager {
 
   /**
    * Load pane paths from localStorage
+   * Only returns local filesystem paths (filters out FTP and Samba paths)
    */
   loadPanePaths(): { left: string | null; right: string | null } {
+    const leftPath = localStorage.getItem('commander-left-path')
+    const rightPath = localStorage.getItem('commander-right-path')
+
     return {
-      left: localStorage.getItem('commander-left-path'),
-      right: localStorage.getItem('commander-right-path'),
+      left: leftPath && isLocalPath(leftPath) ? leftPath : null,
+      right: rightPath && isLocalPath(rightPath) ? rightPath : null,
     }
   }
 
