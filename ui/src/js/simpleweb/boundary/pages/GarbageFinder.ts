@@ -761,11 +761,7 @@ export class GarbageFinder extends LitElement {
       })
     }
 
-    this.treeData = replaceNode(
-      this.treeData,
-      analyzedNode.path,
-      analyzedNode,
-    )
+    this.treeData = replaceNode(this.treeData, analyzedNode.path, analyzedNode)
     this.requestUpdate()
   }
 
@@ -922,97 +918,97 @@ export class GarbageFinder extends LitElement {
     // This handles cases where parent wasn't analyzed but children were
     const effectiveParentSize = Math.max(parentSize, totalSiblingSize)
     return sortedNodes.map((node) => {
-        const barWidth =
-          effectiveParentSize > 0 ? (node.size / effectiveParentSize) * 100 : 0
-        const indent = node.depth * 20
-        const driveInfo = node.depth === 0 ? this.getDriveInfo(node.path) : null
-        const isBeingAnalyzed =
-          this.scanProgress.isScanning &&
-          this.scanProgress.scanningPath === node.path
+      const barWidth =
+        effectiveParentSize > 0 ? (node.size / effectiveParentSize) * 100 : 0
+      const indent = node.depth * 20
+      const driveInfo = node.depth === 0 ? this.getDriveInfo(node.path) : null
+      const isBeingAnalyzed =
+        this.scanProgress.isScanning &&
+        this.scanProgress.scanningPath === node.path
 
-        return html`
+      return html`
+        <div
+          class="tree-node ${node.isExpanded
+            ? 'expanded'
+            : ''} ${isBeingAnalyzed ? 'analyzing' : ''}"
+        >
           <div
-            class="tree-node ${node.isExpanded ? 'expanded' : ''} ${isBeingAnalyzed
-              ? 'analyzing'
-              : ''}"
+            class="folder-name"
+            style="padding-left: ${indent}px"
+            @click=${(e: Event) => this.toggleExpand(node, e)}
           >
-            <div
-              class="folder-name"
-              style="padding-left: ${indent}px"
-              @click=${(e: Event) => this.toggleExpand(node, e)}
-            >
-              <span class="expand-icon">
-                ${node.isLoading
-                  ? html`<span class="spinner spinner-small"></span>`
-                  : node.children.length > 0 || !node.isAnalyzed
-                    ? node.isExpanded
-                      ? '▼'
-                      : '▶'
-                    : ''}
-              </span>
-              <span class="folder-icon">
-                ${node.depth === 0 ? '💾' : node.isExpanded ? '📂' : '📁'}
-              </span>
-              <span class="folder-label" title="${node.path}">${node.name}</span>
-              ${driveInfo?.freeSpace !== undefined
-                ? html`<span class="drive-info">
-                    (${this.formatSize(driveInfo.freeSpace)} free)
-                  </span>`
-                : ''}
-            </div>
-            <div class="size-bar-container">
-              ${node.size > 0
-                ? html`
-                    <div
-                      class="size-bar ${this.getSizeBarClass(
-                        node.size,
-                        maxSiblingSize,
-                      )}"
-                      style="width: ${Math.max(barWidth, 1)}%"
-                    ></div>
-                  `
-                : ''}
-            </div>
-            <div class="size-text">
-              ${node.size > 0 ? this.formatSize(node.size) : '-'}
-            </div>
-            <div class="action-cell">
-              ${isBeingAnalyzed
-                ? html`<button
-                    class="btn btn-danger"
-                    @click=${(e: Event) => {
-                      e.stopPropagation()
-                      this.cancelScan()
-                    }}
-                  >
-                    Cancel
-                  </button>`
-                : html`
-                    <button
-                      class="btn btn-primary"
-                      ?disabled=${this.scanProgress.isScanning}
-                      @click=${(e: Event) => this.analyzeFolder(node, e)}
-                    >
-                      Analyze
-                    </button>
-                    ${node.depth > 0
-                      ? html`<button
-                          class="btn btn-delete"
-                          ?disabled=${this.scanProgress.isScanning}
-                          @click=${(e: Event) => this.showDeleteConfirm(node, e)}
-                          title="Delete folder"
-                        >
-                          🗑
-                        </button>`
-                      : ''}
-                  `}
-            </div>
+            <span class="expand-icon">
+              ${node.isLoading
+                ? html`<span class="spinner spinner-small"></span>`
+                : node.children.length > 0 || !node.isAnalyzed
+                  ? node.isExpanded
+                    ? '▼'
+                    : '▶'
+                  : ''}
+            </span>
+            <span class="folder-icon">
+              ${node.depth === 0 ? '💾' : node.isExpanded ? '📂' : '📁'}
+            </span>
+            <span class="folder-label" title="${node.path}">${node.name}</span>
+            ${driveInfo?.freeSpace !== undefined
+              ? html`<span class="drive-info">
+                  (${this.formatSize(driveInfo.freeSpace)} free)
+                </span>`
+              : ''}
           </div>
-          ${node.isExpanded && node.children.length > 0
-            ? this.renderTree(node.children, node.size || parentSize)
-            : ''}
-        `
-      })
+          <div class="size-bar-container">
+            ${node.size > 0
+              ? html`
+                  <div
+                    class="size-bar ${this.getSizeBarClass(
+                      node.size,
+                      maxSiblingSize,
+                    )}"
+                    style="width: ${Math.max(barWidth, 1)}%"
+                  ></div>
+                `
+              : ''}
+          </div>
+          <div class="size-text">
+            ${node.size > 0 ? this.formatSize(node.size) : '-'}
+          </div>
+          <div class="action-cell">
+            ${isBeingAnalyzed
+              ? html`<button
+                  class="btn btn-danger"
+                  @click=${(e: Event) => {
+                    e.stopPropagation()
+                    this.cancelScan()
+                  }}
+                >
+                  Cancel
+                </button>`
+              : html`
+                  <button
+                    class="btn btn-primary"
+                    ?disabled=${this.scanProgress.isScanning}
+                    @click=${(e: Event) => this.analyzeFolder(node, e)}
+                  >
+                    Analyze
+                  </button>
+                  ${node.depth > 0
+                    ? html`<button
+                        class="btn btn-delete"
+                        ?disabled=${this.scanProgress.isScanning}
+                        @click=${(e: Event) => this.showDeleteConfirm(node, e)}
+                        title="Delete folder"
+                      >
+                        🗑
+                      </button>`
+                    : ''}
+                `}
+          </div>
+        </div>
+        ${node.isExpanded && node.children.length > 0
+          ? this.renderTree(node.children, node.size || parentSize)
+          : ''}
+      `
+    })
   }
 
   render() {
@@ -1022,7 +1018,7 @@ export class GarbageFinder extends LitElement {
       <div class="content">
         <div class="header">
           <div>
-            <h1>GarbageFinder</h1>
+            <h1>Nice2Have Garbage Finder</h1>
             <div class="subtitle">
               Analyze folder sizes - find your space hogs easily
             </div>
@@ -1106,18 +1102,31 @@ export class GarbageFinder extends LitElement {
 
       ${this.deleteConfirm.show && this.deleteConfirm.node
         ? html`
-            <div class="confirm-overlay" @click=${() => this.hideDeleteConfirm()}>
-              <div class="confirm-dialog" @click=${(e: Event) => e.stopPropagation()}>
+            <div
+              class="confirm-overlay"
+              @click=${() => this.hideDeleteConfirm()}
+            >
+              <div
+                class="confirm-dialog"
+                @click=${(e: Event) => e.stopPropagation()}
+              >
                 <div class="confirm-title">⚠️ Delete Folder</div>
                 <div class="confirm-message">
-                  Are you sure you want to permanently delete this folder and all its contents?
+                  Are you sure you want to permanently delete this folder and
+                  all its contents?
                 </div>
                 <div class="confirm-path">${this.deleteConfirm.node.path}</div>
                 <div class="confirm-buttons">
-                  <button class="btn-cancel" @click=${() => this.hideDeleteConfirm()}>
+                  <button
+                    class="btn-cancel"
+                    @click=${() => this.hideDeleteConfirm()}
+                  >
                     Cancel
                   </button>
-                  <button class="btn-confirm-delete" @click=${() => this.confirmDelete()}>
+                  <button
+                    class="btn-confirm-delete"
+                    @click=${() => this.confirmDelete()}
+                  >
                     Delete
                   </button>
                 </div>
