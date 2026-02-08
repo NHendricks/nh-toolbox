@@ -264,6 +264,25 @@ export class DriveSelectorDialog extends LitElement {
                   )}
                 `
               : ''}
+            <!-- Drives Section -->
+            <div class="section-header">💾 Drives</div>
+            ${this.drives.map(
+              (drive, index) => html`
+                <div
+                  class="drive-item ${this.focusedIndex ===
+                  this.favorites.length + index
+                    ? 'focused'
+                    : ''}"
+                  @click=${() => this.selectDrive(drive.path)}
+                >
+                  <span class="drive-icon">💾</span>
+                  <div class="drive-info">
+                    <div class="drive-label">${drive.label}</div>
+                    <div class="drive-path">${drive.path}</div>
+                  </div>
+                </div>
+              `,
+            )}
             <!-- FTP Section -->
             <div class="section-header">📡 FTP</div>
             <button
@@ -335,25 +354,6 @@ export class DriveSelectorDialog extends LitElement {
                     + Add Network Path
                   </button>
                 `}
-            <!-- Drives Section -->
-            <div class="section-header">💾 Drives</div>
-            ${this.drives.map(
-              (drive, index) => html`
-                <div
-                  class="drive-item ${this.focusedIndex ===
-                  this.favorites.length + index
-                    ? 'focused'
-                    : ''}"
-                  @click=${() => this.selectDrive(drive.path)}
-                >
-                  <span class="drive-icon">💾</span>
-                  <div class="drive-info">
-                    <div class="drive-label">${drive.label}</div>
-                    <div class="drive-path">${drive.path}</div>
-                  </div>
-                </div>
-              `,
-            )}
           </div>
           ${!isCurrentFavorite
             ? html`
