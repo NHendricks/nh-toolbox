@@ -694,9 +694,50 @@ export class FileOperationsCommand implements ICommand {
           error: 'Mount point not found after mounting attempt. Try opening the share in your file manager first.',
         };
       } catch (error: any) {
-        console.error(`[Linux] gio mount error:`, error);
+        console.log(`[Linux] gio mount returned: ${error.message}`);
 
-        // If gio mount fails, provide helpful error message
+        // "Datenträger unterstützt einhängen nicht" (German) or "Location is already mounted"
+        // means the share is already mounted - check for existing mount points again
+        const alreadyMountedIndicators = [
+          'already mounted',
+          'bereits eingehängt',
+          'unterstützt einhängen nicht',
+          'is not supported',
+        ];
+
+        const errorLower = error.message?.toLowerCase() || '';
+        const isAlreadyMounted = alreadyMountedIndicators.some(indicator =>
+          errorLower.includes(indicator.toLowerCase())
+        );
+
+        if (isAlreadyMounted) {
+          console.log(`[Linux] Share appears to be already mounted, checking mount points...`);
+
+          // Re-check GVFS mount points (they might exist now or use different casing)
+          const gvfsPath = `/run/user/${uid}/gvfs`;
+          if (fs.existsSync(gvfsPath)) {
+            try {
+              const entries = await fs.promises.readdir(gvfsPath);
+              for (const entry of entries) {
+                // Check if this entry matches our share (case-insensitive)
+                if (entry.toLowerCase().includes(`server=${computer.toLowerCase()}`) &&
+                    entry.toLowerCase().includes(`share=${share.toLowerCase()}`)) {
+                  const mountPoint = path.join(gvfsPath, entry);
+                  const fullPath = subPath ? `${mountPoint}/${subPath}` : mountPoint;
+                  console.log(`[Linux] Found existing mount at: ${mountPoint}`);
+                  return {
+                    success: true,
+                    mountPoint: fullPath,
+                  };
+                }
+              }
+            } catch (e) {
+              // Ignore read errors
+            }
+          }
+        }
+
+        // If gio mount fails and we couldn't find mount, provide helpful error message
         return {
           success: false,
           error: `Failed to mount SMB share. Try one of these options:\n` +
