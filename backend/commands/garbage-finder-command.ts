@@ -152,7 +152,7 @@ export class GarbageFinderCommand implements ICommand {
   }
 
   /**
-   * Recursively build folder node with size calculations
+   * Recursively build folder node with size calculations (parallel processing)
    */
   private async buildFolderNode(
     folderPath: string,
@@ -185,48 +185,79 @@ export class GarbageFinderCommand implements ICommand {
     try {
       const entries = await readdir(folderPath, { withFileTypes: true });
 
+      if (this.cancelled) {
+        throw new Error('Operation cancelled by user');
+      }
+
+      // Separate directories and files
+      const directories: { name: string; fullPath: string }[] = [];
+      const files: { name: string; fullPath: string }[] = [];
+
       for (const entry of entries) {
-        if (this.cancelled) {
-          throw new Error('Operation cancelled by user');
-        }
-
         const fullPath = path.join(folderPath, entry.name);
-
-        try {
-          if (entry.isDirectory()) {
-            // Skip system/hidden directories that often cause issues
-            if (this.shouldSkipDirectory(entry.name)) {
-              continue;
-            }
-
-            node.folderCount++;
-            const childNode = await this.buildFolderNode(fullPath, depth + 1);
-            if (childNode) {
-              node.children.push(childNode);
-              node.size += childNode.size;
-              node.fileCount += childNode.fileCount;
-              node.folderCount += childNode.folderCount;
-            }
-          } else if (entry.isFile()) {
-            try {
-              const fileStats = await stat(fullPath);
-              node.size += fileStats.size;
-              node.fileCount++;
-              this.totalSize += fileStats.size;
-            } catch (e) {
-              // Skip files we can't stat
-            }
+        if (entry.isDirectory()) {
+          if (!this.shouldSkipDirectory(entry.name)) {
+            directories.push({ name: entry.name, fullPath });
           }
-        } catch (e) {
-          // Skip entries we can't access
+        } else if (entry.isFile()) {
+          files.push({ name: entry.name, fullPath });
         }
       }
 
-      // Sort children by size (largest first)
-      node.children.sort((a, b) => b.size - a.size);
+      // Process files in parallel (batch to avoid too many open handles)
+      const FILE_BATCH_SIZE = 100;
+      for (let i = 0; i < files.length; i += FILE_BATCH_SIZE) {
+        if (this.cancelled) {
+          throw new Error('Operation cancelled by user');
+        }
+        const batch = files.slice(i, i + FILE_BATCH_SIZE);
+        const fileResults = await Promise.all(
+          batch.map(async (file) => {
+            try {
+              const fileStats = await stat(file.fullPath);
+              return fileStats.size;
+            } catch {
+              return 0;
+            }
+          }),
+        );
+        for (const size of fileResults) {
+          node.size += size;
+          if (size > 0) {
+            node.fileCount++;
+            this.totalSize += size;
+          }
+        }
+      }
+
+      // Process directories in parallel (limit concurrency to avoid resource exhaustion)
+      const DIR_BATCH_SIZE = 10;
+      node.folderCount = directories.length;
+
+      for (let i = 0; i < directories.length; i += DIR_BATCH_SIZE) {
+        if (this.cancelled) {
+          throw new Error('Operation cancelled by user');
+        }
+        const batch = directories.slice(i, i + DIR_BATCH_SIZE);
+        const childResults = await Promise.all(
+          batch.map((dir) => this.buildFolderNode(dir.fullPath, depth + 1)),
+        );
+
+        for (const childNode of childResults) {
+          if (childNode) {
+            node.children.push(childNode);
+            node.size += childNode.size;
+            node.fileCount += childNode.fileCount;
+            node.folderCount += childNode.folderCount;
+          }
+        }
+      }
 
       return node;
-    } catch (error) {
+    } catch (error: any) {
+      if (error.message === 'Operation cancelled by user') {
+        throw error;
+      }
       // Return node with whatever we have (might be empty for inaccessible folders)
       return node;
     }

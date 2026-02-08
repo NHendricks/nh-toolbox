@@ -680,11 +680,17 @@ export class GarbageFinder extends LitElement {
     return (bytes / Math.pow(1024, i)).toFixed(1) + ' ' + sizes[i]
   }
 
-  getSizeBarClass(size: number, parentSize: number): string {
-    const percentage = parentSize > 0 ? (size / parentSize) * 100 : 0
-    if (percentage > 50) return 'large'
-    if (percentage > 20) return 'medium'
+  getSizeBarClass(size: number, maxSiblingSize: number): string {
+    // Color based on comparison with largest sibling at same level
+    const percentage = maxSiblingSize > 0 ? (size / maxSiblingSize) * 100 : 0
+    if (percentage > 66) return 'large'
+    if (percentage > 33) return 'medium'
     return 'small'
+  }
+
+  getMaxSiblingSize(siblings: FolderNode[]): number {
+    if (siblings.length === 0) return 0
+    return Math.max(...siblings.map((s) => s.size))
   }
 
   getParentSize(node: FolderNode): number {
@@ -712,8 +718,10 @@ export class GarbageFinder extends LitElement {
   }
 
   renderTree(nodes: FolderNode[], parentSize: number): any {
+    const maxSiblingSize = this.getMaxSiblingSize(nodes)
     return nodes.map((node) => {
-        const percentage = parentSize > 0 ? (node.size / parentSize) * 100 : 0
+        // Bar width relative to parent (shows actual % of parent)
+        const barWidth = parentSize > 0 ? (node.size / parentSize) * 100 : 0
         const indent = node.depth * 20
         const driveInfo = node.depth === 0 ? this.getDriveInfo(node.path) : null
         const isBeingAnalyzed =
@@ -756,9 +764,9 @@ export class GarbageFinder extends LitElement {
                     <div
                       class="size-bar ${this.getSizeBarClass(
                         node.size,
-                        parentSize,
+                        maxSiblingSize,
                       )}"
-                      style="width: ${Math.max(percentage, 1)}%"
+                      style="width: ${Math.max(barWidth, 1)}%"
                     ></div>
                   `
                 : ''}
