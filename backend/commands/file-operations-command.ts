@@ -53,6 +53,7 @@ export class FileOperationsCommand implements ICommand {
       filePath,
       command,
       workingDir,
+      smbUrl,
     } = params;
 
     // Reset cancellation flag at the start of each operation
@@ -61,7 +62,7 @@ export class FileOperationsCommand implements ICommand {
     try {
       switch (operation) {
         case 'list':
-          return await this.listFiles(folderPath);
+          return await this.listFiles(folderPath, smbUrl);
         case 'drives':
           return await this.listDrives();
         case 'drive-info':
@@ -598,12 +599,15 @@ export class FileOperationsCommand implements ICommand {
 
   /**
    * Mount a network share on Linux and return the mount point
-   * Converts \\computer\share to check GVFS mounts or use gio mount
+   * Converts \\computer\share to check GVFS mounts or use xdg-open
+   * @param uncPath - UNC path like \\computer\share
+   * @param smbUrl - Optional authenticated SMB URL like smb://user:pass@computer/share
    */
-  private async mountNetworkShareOnLinux(uncPath: string): Promise<{
+  private async mountNetworkShareOnLinux(uncPath: string, smbUrl?: string): Promise<{
     success: boolean;
     mountPoint?: string;
     error?: string;
+    needsAuth?: boolean;
   }> {
     try {
       // Convert UNC path to components
@@ -664,18 +668,79 @@ export class FileOperationsCommand implements ICommand {
         };
       }
 
-      // Try to mount using gio mount (GNOME Virtual File System)
-      // This will prompt for credentials via a GUI dialog if needed
-      const smbUrl = `smb://${computer}/${share}`;
-      console.log(`[Linux] Attempting to mount ${smbUrl} using gio mount`);
+      // Build SMB URL (use provided authenticated URL or basic URL)
+      const mountUrl = smbUrl || `smb://${computer}/${share}`;
 
       try {
-        const { stdout, stderr } = await execPromise(`gio mount "${smbUrl}" 2>&1`, {
-          timeout: 30000, // 30 second timeout for credential prompt
-        });
+        // If credentials are provided, try using mount.cifs (more reliable for SMB)
+        if (smbUrl && smbUrl.includes('@')) {
+          console.log(`[Linux] Attempting to mount with credentials using mount.cifs`);
 
-        console.log(`[Linux] gio mount stdout: ${stdout}`);
-        if (stderr) console.log(`[Linux] gio mount stderr: ${stderr}`);
+          // Extract credentials from SMB URL: smb://[domain;]username:password@server/share
+          const urlMatch = smbUrl.match(/smb:\/\/(?:([^;]+);)?([^:]+):([^@]+)@([^\/]+)\/(.+)/);
+          if (urlMatch) {
+            const [, domain, username, password, server, shareName] = urlMatch;
+
+            // Resolve hostname to IPv4 address (mount.cifs has issues with IPv6)
+            let serverAddress = server;
+            try {
+              const dnsResult = await execPromise(`getent ahosts ${server} | grep -v ':' | grep STREAM | head -1 | awk '{print $1}'`, { timeout: 5000 });
+              const ipv4 = dnsResult.stdout?.trim();
+              if (ipv4 && ipv4.match(/^\d+\.\d+\.\d+\.\d+$/)) {
+                console.log(`[Linux] Resolved ${server} to IPv4: ${ipv4}`);
+                serverAddress = ipv4;
+              }
+            } catch (e) {
+              console.log(`[Linux] Failed to resolve IPv4 for ${server}, using hostname`);
+            }
+
+            // Create mount point in /tmp if it doesn't exist
+            const tmpMountPoint = `/tmp/smb-${server}-${shareName}`;
+            try {
+              if (!fs.existsSync(tmpMountPoint)) {
+                await execPromise(`mkdir -p "${tmpMountPoint}"`, { timeout: 5000 });
+              }
+
+              // Try to mount using mount.cifs with IPv4 address
+              const mountOptions = [
+                `username=${username}`,
+                `password=${password}`,
+                domain ? `domain=${domain}` : '',
+                'uid=' + (process.getuid?.() || 1000),
+                'gid=' + (process.getgid?.() || 1000),
+                'vers=3.0', // Use SMB 3.0 protocol
+              ].filter(Boolean).join(',');
+
+              try {
+                // Try with pkexec for GUI sudo prompt
+                console.log(`[Linux] Attempting mount with pkexec to ${serverAddress} (will show password prompt)`);
+                await execPromise(
+                  `pkexec mount -t cifs "//${serverAddress}/${shareName}" "${tmpMountPoint}" -o "${mountOptions}"`,
+                  { timeout: 60000 }
+                );
+
+                const fullPath = subPath ? `${tmpMountPoint}/${subPath}` : tmpMountPoint;
+                console.log(`[Linux] Successfully mounted at: ${tmpMountPoint}`);
+                return {
+                  success: true,
+                  mountPoint: fullPath,
+                };
+              } catch (mountError: any) {
+                console.log(`[Linux] mount.cifs with pkexec failed: ${mountError.message}`);
+                // Fall through to try gio mount
+              }
+            } catch (e) {
+              console.log(`[Linux] Failed to create mount point: ${e}`);
+            }
+          }
+        }
+
+        // Fall back to gio mount
+        console.log(`[Linux] Attempting to mount ${smbUrl ? '(with credentials)' : mountUrl} using gio mount`);
+
+        await execPromise(`gio mount "${mountUrl}"`, {
+          timeout: 30000,
+        });
 
         // Wait a bit for the mount to complete
         await new Promise((resolve) => setTimeout(resolve, 2000));
@@ -694,41 +759,80 @@ export class FileOperationsCommand implements ICommand {
 
         return {
           success: false,
-          error: 'Mount point not found after gio mount. Try opening the share in your file manager first.',
+          error: 'Mount point not found after mounting attempt. Try opening the share in your file manager first.',
         };
       } catch (error: any) {
-        const errorMsg = error.message || error.stderr || String(error);
-        console.error(`[Linux] gio mount failed: ${errorMsg}`);
+        console.log(`[Linux] gio mount returned: ${error.message}`);
 
-        // Check if share might already be mounted (try to find it)
-        const gvfsPath = `/run/user/${uid}/gvfs`;
-        if (fs.existsSync(gvfsPath)) {
-          try {
-            const entries = await fs.promises.readdir(gvfsPath);
-            for (const entry of entries) {
-              // Check if this entry matches our share (case-insensitive)
-              if (entry.toLowerCase().includes(`server=${computer.toLowerCase()}`) &&
-                  entry.toLowerCase().includes(`share=${share.toLowerCase()}`)) {
-                const mountPoint = path.join(gvfsPath, entry);
-                const fullPath = subPath ? `${mountPoint}/${subPath}` : mountPoint;
-                console.log(`[Linux] Found existing mount at: ${mountPoint}`);
-                return {
-                  success: true,
-                  mountPoint: fullPath,
-                };
+        // Check for authentication-related errors
+        const authNeededIndicators = [
+          'unterstützt einhängen nicht',  // German: "does not support mounting"
+          'is not supported',
+          'operation not supported',
+          'authentication',
+          'login',
+          'password',
+        ];
+
+        // Check if share is already mounted
+        const alreadyMountedIndicators = [
+          'already mounted',
+          'bereits eingehängt',
+        ];
+
+        const errorLower = error.message?.toLowerCase() || '';
+        const needsAuth = !smbUrl && authNeededIndicators.some(indicator =>
+          errorLower.includes(indicator.toLowerCase())
+        );
+        const isAlreadyMounted = alreadyMountedIndicators.some(indicator =>
+          errorLower.includes(indicator.toLowerCase())
+        );
+
+        if (isAlreadyMounted) {
+          console.log(`[Linux] Share appears to be already mounted, checking mount points...`);
+
+          // Re-check GVFS mount points (they might exist now or use different casing)
+          const gvfsPath = `/run/user/${uid}/gvfs`;
+          if (fs.existsSync(gvfsPath)) {
+            try {
+              const entries = await fs.promises.readdir(gvfsPath);
+              for (const entry of entries) {
+                // Check if this entry matches our share (case-insensitive)
+                if (entry.toLowerCase().includes(`server=${computer.toLowerCase()}`) &&
+                    entry.toLowerCase().includes(`share=${share.toLowerCase()}`)) {
+                  const mountPoint = path.join(gvfsPath, entry);
+                  const fullPath = subPath ? `${mountPoint}/${subPath}` : mountPoint;
+                  console.log(`[Linux] Found existing mount at: ${mountPoint}`);
+                  return {
+                    success: true,
+                    mountPoint: fullPath,
+                  };
+                }
               }
+            } catch (e) {
+              // Ignore read errors
             }
-          } catch (e) {
-            // Ignore read errors
           }
         }
 
-        // Return the actual error message so user can see what went wrong
+        // If authentication is needed and we haven't tried with credentials yet
+        if (needsAuth) {
+          console.log(`[Linux] Authentication required for SMB share`);
+          return {
+            success: false,
+            needsAuth: true,
+            error: 'Authentication required. Please enter username and password.',
+          };
+        }
+
+        // If gio mount fails with other errors
         return {
           success: false,
-          error: `SMB mount failed: ${errorMsg}\n\n` +
-                 `To mount manually, run:\n` +
-                 `  sudo mount -t cifs //${computer}/${share} /mnt/${share} -o username=YOUR_USER`,
+          error: `Failed to mount SMB share.\n` +
+                 `Try one of these options:\n` +
+                 `1. Open the share manually in your file manager: smb://${computer}/${share}\n` +
+                 `2. Mount manually: sudo mount -t cifs //${computer}/${share} /mnt/${share}\n` +
+                 `Error: ${error.message}`,
         };
       }
     } catch (error: any) {
@@ -851,7 +955,7 @@ export class FileOperationsCommand implements ICommand {
   /**
    * List files in a folder (or ZIP contents)
    */
-  private async listFiles(folderPath: string): Promise<any> {
+  private async listFiles(folderPath: string, smbUrl?: string): Promise<any> {
     if (!folderPath) {
       throw new Error('folderPath is required for list operation');
     }
@@ -859,23 +963,34 @@ export class FileOperationsCommand implements ICommand {
     // Handle UNC paths (\\computer\share or //computer/share) by mounting them
     const isUncPath = folderPath.startsWith('\\\\') || folderPath.startsWith('//');
     if (isUncPath && process.platform !== 'win32') {
-      let mountResult: { success: boolean; mountPoint?: string; error?: string };
+      let mountResult: { success: boolean; mountPoint?: string; error?: string; needsAuth?: boolean };
 
       if (process.platform === 'darwin') {
         mountResult = await this.mountNetworkShareOnMac(folderPath);
       } else if (process.platform === 'linux') {
-        mountResult = await this.mountNetworkShareOnLinux(folderPath);
+        mountResult = await this.mountNetworkShareOnLinux(folderPath, smbUrl);
       } else {
         mountResult = { success: false, error: 'Unsupported platform for SMB shares' };
       }
 
+      console.log('[listFiles] Mount result:', JSON.stringify(mountResult, null, 2));
+
       if (mountResult.success && mountResult.mountPoint) {
         // Use the mount point instead of the UNC path
+        console.log('[listFiles] Mount successful, using mount point:', mountResult.mountPoint);
         folderPath = mountResult.mountPoint;
       } else {
-        throw new Error(
-          `Failed to mount network share: ${mountResult.error || 'Unknown error'}`,
-        );
+        // Return the mount result (including needsAuth flag) to the frontend
+        console.log('[listFiles] Mount failed, returning error with needsAuth:', mountResult.needsAuth);
+        const errorResponse = {
+          success: false,
+          operation: 'list',
+          error: mountResult.error || 'Unknown error',
+          needsAuth: mountResult.needsAuth,
+          uncPath: folderPath,
+        };
+        console.log('[listFiles] Error response:', JSON.stringify(errorResponse, null, 2));
+        return errorResponse;
       }
     }
 

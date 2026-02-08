@@ -12,7 +12,7 @@ export class FileService {
   /**
    * Load directory contents
    */
-  static async loadDirectory(path: string): Promise<{
+  static async loadDirectory(path: string, smbUrl?: string): Promise<{
     success: boolean
     data?: {
       path: string
@@ -21,11 +21,13 @@ export class FileService {
       summary: { totalDirectories: number; totalFiles: number }
     }
     error?: string
+    needsAuth?: boolean
+    uncPath?: string
   }> {
     return (window as any).electron.ipcRenderer.invoke(
       'cli-execute',
       'file-operations',
-      { operation: 'list', folderPath: path },
+      { operation: 'list', folderPath: path, smbUrl },
     )
   }
 

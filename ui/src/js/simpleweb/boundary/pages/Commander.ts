@@ -252,6 +252,17 @@ export class Commander extends LitElement {
 
   private ftpConnectionCancelled = false
 
+  @property({ type: Boolean })
+  showSMBDialog = false
+
+  @property({ type: String })
+  pendingSmbPath: string | null = null
+
+  @property({ type: String })
+  pendingSmbPane: 'left' | 'right' = 'left'
+
+  private smbConnectionCancelled = false
+
   async connectedCallback() {
     super.connectedCallback()
 
@@ -580,6 +591,34 @@ export class Commander extends LitElement {
 
       console.log('Response:', response)
 
+      // Check if SMB authentication is needed (may be in response.data)
+      const needsAuthFlag = response.needsAuth || (response.data && 'needsAuth' in response.data && response.data.needsAuth)
+      console.log('needsAuth check:', {
+        needsAuth: response.needsAuth,
+        dataNeedsAuth: response.data?.needsAuth,
+        needsAuthFlag,
+        path,
+        startsWithBackslash: path.startsWith('\\\\'),
+        startsWithSlash: path.startsWith('//'),
+        startsWithSmb: path.startsWith('smb://'),
+      })
+
+      if (needsAuthFlag) {
+        const isNetworkPath = path.startsWith('\\\\') || path.startsWith('//') || path.startsWith('smb://')
+        if (isNetworkPath) {
+          console.log('SMB authentication required, showing dialog...', {
+            path,
+            showSMBDialog: this.showSMBDialog,
+          })
+          this.pendingSmbPath = (response.data as any)?.uncPath || path
+          this.pendingSmbPane = pane
+          this.showSMBDialog = true
+          this.setStatus('SMB authentication required', 'normal')
+          console.log('After setting showSMBDialog:', this.showSMBDialog)
+          return
+        }
+      }
+
       if (response.success && response.data) {
         const data = response.data
         const items: FileItem[] = []
@@ -698,6 +737,98 @@ export class Commander extends LitElement {
         this.setStatus(`Error: ${retryError.message}`, 'error')
         console.error('Failed to load parent directory:', retryError)
       }
+    }
+  }
+
+  /**
+   * Load directory with SMB authentication
+   */
+  async loadDirectoryWithSmbUrl(
+    pane: 'left' | 'right',
+    path: string,
+    smbUrl: string,
+  ) {
+    try {
+      this.setStatus(`Connecting to ${path}...`, 'normal')
+      console.log(`Loading directory with SMB credentials for ${pane}: ${path}`)
+
+      const { FileService } = await import(
+        './commander/services/FileService.js'
+      )
+      const response = await FileService.loadDirectory(path, smbUrl)
+
+      console.log('SMB Response:', response)
+
+      if (response.success && response.data) {
+        const data = response.data
+        const items: FileItem[] = []
+
+        // Add parent directory entry if not at root
+        const normalizedPath = path.replace(/\\/g, '/').toLowerCase()
+        const isRoot = normalizedPath.match(/^[a-z]:\/?\s*$/)
+
+        if (!isRoot) {
+          items.push({
+            name: '..',
+            path: this.getParentPath(path),
+            size: 0,
+            created: new Date(),
+            modified: new Date(),
+            isDirectory: true,
+            isFile: false,
+          })
+        }
+
+        // Add directories first, then files
+        if (data.directories && Array.isArray(data.directories)) {
+          items.push(...data.directories)
+        }
+        if (data.files && Array.isArray(data.files)) {
+          items.push(...data.files)
+        }
+
+        console.log(`Loaded ${items.length} items for ${pane}`)
+
+        if (pane === 'left') {
+          this.leftPane = {
+            currentPath: data.path,
+            items,
+            selectedIndices: new Set(),
+            focusedIndex: 0,
+            filter: this.leftPane.filter,
+            filterActive: this.leftPane.filterActive,
+            sortBy: this.leftPane.sortBy,
+            sortDirection: this.leftPane.sortDirection,
+          }
+          this.paneManager.setPane('left', this.leftPane)
+          this.paneManager.savePanePaths()
+          this.fetchDriveInfo('left', data.path)
+        } else {
+          this.rightPane = {
+            currentPath: data.path,
+            items,
+            selectedIndices: new Set(),
+            focusedIndex: 0,
+            filter: this.rightPane.filter,
+            filterActive: this.rightPane.filterActive,
+            sortBy: this.rightPane.sortBy,
+            sortDirection: this.rightPane.sortDirection,
+          }
+          this.paneManager.setPane('right', this.rightPane)
+          this.paneManager.savePanePaths()
+          this.fetchDriveInfo('right', data.path)
+        }
+
+        const dirCount = data.summary?.totalDirectories ?? 0
+        const fileCount = data.summary?.totalFiles ?? 0
+        this.setStatus(`${dirCount} folders, ${fileCount} files`, 'success')
+      } else {
+        throw new Error(response.error || 'Failed to mount SMB share')
+      }
+    } catch (error: any) {
+      this.setStatus(`Error: ${error.message}`, 'error')
+      console.error('Load directory with SMB error:', error)
+      throw error
     }
   }
 
@@ -2591,6 +2722,40 @@ export class Commander extends LitElement {
                 this.pendingFtpUrl = null
               }}
             ></ftp-connection-dialog>`
+          : ''}
+        ${this.showSMBDialog
+          ? html`<smb-connection-dialog
+              id="smb-dialog"
+              .open=${true}
+              .initialPath=${this.pendingSmbPath || ''}
+              @close=${() => (this.showSMBDialog = false)}
+              @cancel-connection=${() => {
+                this.smbConnectionCancelled = true
+              }}
+              @connect=${async (e: CustomEvent) => {
+                this.smbConnectionCancelled = false
+                const { smbUrl } = e.detail
+                try {
+                  // Retry loading with authenticated SMB URL
+                  await this.loadDirectoryWithSmbUrl(this.pendingSmbPane, this.pendingSmbPath || '', smbUrl)
+                  if (!this.smbConnectionCancelled) {
+                    const dialog = this.shadowRoot?.querySelector(
+                      '#smb-dialog',
+                    ) as any
+                    dialog?.connectionSuccess()
+                    this.showSMBDialog = false
+                  }
+                } catch (error: any) {
+                  if (!this.smbConnectionCancelled) {
+                    const dialog = this.shadowRoot?.querySelector(
+                      '#smb-dialog',
+                    ) as any
+                    dialog?.connectionFailed(error.message || 'Unknown error')
+                  }
+                }
+                this.pendingSmbPath = null
+              }}
+            ></smb-connection-dialog>`
           : ''}
         ${this.showHelp
           ? html`<help-dialog
