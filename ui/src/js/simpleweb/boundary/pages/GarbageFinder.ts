@@ -11,14 +11,25 @@ interface FolderNode {
   depth: number
   fileCount: number
   folderCount: number
+  isAnalyzed: boolean
+  isLoading: boolean
 }
 
 interface ScanProgress {
   isScanning: boolean
+  scanningPath: string
   currentPath: string
   foldersScanned: number
   currentSize: number
   percentage: number
+}
+
+interface DriveInfo {
+  letter: string
+  path: string
+  label: string
+  freeSpace?: number
+  totalSpace?: number
 }
 
 export class GarbageFinder extends LitElement {
@@ -40,12 +51,34 @@ export class GarbageFinder extends LitElement {
     .header {
       display: flex;
       align-items: center;
+      justify-content: space-between;
       gap: 1rem;
       margin-bottom: 1rem;
       padding: 1rem;
       background: #1e293b;
       border-radius: 8px;
       border: 1px solid #334155;
+    }
+
+    .btn-reset {
+      padding: 0.5rem 1rem;
+      background: #475569;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.85rem;
+      transition: all 0.2s;
+    }
+
+    .btn-reset:hover {
+      background: #64748b;
+    }
+
+    .btn-reset:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
     }
 
     h1 {
@@ -59,25 +92,13 @@ export class GarbageFinder extends LitElement {
       font-size: 0.9rem;
     }
 
-    .toolbar {
-      display: flex;
-      gap: 0.5rem;
-      align-items: center;
-      padding: 1rem;
-      background: #1e293b;
-      border-radius: 8px;
-      border: 1px solid #334155;
-      margin-bottom: 1rem;
-      flex-wrap: wrap;
-    }
-
     .btn {
-      padding: 0.6rem 1.2rem;
+      padding: 0.4rem 0.8rem;
       border: none;
-      border-radius: 6px;
+      border-radius: 4px;
       cursor: pointer;
       font-weight: 600;
-      font-size: 0.9rem;
+      font-size: 0.75rem;
       transition: all 0.2s;
     }
 
@@ -104,26 +125,6 @@ export class GarbageFinder extends LitElement {
       background: #b91c1c;
     }
 
-    .btn-secondary {
-      background: #475569;
-      color: white;
-    }
-
-    .btn-secondary:hover {
-      background: #64748b;
-    }
-
-    .path-display {
-      flex: 1;
-      padding: 0.6rem 1rem;
-      background: #0f172a;
-      border: 1px solid #334155;
-      border-radius: 6px;
-      color: #94a3b8;
-      font-family: monospace;
-      min-width: 200px;
-    }
-
     .progress-section {
       padding: 1rem;
       background: #1e293b;
@@ -142,6 +143,8 @@ export class GarbageFinder extends LitElement {
     .progress-text {
       color: #94a3b8;
       font-size: 0.85rem;
+      display: flex;
+      align-items: center;
     }
 
     .progress-stats {
@@ -169,9 +172,6 @@ export class GarbageFinder extends LitElement {
       background: linear-gradient(90deg, #0ea5e9, #22c55e);
       border-radius: 12px;
       transition: width 0.3s ease;
-      display: flex;
-      align-items: center;
-      justify-content: center;
     }
 
     .progress-bar-text {
@@ -204,8 +204,8 @@ export class GarbageFinder extends LitElement {
 
     .tree-header {
       display: grid;
-      grid-template-columns: 1fr 200px 120px;
-      gap: 1rem;
+      grid-template-columns: 1fr 150px 100px 80px;
+      gap: 0.5rem;
       padding: 0.75rem 1rem;
       background: #334155;
       font-weight: 600;
@@ -214,18 +214,17 @@ export class GarbageFinder extends LitElement {
     }
 
     .tree-body {
-      max-height: calc(100vh - 400px);
+      max-height: calc(100vh - 300px);
       overflow-y: auto;
     }
 
     .tree-node {
       display: grid;
-      grid-template-columns: 1fr 200px 120px;
-      gap: 1rem;
+      grid-template-columns: 1fr 150px 100px 80px;
+      gap: 0.5rem;
       padding: 0.5rem 1rem;
       border-bottom: 1px solid #1e293b;
       align-items: center;
-      cursor: pointer;
       transition: background 0.15s;
     }
 
@@ -237,11 +236,27 @@ export class GarbageFinder extends LitElement {
       background: #1e3a5f;
     }
 
+    .tree-node.analyzing {
+      background: #1e3a5f;
+      animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+      0%,
+      100% {
+        opacity: 1;
+      }
+      50% {
+        opacity: 0.7;
+      }
+    }
+
     .folder-name {
       display: flex;
       align-items: center;
       gap: 0.5rem;
       overflow: hidden;
+      cursor: pointer;
     }
 
     .folder-icon {
@@ -255,11 +270,10 @@ export class GarbageFinder extends LitElement {
     }
 
     .size-bar-container {
-      height: 20px;
+      height: 16px;
       background: #0f172a;
       border-radius: 4px;
       overflow: hidden;
-      position: relative;
     }
 
     .size-bar {
@@ -283,8 +297,12 @@ export class GarbageFinder extends LitElement {
     .size-text {
       text-align: right;
       font-family: monospace;
-      font-weight: 600;
+      font-size: 0.85rem;
       color: #e2e8f0;
+    }
+
+    .action-cell {
+      text-align: center;
     }
 
     .empty-state {
@@ -300,8 +318,8 @@ export class GarbageFinder extends LitElement {
 
     .spinner {
       display: inline-block;
-      width: 16px;
-      height: 16px;
+      width: 14px;
+      height: 14px;
       border: 2px solid #0ea5e9;
       border-top-color: transparent;
       border-radius: 50%;
@@ -309,15 +327,33 @@ export class GarbageFinder extends LitElement {
       margin-right: 0.5rem;
     }
 
+    .spinner-small {
+      width: 12px;
+      height: 12px;
+      border-width: 2px;
+      margin: 0;
+    }
+
     @keyframes spin {
       to {
         transform: rotate(360deg);
       }
     }
-  `
 
-  @property({ type: String })
-  selectedPath = ''
+    .drive-info {
+      font-size: 0.7rem;
+      color: #64748b;
+      margin-left: 0.5rem;
+    }
+
+    .expand-icon {
+      cursor: pointer;
+      user-select: none;
+      width: 16px;
+      text-align: center;
+      flex-shrink: 0;
+    }
+  `
 
   @property({ type: Array })
   treeData: FolderNode[] = []
@@ -325,19 +361,24 @@ export class GarbageFinder extends LitElement {
   @property({ type: Object })
   scanProgress: ScanProgress = {
     isScanning: false,
+    scanningPath: '',
     currentPath: '',
     foldersScanned: 0,
     currentSize: 0,
     percentage: 0,
   }
 
-  @property({ type: Number })
-  rootSize = 0
+  @property({ type: Array })
+  drives: DriveInfo[] = []
 
   private expandedPaths: Set<string> = new Set()
 
   connectedCallback() {
     super.connectedCallback()
+
+    // Load available drives
+    this.loadDrives()
+
     // Listen for scan progress events
     ;(window as any).electron?.ipcRenderer?.on(
       'garbage-scan-progress',
@@ -350,10 +391,9 @@ export class GarbageFinder extends LitElement {
           percentage: data.percentage || 0,
         }
 
-        // Update tree data progressively during scan
+        // Update the analyzed node with new tree data
         if (data.tree && data.tree.length > 0) {
-          this.treeData = this.applyExpandedStates(data.tree)
-          this.rootSize = data.currentSize || 0
+          this.updateAnalyzedNode(data.tree[0])
         }
 
         this.requestUpdate()
@@ -361,69 +401,183 @@ export class GarbageFinder extends LitElement {
     )
   }
 
-  /**
-   * Apply saved expanded states to incoming tree data
-   */
-  private applyExpandedStates(nodes: FolderNode[]): FolderNode[] {
-    return nodes.map((node) => ({
-      ...node,
-      isExpanded: node.depth === 0 || this.expandedPaths.has(node.path),
-      children: node.children ? this.applyExpandedStates(node.children) : [],
-    }))
-  }
-
-  async selectFolder() {
+  async loadDrives() {
     try {
       const response = await (window as any).electron.ipcRenderer.invoke(
-        'show-open-dialog',
-        {
-          properties: ['openDirectory'],
-          title: 'Select folder to analyze',
-        },
+        'cli-execute',
+        'file-operations',
+        { operation: 'drives' },
       )
 
-      if (!response.canceled && response.filePaths?.length > 0) {
-        this.selectedPath = response.filePaths[0]
+      if (response.success && response.data?.drives) {
+        // Convert drives to tree nodes
+        this.treeData = response.data.drives.map((drive: DriveInfo) => ({
+          name: drive.label,
+          path: drive.path,
+          size: 0,
+          children: [],
+          isExpanded: false,
+          depth: 0,
+          fileCount: 0,
+          folderCount: 0,
+          isAnalyzed: false,
+          isLoading: false,
+        }))
+
+        this.drives = response.data.drives
+
+        // Fetch drive info for each drive
+        for (const drive of response.data.drives) {
+          this.fetchDriveInfo(drive)
+        }
       }
     } catch (error) {
-      console.error('Failed to select folder:', error)
+      console.error('Failed to load drives:', error)
     }
   }
 
-  async startScan() {
-    if (!this.selectedPath) return
+  async fetchDriveInfo(drive: DriveInfo) {
+    try {
+      const response = await (window as any).electron.ipcRenderer.invoke(
+        'cli-execute',
+        'file-operations',
+        { operation: 'drive-info', drivePath: drive.path },
+      )
+
+      if (response.success && response.data) {
+        this.drives = this.drives.map((d) =>
+          d.path === drive.path
+            ? {
+                ...d,
+                freeSpace: response.data.freeSpace,
+                totalSpace: response.data.totalSpace,
+              }
+            : d,
+        )
+        this.requestUpdate()
+      }
+    } catch (error) {
+      console.error(`Failed to get drive info for ${drive.path}:`, error)
+    }
+  }
+
+  getDriveInfo(path: string): DriveInfo | undefined {
+    return this.drives.find((d) => d.path === path)
+  }
+
+  async toggleExpand(node: FolderNode, event: Event) {
+    event.stopPropagation()
+
+    if (node.isExpanded) {
+      // Collapse
+      this.expandedPaths.delete(node.path)
+      this.treeData = this.updateNodeInTree(this.treeData, node.path, {
+        isExpanded: false,
+      })
+    } else {
+      // Expand - load children if not analyzed
+      this.expandedPaths.add(node.path)
+      if (!node.isAnalyzed && node.children.length === 0) {
+        await this.loadFolderContents(node)
+      }
+      this.treeData = this.updateNodeInTree(this.treeData, node.path, {
+        isExpanded: true,
+      })
+    }
+    this.requestUpdate()
+  }
+
+  async loadFolderContents(node: FolderNode) {
+    try {
+      // Mark as loading
+      this.treeData = this.updateNodeInTree(this.treeData, node.path, {
+        isLoading: true,
+      })
+      this.requestUpdate()
+
+      const response = await (window as any).electron.ipcRenderer.invoke(
+        'cli-execute',
+        'file-operations',
+        { operation: 'list', folderPath: node.path },
+      )
+
+      if (response.success && response.data?.directories) {
+        const children: FolderNode[] = response.data.directories.map(
+          (item: any) => ({
+            name: item.name,
+            path: item.path,
+            size: 0,
+            children: [],
+            isExpanded: false,
+            depth: node.depth + 1,
+            fileCount: 0,
+            folderCount: 0,
+            isAnalyzed: false,
+            isLoading: false,
+          }),
+        )
+
+        this.treeData = this.updateNodeInTree(this.treeData, node.path, {
+          children,
+          isLoading: false,
+          isExpanded: true,
+        })
+      } else {
+        this.treeData = this.updateNodeInTree(this.treeData, node.path, {
+          isLoading: false,
+        })
+      }
+    } catch (error) {
+      console.error('Failed to load folder contents:', error)
+      this.treeData = this.updateNodeInTree(this.treeData, node.path, {
+        isLoading: false,
+      })
+    }
+    this.requestUpdate()
+  }
+
+  async analyzeFolder(node: FolderNode, event: Event) {
+    event.stopPropagation()
+
+    if (this.scanProgress.isScanning) return
 
     this.scanProgress = {
       isScanning: true,
-      currentPath: this.selectedPath,
+      scanningPath: node.path,
+      currentPath: node.path,
       foldersScanned: 0,
       currentSize: 0,
       percentage: 0,
     }
-    this.treeData = []
-    this.rootSize = 0
-    this.expandedPaths.clear()
+
+    // Mark node as being analyzed
+    this.treeData = this.updateNodeInTree(this.treeData, node.path, {
+      isLoading: true,
+    })
+    this.expandedPaths.add(node.path)
 
     try {
       const response = await (window as any).electron.ipcRenderer.invoke(
         'cli-execute',
         'garbage-finder',
-        { operation: 'scan', rootPath: this.selectedPath },
+        { operation: 'scan', rootPath: node.path },
       )
 
-      if (response.success && response.data) {
-        this.treeData = response.data.tree || []
-        this.rootSize = response.data.totalSize || 0
-        // Expand root level
-        if (this.treeData.length > 0) {
-          this.treeData = this.treeData.map((node) => ({
-            ...node,
-            isExpanded: true,
-          }))
-        }
+      if (response.success && response.data?.tree?.[0]) {
+        // Replace the node with the analyzed data
+        const analyzedNode = response.data.tree[0]
+        this.updateAnalyzedNode({
+          ...analyzedNode,
+          isExpanded: true,
+          isAnalyzed: true,
+          isLoading: false,
+        })
       }
     } catch (error) {
       console.error('Scan failed:', error)
+      this.treeData = this.updateNodeInTree(this.treeData, node.path, {
+        isLoading: false,
+      })
     } finally {
       this.scanProgress = {
         ...this.scanProgress,
@@ -433,11 +587,76 @@ export class GarbageFinder extends LitElement {
     }
   }
 
+  updateAnalyzedNode(analyzedNode: FolderNode) {
+    const addAnalyzedFlag = (node: FolderNode, depth: number): FolderNode => ({
+      ...node,
+      depth,
+      isAnalyzed: true,
+      isExpanded: this.expandedPaths.has(node.path) || depth === 0,
+      isLoading: false,
+      children: node.children.map((child) => addAnalyzedFlag(child, depth + 1)),
+    })
+
+    // Find the node in the tree and replace it
+    const replaceNode = (
+      nodes: FolderNode[],
+      targetPath: string,
+      newNode: FolderNode,
+    ): FolderNode[] => {
+      return nodes.map((node) => {
+        if (node.path === targetPath) {
+          return addAnalyzedFlag(newNode, node.depth)
+        }
+        if (node.children.length > 0) {
+          return {
+            ...node,
+            children: replaceNode(node.children, targetPath, newNode),
+          }
+        }
+        return node
+      })
+    }
+
+    this.treeData = replaceNode(
+      this.treeData,
+      analyzedNode.path,
+      analyzedNode,
+    )
+    this.requestUpdate()
+  }
+
+  updateNodeInTree(
+    nodes: FolderNode[],
+    targetPath: string,
+    updates: Partial<FolderNode>,
+  ): FolderNode[] {
+    return nodes.map((node) => {
+      if (node.path === targetPath) {
+        return { ...node, ...updates }
+      }
+      if (node.children.length > 0) {
+        return {
+          ...node,
+          children: this.updateNodeInTree(node.children, targetPath, updates),
+        }
+      }
+      return node
+    })
+  }
+
   async cancelScan() {
     try {
       await (window as any).electron.ipcRenderer.invoke('cancel-garbage-scan')
     } catch (error) {
       console.error('Failed to cancel:', error)
+    }
+    // Reset loading state for the scanning node
+    if (this.scanProgress.scanningPath) {
+      this.treeData = this.updateNodeInTree(
+        this.treeData,
+        this.scanProgress.scanningPath,
+        { isLoading: false },
+      )
     }
     this.scanProgress = {
       ...this.scanProgress,
@@ -445,34 +664,19 @@ export class GarbageFinder extends LitElement {
     }
   }
 
-  toggleNode(nodePath: string) {
-    // Track expanded state
-    if (this.expandedPaths.has(nodePath)) {
-      this.expandedPaths.delete(nodePath)
-    } else {
-      this.expandedPaths.add(nodePath)
+  reset() {
+    // Cancel any ongoing scan
+    if (this.scanProgress.isScanning) {
+      this.cancelScan()
     }
-    this.treeData = this.toggleNodeRecursive(this.treeData, nodePath)
-    this.requestUpdate()
-  }
-
-  toggleNodeRecursive(nodes: FolderNode[], targetPath: string): FolderNode[] {
-    return nodes.map((node) => {
-      if (node.path === targetPath) {
-        return { ...node, isExpanded: !node.isExpanded }
-      }
-      if (node.children.length > 0) {
-        return {
-          ...node,
-          children: this.toggleNodeRecursive(node.children, targetPath),
-        }
-      }
-      return node
-    })
+    // Clear expanded paths
+    this.expandedPaths.clear()
+    // Reload drives to reset the tree
+    this.loadDrives()
   }
 
   formatSize(bytes: number): string {
-    if (bytes === 0) return '0 B'
+    if (bytes === 0) return '-'
     const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
     const i = Math.floor(Math.log(bytes) / Math.log(1024))
     return (bytes / Math.pow(1024, i)).toFixed(1) + ' ' + sizes[i]
@@ -485,83 +689,131 @@ export class GarbageFinder extends LitElement {
     return 'small'
   }
 
+  getParentSize(node: FolderNode): number {
+    // For root nodes (drives), use total drive space or largest sibling
+    if (node.depth === 0) {
+      const driveInfo = this.getDriveInfo(node.path)
+      if (driveInfo?.totalSpace) return driveInfo.totalSpace
+      return Math.max(...this.treeData.map((n) => n.size), 1)
+    }
+    // For nested nodes, find parent's size
+    return this.findParentSize(this.treeData, node.path) || node.size
+  }
+
+  findParentSize(nodes: FolderNode[], targetPath: string): number {
+    for (const node of nodes) {
+      if (node.children.some((child) => child.path === targetPath)) {
+        return node.size
+      }
+      if (node.children.length > 0) {
+        const found = this.findParentSize(node.children, targetPath)
+        if (found) return found
+      }
+    }
+    return 0
+  }
+
   renderTree(nodes: FolderNode[], parentSize: number): any {
-    return nodes
-      .sort((a, b) => b.size - a.size) // Sort by size descending
-      .map((node) => {
+    return nodes.map((node) => {
         const percentage = parentSize > 0 ? (node.size / parentSize) * 100 : 0
         const indent = node.depth * 20
+        const driveInfo = node.depth === 0 ? this.getDriveInfo(node.path) : null
+        const isBeingAnalyzed =
+          this.scanProgress.isScanning &&
+          this.scanProgress.scanningPath === node.path
 
         return html`
           <div
-            class="tree-node ${node.isExpanded ? 'expanded' : ''}"
-            @click=${() => this.toggleNode(node.path)}
+            class="tree-node ${node.isExpanded ? 'expanded' : ''} ${isBeingAnalyzed
+              ? 'analyzing'
+              : ''}"
           >
-            <div class="folder-name" style="padding-left: ${indent}px">
-              <span class="folder-icon">
-                ${node.children.length > 0
-                  ? node.isExpanded
-                    ? '📂'
-                    : '📁'
-                  : '📁'}
+            <div
+              class="folder-name"
+              style="padding-left: ${indent}px"
+              @click=${(e: Event) => this.toggleExpand(node, e)}
+            >
+              <span class="expand-icon">
+                ${node.isLoading
+                  ? html`<span class="spinner spinner-small"></span>`
+                  : node.children.length > 0 || !node.isAnalyzed
+                    ? node.isExpanded
+                      ? '▼'
+                      : '▶'
+                    : ''}
               </span>
-              <span class="folder-label" title="${node.path}"
-                >${node.name}</span
-              >
+              <span class="folder-icon">
+                ${node.depth === 0 ? '💾' : node.isExpanded ? '📂' : '📁'}
+              </span>
+              <span class="folder-label" title="${node.path}">${node.name}</span>
+              ${driveInfo?.freeSpace !== undefined
+                ? html`<span class="drive-info">
+                    (${this.formatSize(driveInfo.freeSpace)} free)
+                  </span>`
+                : ''}
             </div>
             <div class="size-bar-container">
-              <div
-                class="size-bar ${this.getSizeBarClass(node.size, parentSize)}"
-                style="width: ${Math.max(percentage, 1)}%"
-              ></div>
+              ${node.isAnalyzed && node.size > 0
+                ? html`
+                    <div
+                      class="size-bar ${this.getSizeBarClass(
+                        node.size,
+                        parentSize,
+                      )}"
+                      style="width: ${Math.max(percentage, 1)}%"
+                    ></div>
+                  `
+                : ''}
             </div>
-            <div class="size-text">${this.formatSize(node.size)}</div>
+            <div class="size-text">
+              ${node.isAnalyzed ? this.formatSize(node.size) : '-'}
+            </div>
+            <div class="action-cell">
+              ${isBeingAnalyzed
+                ? html`<button
+                    class="btn btn-danger"
+                    @click=${(e: Event) => {
+                      e.stopPropagation()
+                      this.cancelScan()
+                    }}
+                  >
+                    Cancel
+                  </button>`
+                : html`<button
+                    class="btn btn-primary"
+                    ?disabled=${this.scanProgress.isScanning}
+                    @click=${(e: Event) => this.analyzeFolder(node, e)}
+                  >
+                    Analyze
+                  </button>`}
+            </div>
           </div>
           ${node.isExpanded && node.children.length > 0
-            ? this.renderTree(node.children, node.size)
+            ? this.renderTree(node.children, node.size || parentSize)
             : ''}
         `
       })
   }
 
   render() {
+    const maxRootSize = Math.max(...this.treeData.map((n) => n.size), 1)
+
     return html`
       <div class="content">
         <div class="header">
           <div>
             <h1>GarbageFinder</h1>
             <div class="subtitle">
-              Analyze folder sizes - find your space occuppiers easily
+              Analyze folder sizes - find your space hogs easily
             </div>
           </div>
-        </div>
-
-        <div class="toolbar">
           <button
-            class="btn btn-secondary"
-            @click=${this.selectFolder}
+            class="btn-reset"
+            @click=${() => this.reset()}
             ?disabled=${this.scanProgress.isScanning}
           >
-            Select Folder
+            Reset
           </button>
-          <div class="path-display">
-            ${this.selectedPath || 'No folder selected'}
-          </div>
-          ${this.scanProgress.isScanning
-            ? html`
-                <button class="btn btn-danger" @click=${this.cancelScan}>
-                  Cancel
-                </button>
-              `
-            : html`
-                <button
-                  class="btn btn-primary"
-                  @click=${this.startScan}
-                  ?disabled=${!this.selectedPath}
-                >
-                  Scan
-                </button>
-              `}
         </div>
 
         ${this.scanProgress.isScanning
@@ -570,7 +822,7 @@ export class GarbageFinder extends LitElement {
                 <div class="progress-header">
                   <div class="progress-text">
                     <span class="spinner"></span>
-                    Scanning folders...
+                    Analyzing ${this.scanProgress.scanningPath}...
                   </div>
                   <div class="progress-stats">
                     <div>
@@ -606,14 +858,15 @@ export class GarbageFinder extends LitElement {
             <div>Folder</div>
             <div>Size (relative)</div>
             <div style="text-align: right">Size</div>
+            <div style="text-align: center">Action</div>
           </div>
           <div class="tree-body">
             ${this.treeData.length > 0
-              ? this.renderTree(this.treeData, this.rootSize)
+              ? this.renderTree(this.treeData, maxRootSize)
               : html`
                   <div class="empty-state">
                     <div class="empty-state-icon">📊</div>
-                    <div>Select a folder and click Scan to analyze</div>
+                    <div>Loading drives...</div>
                   </div>
                 `}
           </div>

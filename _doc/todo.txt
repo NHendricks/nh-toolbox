@@ -1,8 +1,11 @@
 GarbageFinder:
 - add cleanup actions
+- show drives an analyze when clicking one of them
+- dont analyze whole drive but show button "analyze"
+- add reset button
+- calculate size for subdirs of other folders does not work when one is already analyzed
 Commander:
-- fix free disk size on mac
-- at startup no ftp and no sambe restore
+- at startup no ftp and no sambe restore, always start with local folders (last used), save history to settings
 - in ftp dir up => go to dir where we came from
 - dir size dialog cannot be cancelled
 - loading directory... should show whole path
