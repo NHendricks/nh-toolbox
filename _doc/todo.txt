@@ -2,7 +2,7 @@ Commander:
 - copy and paste (ctrl+c ctrl+v) should create new copy con file / dir
 - drag and drop files / folders
 - linux app
-  - samba share fix (show dialog directly, continue on linux)
+  - samba share fix go into dir
   - fix icon part 2
 - add examples for replace in texteditor (e.g. line feeds)
 - new dos2unix and unix2dos actions in text editor (show current format bottom right)
@@ -39,6 +39,7 @@ GarbageFinder
 - quick text inserter (global shortcut)
 - integrate more cmdline-Tools
   - https://media.ccc.de/v/c4.openchaos.2016.01.restic
+    create ui to create a backup, navigate to checkpoints and do other useful stuff
   - dirsorter for jpegs
   - mp3metatagsetter for mp3s
   - imdb finder

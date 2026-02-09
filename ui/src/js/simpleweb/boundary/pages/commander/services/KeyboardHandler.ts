@@ -305,6 +305,21 @@ export class KeyboardHandler {
         this.commander.selectAll()
         return true
 
+      case 'c':
+        event.preventDefault()
+        this.commander.copyToClipboard()
+        return true
+
+      case 'v':
+        event.preventDefault()
+        this.commander.pasteFromClipboard()
+        return true
+
+      case 'x':
+        event.preventDefault()
+        this.commander.cutToClipboard()
+        return true
+
       case 's':
         event.preventDefault()
         this.commander.showDirectorySize()

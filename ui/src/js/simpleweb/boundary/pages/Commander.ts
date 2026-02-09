@@ -184,6 +184,9 @@ export class Commander extends LitElement {
     percentage: number
   } | null = null
 
+  // Clipboard state for file operations
+  clipboardFiles: { files: string[]; operation: 'copy' | 'cut' } | null = null
+
   @property({ type: Object })
   directorySizeDialog: {
     name: string
@@ -1539,6 +1542,60 @@ export class Commander extends LitElement {
     this.updateActivePane({ selectedIndices: newSelected })
   }
 
+  copyToClipboard() {
+    const files = this.getSelectedFiles()
+    if (files.length === 0) {
+      this.setStatus('No files selected to copy', 'error')
+      return
+    }
+
+    this.clipboardFiles = { files, operation: 'copy' }
+
+    // Also write file paths to system clipboard for external apps
+    const pathsText = files.join('\n')
+    ;(window as any).electron.ipcRenderer.invoke('clipboard-write-text', pathsText)
+
+    this.setStatus(`${files.length} file(s) copied to clipboard`, 'success')
+  }
+
+  cutToClipboard() {
+    const files = this.getSelectedFiles()
+    if (files.length === 0) {
+      this.setStatus('No files selected to cut', 'error')
+      return
+    }
+
+    this.clipboardFiles = { files, operation: 'cut' }
+
+    // Also write file paths to system clipboard for external apps
+    const pathsText = files.join('\n')
+    ;(window as any).electron.ipcRenderer.invoke('clipboard-write-text', pathsText)
+
+    this.setStatus(`${files.length} file(s) cut to clipboard`, 'success')
+  }
+
+  async pasteFromClipboard() {
+    if (!this.clipboardFiles || this.clipboardFiles.files.length === 0) {
+      this.setStatus('Clipboard is empty', 'error')
+      return
+    }
+
+    const pane = this.getActivePane()
+    const destination = pane.currentPath
+
+    // Show operation dialog
+    this.operationDialog = {
+      type: this.clipboardFiles.operation === 'cut' ? 'move' : 'copy',
+      files: this.clipboardFiles.files,
+      destination,
+    }
+
+    // If it was a cut operation, clear the clipboard after pasting
+    if (this.clipboardFiles.operation === 'cut') {
+      // Will be cleared after operation completes
+    }
+  }
+
   scrollItemIntoView(index: number) {
     setTimeout(() => {
       const paneElement = this.shadowRoot?.querySelector(
@@ -1601,6 +1658,11 @@ export class Commander extends LitElement {
     this.setStatus(result.message, result.success ? 'success' : 'error')
 
     if (result.success) {
+      // Clear clipboard after successful move (cut+paste)
+      if (type === 'move' && this.clipboardFiles?.operation === 'cut') {
+        this.clipboardFiles = null
+      }
+
       // Refresh both panes
       await this.loadDirectory(
         this.activePane,

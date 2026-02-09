@@ -44,6 +44,30 @@ export class FileOperationsCommand implements ICommand {
     this.cancelled = false;
   }
 
+  /**
+   * Generate a unique destination path if file already exists
+   * Creates names like: filename(-copy1).ext, filename(-copy2).ext, etc.
+   */
+  private getUniqueDestinationPath(destinationPath: string): string {
+    if (!fs.existsSync(destinationPath)) {
+      return destinationPath;
+    }
+
+    const dir = path.dirname(destinationPath);
+    const ext = path.extname(destinationPath);
+    const baseName = path.basename(destinationPath, ext);
+
+    let counter = 1;
+    let newPath: string;
+
+    do {
+      newPath = path.join(dir, `${baseName}(-copy${counter})${ext}`);
+      counter++;
+    } while (fs.existsSync(newPath));
+
+    return newPath;
+  }
+
   async execute(params: any): Promise<any> {
     const {
       operation,
@@ -1624,7 +1648,7 @@ export class FileOperationsCommand implements ICommand {
 
     // Case 4: Regular file system copy
     const absoluteSource = path.resolve(sourcePath);
-    const absoluteDestination = path.resolve(destinationPath);
+    const resolvedDestination = path.resolve(destinationPath);
 
     // Check if source exists
     if (!fs.existsSync(absoluteSource)) {
@@ -1632,6 +1656,9 @@ export class FileOperationsCommand implements ICommand {
     }
 
     const sourceStats = await stat(absoluteSource);
+
+    // Get unique destination path if file/folder already exists
+    const absoluteDestination = this.getUniqueDestinationPath(resolvedDestination);
 
     if (sourceStats.isDirectory()) {
       // Count total files for progress tracking
