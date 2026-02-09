@@ -1,7 +1,6 @@
 Commander:
 - copy and patse
 - drag and drop files / folders
-- button for refresh
 - linux app
   - samba share fix (show dialog directly, continue on linux)
   - fix icon part 2

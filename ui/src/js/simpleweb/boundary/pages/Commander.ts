@@ -2978,6 +2978,17 @@ export class Commander extends LitElement {
                 : '↓'
               : ''}
           </button>
+          <div style="flex: 1;"></div>
+          <button
+            @click=${(e: Event) => {
+              e.stopPropagation()
+              this.loadDirectory(side, pane.currentPath)
+            }}
+            style="padding: 0.25rem 0.5rem; background: #059669; border: none; color: white; border-radius: 3px; cursor: pointer; font-size: 0.75rem;"
+            title="Refresh directory (Ctrl+R)"
+          >
+            🔄
+          </button>
         </div>
 
         ${pane.filterActive
