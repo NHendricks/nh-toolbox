@@ -591,36 +591,23 @@ export class Commander extends LitElement {
 
       console.log('Response:', response)
 
-      // Check if SMB authentication is needed (may be in response.data)
-      const needsAuthFlag = response.needsAuth || (response.data && 'needsAuth' in response.data && response.data.needsAuth)
-      console.log('needsAuth check:', {
-        needsAuth: response.needsAuth,
-        dataNeedsAuth: response.data?.needsAuth,
-        needsAuthFlag,
-        path,
-        startsWithBackslash: path.startsWith('\\\\'),
-        startsWithSlash: path.startsWith('//'),
-        startsWithSmb: path.startsWith('smb://'),
-      })
-
-      if (needsAuthFlag) {
+      // Check if SMB authentication is needed (needsAuth is inside response.data due to IPC bridge wrapping)
+      const innerData = response.data as any
+      if (innerData?.needsAuth) {
         const isNetworkPath = path.startsWith('\\\\') || path.startsWith('//') || path.startsWith('smb://')
         if (isNetworkPath) {
-          console.log('SMB authentication required, showing dialog...', {
-            path,
-            showSMBDialog: this.showSMBDialog,
-          })
-          this.pendingSmbPath = (response.data as any)?.uncPath || path
+          this.pendingSmbPath = innerData.uncPath || path
           this.pendingSmbPane = pane
           this.showSMBDialog = true
           this.setStatus('SMB authentication required', 'normal')
-          console.log('After setting showSMBDialog:', this.showSMBDialog)
           return
         }
       }
 
-      if (response.success && response.data) {
-        const data = response.data
+      // IPC bridge wraps result as { success: true, data: <backend_result> }
+      // Check the inner success flag for actual errors (e.g. mount failures)
+      const data = response.data as any
+      if (response.success && data && data.success !== false && data.directories) {
         const items: FileItem[] = []
 
         // Add parent directory entry if not at root
@@ -640,10 +627,10 @@ export class Commander extends LitElement {
         }
 
         // Add directories first, then files (with safety checks)
-        if (data.directories && Array.isArray(data.directories)) {
+        if (Array.isArray(data.directories)) {
           items.push(...data.directories)
         }
-        if (data.files && Array.isArray(data.files)) {
+        if (Array.isArray(data.files)) {
           items.push(...data.files)
         }
 
@@ -705,7 +692,7 @@ export class Commander extends LitElement {
         this.setStatus(`${dirCount} folders, ${fileCount} files`, 'success')
       } else {
         // Request failed - ensure pane has valid state first
-        console.log('Failed to load directory:', response.error)
+        console.log('Failed to load directory:', data?.error || response.error)
         const currentPane = pane === 'left' ? this.leftPane : this.rightPane
         if (!currentPane.items || currentPane.items.length === 0) {
           // Set minimal state so UI doesn't crash
@@ -733,8 +720,9 @@ export class Commander extends LitElement {
 
         // If we're already at the root or parent is the same as current, stop
         if (parentPath === path) {
-          this.setStatus(`Error: ${response.error}`, 'error')
-          console.error('Load directory error:', response.error)
+          const errorMsg = data?.error || response.error || 'Unknown error'
+          this.setStatus(`Error: ${errorMsg}`, 'error')
+          console.error('Load directory error:', errorMsg)
           return
         }
 
@@ -805,8 +793,14 @@ export class Commander extends LitElement {
 
       console.log('SMB Response:', response)
 
-      if (response.success && response.data) {
-        const data = response.data
+      // IPC bridge wraps result as { success: true, data: <backend_result> }
+      // Check the inner success flag for actual mount/listing errors
+      const data = response.data as any
+      if (!data || data.success === false) {
+        throw new Error(data?.error || 'Failed to mount SMB share')
+      }
+
+      if (data.directories && data.files) {
         const items: FileItem[] = []
 
         // Add parent directory entry if not at root
@@ -826,10 +820,10 @@ export class Commander extends LitElement {
         }
 
         // Add directories first, then files
-        if (data.directories && Array.isArray(data.directories)) {
+        if (Array.isArray(data.directories)) {
           items.push(...data.directories)
         }
-        if (data.files && Array.isArray(data.files)) {
+        if (Array.isArray(data.files)) {
           items.push(...data.files)
         }
 
@@ -869,7 +863,7 @@ export class Commander extends LitElement {
         const fileCount = data.summary?.totalFiles ?? 0
         this.setStatus(`${dirCount} folders, ${fileCount} files`, 'success')
       } else {
-        throw new Error(response.error || 'Failed to mount SMB share')
+        throw new Error(data?.error || 'Failed to mount SMB share')
       }
     } catch (error: any) {
       this.setStatus(`Error: ${error.message}`, 'error')
@@ -2769,6 +2763,10 @@ export class Commander extends LitElement {
                 this.showDriveSelector = false
                 this.showFTPDialog = true
               }}
+              @open-smb=${() => {
+                this.showDriveSelector = false
+                this.showSMBDialog = true
+              }}
               @refresh-drives=${() => this.loadDrives()}
             ></drive-selector-dialog>`
           : ''}
@@ -2815,10 +2813,10 @@ export class Commander extends LitElement {
               }}
               @connect=${async (e: CustomEvent) => {
                 this.smbConnectionCancelled = false
-                const { smbUrl } = e.detail
+                const { smbUrl, uncPath } = e.detail
+                const path = this.pendingSmbPath || uncPath || ''
                 try {
-                  // Retry loading with authenticated SMB URL
-                  await this.loadDirectoryWithSmbUrl(this.pendingSmbPane, this.pendingSmbPath || '', smbUrl)
+                  await this.loadDirectoryWithSmbUrl(this.pendingSmbPane, path, smbUrl)
                   if (!this.smbConnectionCancelled) {
                     const dialog = this.shadowRoot?.querySelector(
                       '#smb-dialog',
@@ -2831,7 +2829,9 @@ export class Commander extends LitElement {
                     const dialog = this.shadowRoot?.querySelector(
                       '#smb-dialog',
                     ) as any
-                    dialog?.connectionFailed(error.message || 'Unknown error')
+                    const msg = error.message || 'Unknown error'
+                    dialog?.connectionFailed(msg)
+                    this.setStatus(`SMB mount failed: ${msg}`, 'error')
                   }
                 }
                 this.pendingSmbPath = null

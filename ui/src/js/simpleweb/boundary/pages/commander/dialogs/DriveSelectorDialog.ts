@@ -238,6 +238,11 @@ export class DriveSelectorDialog extends LitElement {
   }
 
   private toggleUncInput() {
+    const isLinux = navigator.userAgent.includes('Linux')
+    if (isLinux) {
+      this.dispatchEvent(new CustomEvent('open-smb'))
+      return
+    }
     this.showUncInput = !this.showUncInput
     this.uncPath = ''
   }
@@ -266,6 +271,7 @@ export class DriveSelectorDialog extends LitElement {
       this.uncPath = ''
     }
   }
+
 
   render() {
     const isCurrentFavorite = this.isFavorite(this.currentPath)
