@@ -249,6 +249,9 @@ ipcMain.handle('show-save-dialog', async (_event: any, options: any) => {
 ipcMain.handle('open-terminal', async (_event: any, dirPath: string) => {
   try {
     const platform = process.platform;
+    // Set up environment with NODE_ENV for development tools
+    const env = { ...process.env, NODE_ENV: 'development' };
+
     if (platform === 'win32') {
       // Windows: open cmd.exe in the specified directory
       spawn('cmd.exe', [], {
@@ -256,12 +259,14 @@ ipcMain.handle('open-terminal', async (_event: any, dirPath: string) => {
         detached: true,
         stdio: 'ignore',
         shell: true,
+        env,
       }).unref();
     } else if (platform === 'darwin') {
       // macOS: open Terminal.app in the specified directory
       spawn('open', ['-a', 'Terminal', dirPath], {
         detached: true,
         stdio: 'ignore',
+        env,
       }).unref();
     } else {
       // Linux: try common terminal emulators
@@ -271,6 +276,7 @@ ipcMain.handle('open-terminal', async (_event: any, dirPath: string) => {
           spawn(term, ['--working-directory=' + dirPath], {
             detached: true,
             stdio: 'ignore',
+            env,
           }).unref();
           break;
         } catch {
