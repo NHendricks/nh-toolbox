@@ -303,12 +303,22 @@ ipcMain.handle('open-terminal', async (_event: any, dirPath: string) => {
     const platform = process.platform;
     // Load .n2henv file if present
     const n2hEnv = loadN2hEnvFile(dirPath);
+    const n2hEnvKeys = Object.keys(n2hEnv);
     // Set up environment with NODE_ENV and .n2henv variables
     const env = { ...process.env, NODE_ENV: 'development', ...n2hEnv };
 
+    // Build startup message for terminal
+    let startupMsg = '';
+    if (n2hEnvKeys.length > 0) {
+      startupMsg = `[.n2henv] Loaded: ${n2hEnvKeys.join(', ')}`;
+    }
+
     if (platform === 'win32') {
-      // Windows: open cmd.exe in the specified directory
-      spawn('cmd.exe', [], {
+      // Windows: open cmd.exe with startup message using 'start' command
+      const cmdCommand = startupMsg
+        ? `start cmd.exe /K "echo ${startupMsg} && echo."`
+        : 'start cmd.exe';
+      spawn(cmdCommand, [], {
         cwd: dirPath,
         detached: true,
         stdio: 'ignore',
@@ -323,11 +333,15 @@ ipcMain.handle('open-terminal', async (_event: any, dirPath: string) => {
         env,
       }).unref();
     } else {
-      // Linux: try common terminal emulators
+      // Linux: try common terminal emulators with startup message
       const terminals = ['gnome-terminal', 'konsole', 'xterm'];
       for (const term of terminals) {
         try {
-          spawn(term, ['--working-directory=' + dirPath], {
+          const args = ['--working-directory=' + dirPath];
+          if (startupMsg && term === 'gnome-terminal') {
+            args.push('--', 'bash', '-c', `echo "${startupMsg}"; exec bash`);
+          }
+          spawn(term, args, {
             detached: true,
             stdio: 'ignore',
             env,
@@ -338,7 +352,6 @@ ipcMain.handle('open-terminal', async (_event: any, dirPath: string) => {
         }
       }
     }
-    const n2hEnvKeys = Object.keys(n2hEnv);
     return {
       success: true,
       n2hEnvLoaded: n2hEnvKeys.length > 0 ? n2hEnvKeys : undefined,
