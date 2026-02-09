@@ -1,5 +1,5 @@
 Commander:
-- copy and patse
+- copy and paste (ctrl+c ctrl+v) should create new copy con file / dir
 - drag and drop files / folders
 - linux app
   - samba share fix (show dialog directly, continue on linux)

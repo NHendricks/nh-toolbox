@@ -704,8 +704,31 @@ export class Commander extends LitElement {
         const fileCount = data.summary?.totalFiles ?? 0
         this.setStatus(`${dirCount} folders, ${fileCount} files`, 'success')
       } else {
-        // Request failed - go up one level and retry
-        console.log('Failed to load directory, going up one level...')
+        // Request failed - ensure pane has valid state first
+        console.log('Failed to load directory:', response.error)
+        const currentPane = pane === 'left' ? this.leftPane : this.rightPane
+        if (!currentPane.items || currentPane.items.length === 0) {
+          // Set minimal state so UI doesn't crash
+          const emptyState = {
+            currentPath: path,
+            items: [],
+            selectedIndices: new Set<number>(),
+            focusedIndex: 0,
+            filter: currentPane.filter || '',
+            filterActive: false,
+            sortBy: currentPane.sortBy || 'name',
+            sortDirection: currentPane.sortDirection || 'asc',
+          }
+          if (pane === 'left') {
+            this.leftPane = emptyState
+            this.paneManager.setPane('left', this.leftPane)
+          } else {
+            this.rightPane = emptyState
+            this.paneManager.setPane('right', this.rightPane)
+          }
+        }
+
+        // Try to go up one level
         const parentPath = this.getParentPath(path)
 
         // If we're already at the root or parent is the same as current, stop
@@ -719,14 +742,37 @@ export class Commander extends LitElement {
         await this.loadDirectory(pane, parentPath, previousPath)
       }
     } catch (error: any) {
-      // Exception occurred - go up one level and retry
-      console.log('Exception loading directory, going up one level...')
+      console.error('Exception loading directory:', error)
+
+      // Ensure pane state is valid even after error
+      const currentPane = pane === 'left' ? this.leftPane : this.rightPane
+      if (!currentPane.items || currentPane.items.length === 0) {
+        // Set minimal state so UI doesn't crash
+        const emptyState = {
+          currentPath: path,
+          items: [],
+          selectedIndices: new Set<number>(),
+          focusedIndex: 0,
+          filter: currentPane.filter || '',
+          filterActive: false,
+          sortBy: currentPane.sortBy || 'name',
+          sortDirection: currentPane.sortDirection || 'asc',
+        }
+        if (pane === 'left') {
+          this.leftPane = emptyState
+          this.paneManager.setPane('left', this.leftPane)
+        } else {
+          this.rightPane = emptyState
+          this.paneManager.setPane('right', this.rightPane)
+        }
+      }
+
+      // Try to go up one level
       const parentPath = this.getParentPath(path)
 
       // If we're already at the root or parent is the same as current, stop
       if (parentPath === path) {
         this.setStatus(`Error: ${error.message}`, 'error')
-        console.error('Load directory exception:', error)
         return
       }
 
