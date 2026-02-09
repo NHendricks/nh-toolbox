@@ -1,11 +1,11 @@
-GarbageFinder
-- fix delete files function (at least show error message when unsuccessful)
-- option to show files here also
 Commander:
+- type letter for open c:\ d:\ in driveselction dialog
+- copy and patse
+- drag and drop files / folders
+- button for refresh
 - linux app
-  - icon
-  - readme (sudo install.sh)
-  - samba share fix
+  - samba share fix (show dialog directly, continue on linux)
+  - fix icon part 2
 - support end and pos1 keys 
 - Ctrl+a should select all files
 - ctrl+pageup/down: select all files between these
@@ -13,12 +13,15 @@ Commander:
 - new dos2unix and unix2dos actions in text editor (show current format bottom right)
 - copy from zip (or from zip in zip) doesnt work or is very slow
 - exceptions in read dirs should be captured and not crash the ui to be unusable
-later:
+other:
+Commander later:
 - add support for browse into asar files
 - cleanup ipc side to really use only functions from help output in command line, enhance commandline and its help to use all backend functions
 - test and fix ftps
 - generate tests for all backend features
-other:
+GarbageFinder
+- fix delete files function (at least show error message when unsuccessful)
+- option to show files here also
 - pdf manager
   - define own managed folder
   - scan pdf
@@ -40,7 +43,7 @@ other:
 - quick launcher ctrl+Space (global shortcut)
 - quick text inserter (global shortcut)
 - integrate more cmdline-Tools
-  - versioning (git simple)
+  - https://media.ccc.de/v/c4.openchaos.2016.01.restic
   - dirsorter for jpegs
   - mp3metatagsetter for mp3s
   - imdb finder

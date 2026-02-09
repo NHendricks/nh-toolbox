@@ -49,6 +49,22 @@ export class DriveSelectorDialog extends LitElement {
       cursor: pointer;
       font-weight: bold;
     }
+    .dialog-refresh {
+      background: #0369a1;
+      border: none;
+      color: #fff;
+      padding: 0.5rem 1rem;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    .dialog-refresh:hover {
+      background: #0284c7;
+    }
+    .header-buttons {
+      display: flex;
+      gap: 0.5rem;
+    }
     .drive-list {
       flex: 1;
       overflow-y: auto;
@@ -169,6 +185,10 @@ export class DriveSelectorDialog extends LitElement {
   private close() {
     this.dispatchEvent(new CustomEvent('close'))
   }
+
+  private refreshDrives() {
+    this.dispatchEvent(new CustomEvent('refresh-drives'))
+  }
   private selectDrive(path: string) {
     this.dispatchEvent(new CustomEvent('select', { detail: path }))
   }
@@ -218,9 +238,12 @@ export class DriveSelectorDialog extends LitElement {
         <div class="dialog" @click=${(e: Event) => e.stopPropagation()}>
           <div class="dialog-header">
             <span class="dialog-title"
-              >💾 select drive, network & favorites</span
+              >select drive, network & favorites</span
             >
-            <button class="dialog-close" @click=${this.close}>ESC</button>
+            <div class="header-buttons">
+              <button class="dialog-refresh" @click=${this.refreshDrives} title="Refresh drives (e.g. after inserting USB stick)">Refresh</button>
+              <button class="dialog-close" @click=${this.close}>ESC</button>
+            </div>
           </div>
           <div class="drive-list">
             ${this.favorites.length > 0

@@ -2689,6 +2689,7 @@ export class Commander extends LitElement {
                 this.showDriveSelector = false
                 this.showFTPDialog = true
               }}
+              @refresh-drives=${() => this.loadDrives()}
             ></drive-selector-dialog>`
           : ''}
         ${this.showFTPDialog
