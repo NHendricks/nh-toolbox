@@ -1075,12 +1075,8 @@ export class FileOperationsCommand implements ICommand {
         try {
           // Use stat to get file size and follow symlinks
           const fileStats = await stat(fullPath);
-          // Check if directory - use both stat and Dirent for robustness
-          const isDir =
-            fileStats.isDirectory() ||
-            entry.isDirectory() ||
-            entry.name.startsWith('OneDrive ') || // Windows OneDrive hack
-            entry.name.startsWith('SynologyDrive'); // Windows SynologyDrive hack
+          // Check if directory - stat.isDirectory() works correctly for OneDrive/SynologyDrive
+          const isDir = fileStats.isDirectory();
 
           if (isDir) {
             directoryCount++;
@@ -1365,10 +1361,8 @@ export class FileOperationsCommand implements ICommand {
           isSymbolicLink: isSymlink,
           isDirectory: isSymlink
             ? linkTargetType === 'directory'
-            : entry.isDirectory() ||
-              entry.name.startsWith('OneDrive ') ||
-              entry.name.startsWith('SynologyDrive'), // hack because stats doesnt recognize strange OneDrive or SynologyDrive links on Windows
-          isFile: isSymlink ? linkTargetType === 'file' : entry.isFile(),
+            : stats.isDirectory(), // Use stats.isDirectory() - works correctly for OneDrive/SynologyDrive
+          isFile: isSymlink ? linkTargetType === 'file' : stats.isFile(),
           linkTargetType, // 'file' | 'directory' | null
         };
 

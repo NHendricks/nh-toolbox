@@ -1,7 +1,7 @@
 Commander:
+- show progress for move files
 - use property env file for setting env vars like JAVA_HOME, ...
 - set NODE_ENV= when starting cmdline ... !!! Otherwoise we have =production and if we start vscode the deps are incomplete :-o
-- check why d:\SynologyDrive is not visible in nhcommander
 - copy and paste (ctrl+c ctrl+v) should create new copy con file / dir
 - drag and drop files / folders
 - linux app
