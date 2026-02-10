@@ -501,6 +501,70 @@ export class ResticUI extends LitElement {
       border-radius: 0 0 4px 4px;
     }
 
+    /* Tree View Styles */
+    .tree-container {
+      flex: 1;
+      overflow-y: auto;
+      background: #1e293b;
+      border-radius: 4px;
+      padding: 0.5rem 0;
+    }
+
+    .tree-node {
+      user-select: none;
+    }
+
+    .tree-item {
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+      padding: 0.35rem 0.5rem;
+      cursor: pointer;
+      font-size: 0.85rem;
+      border-radius: 2px;
+    }
+
+    .tree-item:hover {
+      background: #334155;
+    }
+
+    .tree-item.directory {
+      color: #e2e8f0;
+    }
+
+    .tree-item.file {
+      color: #94a3b8;
+    }
+
+    .tree-toggle {
+      width: 16px;
+      font-size: 0.7rem;
+      color: #64748b;
+      flex-shrink: 0;
+    }
+
+    .tree-icon {
+      flex-shrink: 0;
+    }
+
+    .tree-name {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .tree-size {
+      color: #64748b;
+      font-size: 0.75rem;
+      margin-left: auto;
+      padding-left: 1rem;
+    }
+
+    .tree-children {
+      /* Children are indented via padding-left in renderTreeNode */
+    }
+
     /* Retention Panel Styles */
     .retention-panel {
       display: grid;
@@ -863,6 +927,9 @@ export class ResticUI extends LitElement {
   @state() private savedConnections: SavedResticConnection[] = []
   @state() private connectionName: string = ''
 
+  // Tree view state for file browser
+  @state() private expandedPaths: Set<string> = new Set()
+
   connectedCallback() {
     super.connectedCallback()
     this.checkResticInstalled()
@@ -1182,14 +1249,17 @@ export class ResticUI extends LitElement {
     this.loadingMessage = 'Loading files...'
 
     try {
+      // Don't pass a path - get ALL files recursively for tree view
       const response = await this.invokeRestic({
         operation: 'ls',
         snapshotId: this.selectedSnapshot.short_id || this.selectedSnapshot.id,
-        path: this.browsePath,
+        // No path = get all files recursively
       })
 
       if (response.success) {
         this.browseEntries = response.data?.entries || []
+        // Reset expanded paths when loading new snapshot
+        this.expandedPaths = new Set()
       } else {
         this.showMessage('error', response.error || 'Failed to load files')
       }
@@ -1453,6 +1523,135 @@ export class ResticUI extends LitElement {
     if (this.browsePath === '/') return ['/']
     const parts = this.browsePath.split('/').filter((p) => p)
     return ['/', ...parts]
+  }
+
+  // Tree node interface for file browser
+  private getParentPath(path: string): string {
+    // Handle both Windows (C:\foo\bar) and Unix (/foo/bar) paths
+    // Normalize to forward slashes for consistency
+    const normalized = path.replace(/\\/g, '/')
+    const lastSlash = normalized.lastIndexOf('/')
+
+    // Handle Windows drive roots like C:/ or D:/
+    if (lastSlash <= 0) return '/'
+    if (lastSlash === 2 && normalized[1] === ':') {
+      // Path like C:/file - parent is C:/
+      return normalized.substring(0, 3)
+    }
+    return normalized.substring(0, lastSlash)
+  }
+
+  private buildFileTree(entries: ResticFileEntry[]): Map<string, ResticFileEntry[]> {
+    // Group entries by their parent directory
+    const tree = new Map<string, ResticFileEntry[]>()
+
+    // Debug: log first few entries to see path format
+    console.log('[Restic Tree] Sample entries:', entries.slice(0, 5).map(e => ({ path: e.path, type: e.type, name: e.name })))
+
+    for (const entry of entries) {
+      // Normalize path for consistent handling
+      const normalizedPath = entry.path.replace(/\\/g, '/')
+      const parentPath = this.getParentPath(normalizedPath)
+
+      if (!tree.has(parentPath)) {
+        tree.set(parentPath, [])
+      }
+      // Store entry with normalized path
+      tree.get(parentPath)!.push({ ...entry, path: normalizedPath })
+    }
+
+    // Debug: log tree structure
+    console.log('[Restic Tree] Tree keys:', Array.from(tree.keys()))
+    tree.forEach((children, key) => {
+      console.log(`[Restic Tree] "${key}" has ${children.length} children:`, children.slice(0, 3).map(c => c.path))
+    })
+
+    // Sort each directory's children (folders first, then alphabetically)
+    tree.forEach((children, _path) => {
+      children.sort((a, b) => {
+        if (a.type === 'dir' && b.type !== 'dir') return -1
+        if (a.type !== 'dir' && b.type === 'dir') return 1
+        return a.name.localeCompare(b.name)
+      })
+    })
+
+    return tree
+  }
+
+  private toggleTreeNode(path: string) {
+    const newExpanded = new Set(this.expandedPaths)
+    if (newExpanded.has(path)) {
+      newExpanded.delete(path)
+    } else {
+      newExpanded.add(path)
+    }
+    this.expandedPaths = newExpanded
+  }
+
+  private renderTreeNode(entry: ResticFileEntry, tree: Map<string, ResticFileEntry[]>, depth: number = 0): any {
+    const isDir = entry.type === 'dir'
+    const isExpanded = this.expandedPaths.has(entry.path)
+    const children = isDir ? tree.get(entry.path) || [] : []
+    const indent = depth * 20
+
+    // Debug: log when trying to get children
+    if (isDir && isExpanded) {
+      console.log(`[Restic Tree] Expanding "${entry.path}", found ${children.length} children`)
+    }
+
+    return html`
+      <div class="tree-node">
+        <div
+          class="tree-item ${isDir ? 'directory' : 'file'}"
+          style="padding-left: ${indent + 8}px"
+          @click=${() => isDir && this.toggleTreeNode(entry.path)}
+        >
+          <span class="tree-toggle" style="visibility: ${isDir && children.length > 0 ? 'visible' : 'hidden'}">
+            ${isExpanded ? '▼' : '▶'}
+          </span>
+          <span class="tree-icon">${isDir ? '📁' : '📄'}</span>
+          <span class="tree-name">${entry.name}</span>
+          ${!isDir ? html`<span class="tree-size">${this.formatSize(entry.size)}</span>` : ''}
+        </div>
+        ${isDir && isExpanded ? html`
+          <div class="tree-children">
+            ${children.map(child => this.renderTreeNode(child, tree, depth + 1))}
+          </div>
+        ` : ''}
+      </div>
+    `
+  }
+
+  private getRootEntries(tree: Map<string, ResticFileEntry[]>): ResticFileEntry[] {
+    // Find the root entries - entries whose parent is '/' or a Windows drive root
+    const rootEntries: ResticFileEntry[] = []
+    const allPaths = new Set<string>()
+
+    // Collect all entry paths (normalized)
+    tree.forEach((entries) => {
+      entries.forEach(e => allPaths.add(e.path))
+    })
+
+    // Find entries that don't have their parent in allPaths (they are roots)
+    tree.forEach((entries, parentPath) => {
+      // Root conditions: Unix root '/', Windows drive root like 'C:/', or parent not in tree
+      const isUnixRoot = parentPath === '/'
+      const isWindowsDriveRoot = /^[A-Za-z]:\/$/.test(parentPath)
+      const parentNotInTree = !allPaths.has(parentPath)
+
+      if (isUnixRoot || isWindowsDriveRoot || parentNotInTree) {
+        rootEntries.push(...entries)
+      }
+    })
+
+    // Sort (folders first, then alphabetically)
+    rootEntries.sort((a, b) => {
+      if (a.type === 'dir' && b.type !== 'dir') return -1
+      if (a.type !== 'dir' && b.type === 'dir') return 1
+      return a.name.localeCompare(b.name)
+    })
+
+    return rootEntries
   }
 
   render() {
@@ -1814,58 +2013,18 @@ export class ResticUI extends LitElement {
 
           ${this.selectedSnapshot
             ? html`
-                <div class="breadcrumb">
-                  ${this.getBreadcrumbs().map(
-                    (part, i, arr) => html`
-                      <span
-                        class="breadcrumb-item"
-                        @click=${() => {
-                          const path =
-                            i === 0
-                              ? '/'
-                              : '/' + arr.slice(1, i + 1).join('/')
-                          this.navigateToPath(path)
-                        }}
-                      >
-                        ${part === '/' ? 'Root' : part}
-                      </span>
-                      ${i < arr.length - 1 ? html`<span>/</span>` : ''}
-                    `,
-                  )}
-                </div>
-
-                <div class="file-list">
+                <div class="tree-container">
                   ${this.isLoading
                     ? html`<div class="empty-state">
                         <span class="spinner"></span>
                       </div>`
                     : this.browseEntries.length === 0
                       ? html`<div class="empty-state">No files</div>`
-                      : this.browseEntries.map(
-                          (entry) => html`
-                            <div
-                              class="file-item"
-                              @dblclick=${() => {
-                                if (entry.type === 'dir') {
-                                  this.navigateToPath(entry.path)
-                                }
-                              }}
-                            >
-                              <div class="file-name">
-                                ${entry.type === 'dir' ? '📁' : '📄'}
-                                ${entry.name}
-                              </div>
-                              <div class="file-size">
-                                ${entry.type === 'file'
-                                  ? this.formatSize(entry.size)
-                                  : ''}
-                              </div>
-                              <div class="file-date">
-                                ${this.formatDate(entry.mtime)}
-                              </div>
-                            </div>
-                          `,
-                        )}
+                      : (() => {
+                          const tree = this.buildFileTree(this.browseEntries)
+                          const rootEntries = this.getRootEntries(tree)
+                          return rootEntries.map(entry => this.renderTreeNode(entry, tree, 0))
+                        })()}
                 </div>
 
                 <div class="file-actions">

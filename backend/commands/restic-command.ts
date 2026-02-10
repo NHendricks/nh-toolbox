@@ -269,15 +269,18 @@ export class ResticCommand implements ICommand {
 
   private async listFiles(
     snapshotId: string,
-    path: string,
+    path: string | undefined,
     env: NodeJS.ProcessEnv,
   ): Promise<any> {
     if (!snapshotId) {
       return { success: false, error: 'No snapshot ID specified' };
     }
 
-    const targetPath = path || '/';
-    const cmd = `restic ls --json "${snapshotId}" "${targetPath}"`;
+    // If no path specified, list all files recursively
+    // If path specified, list only that directory
+    const cmd = path
+      ? `restic ls --json "${snapshotId}" "${path}"`
+      : `restic ls --json "${snapshotId}"`;
 
     try {
       const { stdout } = await execPromise(cmd, {
@@ -296,7 +299,14 @@ export class ResticCommand implements ICommand {
             return null;
           }
         })
-        .filter((entry: any) => entry !== null);
+        .filter((entry: any) => {
+          // Filter out null entries and snapshot metadata (first entry)
+          // Snapshot metadata has struct_type: "snapshot" or no type field for files
+          if (entry === null) return false;
+          if (entry.struct_type === 'snapshot') return false;
+          // Keep only file system entries (file, dir, symlink)
+          return entry.type === 'file' || entry.type === 'dir' || entry.type === 'symlink';
+        });
 
       return { success: true, entries };
     } catch (error: any) {
