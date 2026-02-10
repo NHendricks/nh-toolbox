@@ -1209,6 +1209,16 @@ export class Commander extends LitElement {
     if (result.success) {
       this.mkdirDialog = null
       await this.loadDirectory(this.activePane, currentPath)
+
+      // Focus on the newly created directory
+      const pane = this.getActivePane()
+      const newDirIndex = pane.items.findIndex(
+        (item) => item.name === folderName.trim() && item.isDirectory,
+      )
+      if (newDirIndex !== -1) {
+        pane.focusedIndex = newDirIndex
+        this.requestUpdate()
+      }
     }
   }
 

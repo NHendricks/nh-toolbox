@@ -18,6 +18,7 @@ ou can find the binary downloads here: https://github.com/NHendricks/nh-toolbox/
   - restore single files
 - commander
   - confirm delete of files
+  - createdir, set marker on it to directly navigate into
 
 ### v1.8.0 (10.02.2026)
 
