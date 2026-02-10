@@ -3,3 +3,6 @@
 - save current values in apps (garbage, restic)
 - quick launcher ctrl+Space (global shortcut)
 - quick text inserter (global shortcut)
+
+- cleanup ipc side to really use only functions from help output in command line, enhance commandline and its help to use all backend functions
+- generate tests for all backend features

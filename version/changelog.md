@@ -16,6 +16,8 @@ ou can find the binary downloads here: https://github.com/NHendricks/nh-toolbox/
   - add number of files in repo in snapshot view
   - show number of files in snapshot
   - restore single files
+- commander
+  - confirm delete of files
 
 ### v1.8.0 (10.02.2026)
 
