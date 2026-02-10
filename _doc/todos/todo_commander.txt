@@ -1,0 +1,11 @@
+Commander:
+- drag and drop files / folders
+- add examples for replace in texteditor (e.g. line feeds)
+- new dos2unix and unix2dos actions in text editor (show current format bottom right)
+- copy from zip (or from zip in zip) doesnt work or is very slow
+- exceptions in read dirs should be captured and not crash the ui to be unusable
+- Commander later:
+  - add support for browse into asar files
+  - cleanup ipc side to really use only functions from help output in command line, enhance commandline and its help to use all backend functions
+  - test and fix ftps
+  - generate tests for all backend features

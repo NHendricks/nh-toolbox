@@ -1,0 +1,3 @@
+- GarbageFinder
+  - fix delete files function (at least show error message when unsuccessful)
+  - option to show files here also
