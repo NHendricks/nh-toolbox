@@ -1465,11 +1465,17 @@ export class Commander extends LitElement {
     }
     displayItems = this.sortItems(displayItems, pane.sortBy, pane.sortDirection)
 
+    // Bail out if no items
+    if (displayItems.length === 0) return
+
     // Find current focused item in sorted list
     const focusedItem = pane.items[pane.focusedIndex]
-    const currentDisplayIndex = focusedItem
+    let currentDisplayIndex = focusedItem
       ? displayItems.findIndex((item) => item.path === focusedItem.path)
       : 0
+
+    // Guard: if focused item not in display list, start from 0
+    if (currentDisplayIndex < 0) currentDisplayIndex = 0
 
     // Calculate new display index
     const newDisplayIndex = Math.max(
@@ -1478,28 +1484,46 @@ export class Commander extends LitElement {
     )
 
     if (withSelection) {
-      // Toggle selection for all items between current and new position (inclusive)
-      const startIdx = Math.min(currentDisplayIndex, newDisplayIndex)
-      const endIdx = Math.max(currentDisplayIndex, newDisplayIndex)
+      // For single step (Ctrl+Arrow): toggle only current item
+      // For page/range (Ctrl+PageDown/Up): toggle all items in range
+      const isSingleStep = Math.abs(delta) === 1
 
-      // Check if DESTINATION item is selected to determine toggle direction
-      // This allows extending selection with multiple presses in same direction
-      const destItem = displayItems[newDisplayIndex]
-      const destOriginalIndex = destItem
-        ? pane.items.findIndex((it) => it.path === destItem.path)
-        : -1
-      const shouldSelect = destOriginalIndex === -1 || !newSelected.has(destOriginalIndex)
-
-      for (let i = startIdx; i <= endIdx; i++) {
-        const item = displayItems[i]
-        if (item && item.name !== '..') {
-          // Find original index
-          const originalIndex = pane.items.findIndex((it) => it.path === item.path)
+      if (isSingleStep) {
+        // Toggle only the current item, then move
+        const currentItem = displayItems[currentDisplayIndex]
+        if (currentItem && currentItem.name !== '..') {
+          const originalIndex = pane.items.findIndex((it) => it.path === currentItem.path)
           if (originalIndex !== -1) {
-            if (shouldSelect) {
-              newSelected.add(originalIndex)
-            } else {
+            if (newSelected.has(originalIndex)) {
               newSelected.delete(originalIndex)
+            } else {
+              newSelected.add(originalIndex)
+            }
+          }
+        }
+      } else {
+        // Toggle all items between current and new position (inclusive)
+        const startIdx = Math.min(currentDisplayIndex, newDisplayIndex)
+        const endIdx = Math.max(currentDisplayIndex, newDisplayIndex)
+
+        // Check if CURRENT item is selected to determine toggle direction
+        // This provides consistent behavior when extending selection
+        const currentItem = displayItems[currentDisplayIndex]
+        const currentOriginalIndex = currentItem
+          ? pane.items.findIndex((it) => it.path === currentItem.path)
+          : -1
+        const shouldSelect = currentOriginalIndex === -1 || !newSelected.has(currentOriginalIndex)
+
+        for (let i = startIdx; i <= endIdx; i++) {
+          const item = displayItems[i]
+          if (item && item.name !== '..') {
+            const originalIndex = pane.items.findIndex((it) => it.path === item.path)
+            if (originalIndex !== -1) {
+              if (shouldSelect) {
+                newSelected.add(originalIndex)
+              } else {
+                newSelected.delete(originalIndex)
+              }
             }
           }
         }
@@ -1508,19 +1532,21 @@ export class Commander extends LitElement {
 
     // Find the new item in the sorted list
     const newItem = displayItems[newDisplayIndex]
+    if (!newItem) return
 
     // Find its original index in pane.items
     const newOriginalIndex = pane.items.findIndex(
       (item) => item.path === newItem.path,
     )
 
-    if (newOriginalIndex !== -1) {
-      this.updateActivePane({
-        focusedIndex: newOriginalIndex,
-        selectedIndices: newSelected,
-      })
+    // Always update selection, update focus if possible
+    this.updateActivePane({
+      focusedIndex: newOriginalIndex !== -1 ? newOriginalIndex : pane.focusedIndex,
+      selectedIndices: newSelected,
+    })
 
-      // Scroll into view (using display index)
+    // Scroll into view (using display index)
+    if (newOriginalIndex !== -1) {
       this.scrollItemIntoView(newDisplayIndex)
     }
   }
