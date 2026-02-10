@@ -1,6 +1,4 @@
 - show number of files in snapshot
 - extract single files
-- initialize backup => init all values from previous repo
-- unfold every entry in root of tree until more than 1 child is present
 - test ftps
 - browse with slider and instantly show diff to current files in a tree

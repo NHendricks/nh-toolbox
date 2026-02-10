@@ -1269,6 +1269,9 @@ export class ResticUI extends LitElement {
           isInitialized: true,
         }
         this.snapshots = []
+        // Clear connection name so user can save as new connection
+        // but preserve backupPaths from previous connection
+        this.connectionName = ''
         this.showMessage('success', 'Repository initialized successfully!')
       } else {
         this.showMessage(

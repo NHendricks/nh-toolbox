@@ -9,7 +9,8 @@ ou can find the binary downloads here: https://github.com/NHendricks/nh-toolbox/
 
 (you can download and test the dev version from https://github.com/NHendricks/nice-2-have-toolbox/actions/workflows/node.js.yml)
 
-- export / import restic settings
+- restic: export / import settings
+- restic: auto unfold folders in snapshot views
 
 ### v1.8.0 (10.02.2026)
 
