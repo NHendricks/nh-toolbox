@@ -1713,11 +1713,12 @@ export class ResticUI extends LitElement {
       })
 
       if (response.success && response.data?.diff) {
-        this.diffResult = response.data.diff
+        const diff = response.data.diff
+        this.diffResult = diff
         const total =
-          this.diffResult.summary.addedCount +
-          this.diffResult.summary.removedCount +
-          this.diffResult.summary.modifiedCount
+          diff.summary.addedCount +
+          diff.summary.removedCount +
+          diff.summary.modifiedCount
         this.showMessage(
           'success',
           `Comparison complete: ${total} changes found`,
