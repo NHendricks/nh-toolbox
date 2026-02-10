@@ -7,6 +7,18 @@ import './simpleweb/boundary/pages/MoneyFinder'
 import './simpleweb/boundary/pages/GarbageFinder'
 import './simpleweb/boundary/pages/restic/ResticUI'
 
+const LAST_APP_KEY = 'nh-toolbox-last-app'
+
+// Valid app paths (excluding fallback)
+const validPaths = [
+  '/faq',
+  '/backend',
+  '/commander',
+  '/moneyfinder',
+  '/garbagefinder',
+  '/restic',
+]
+
 const outlet = document.querySelector('.view')
 outlet?.classList.add('view')
 export const router = new Router(outlet)
@@ -21,6 +33,21 @@ router.setRoutes([
   { path: '/restic', component: 'nh-restic' },
   { path: '(.*)', component: 'simple-commander' }, // fallback
 ])
+
+// Save last used app on route change
+window.addEventListener('vaadin-router-location-changed', (event: any) => {
+  const path = event.detail?.location?.pathname
+  if (path && validPaths.includes(path)) {
+    localStorage.setItem(LAST_APP_KEY, path)
+  }
+})
+
+// Restore last used app on startup
+const lastApp = localStorage.getItem(LAST_APP_KEY)
+if (lastApp && validPaths.includes(lastApp)) {
+  // Small delay to ensure router is ready
+  setTimeout(() => Router.go(lastApp), 0)
+}
 
 let basePath = ''
 

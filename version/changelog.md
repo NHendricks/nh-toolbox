@@ -9,6 +9,8 @@ ou can find the binary downloads here: https://github.com/NHendricks/nh-toolbox/
 
 (you can download and test the dev version from https://github.com/NHendricks/nice-2-have-toolbox/actions/workflows/node.js.yml)
 
+- general
+  - store last used app and open this one at next start
 - restic
   - export / import settings
   - auto unfold folders in snapshot views
@@ -22,6 +24,7 @@ ou can find the binary downloads here: https://github.com/NHendricks/nh-toolbox/
   - fix marker Strg+down marks 2 files
   - show date of files
   - fix date sort toggle
+  - fix: copy zip into zip did not work
 
 ### v1.8.0 (10.02.2026)
 

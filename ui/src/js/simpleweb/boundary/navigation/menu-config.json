@@ -2,7 +2,7 @@
   "mainNavigation": [
     {
       "label": "Commander",
-      "path": "/"
+      "path": "/commander"
     },
     {
       "label": "GarbageFinder",
@@ -29,6 +29,10 @@
   ],
   "pageSettings": {
     "/": {
+      "forcePortrait": true,
+      "addBodyClass": "force-portrait"
+    },
+    "/commander": {
       "forcePortrait": true,
       "addBodyClass": "force-portrait"
     },
