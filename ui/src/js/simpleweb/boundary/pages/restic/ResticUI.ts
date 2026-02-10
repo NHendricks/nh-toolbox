@@ -954,6 +954,20 @@ export class ResticUI extends LitElement {
     if (savedState.retentionPolicy) {
       this.retentionPolicy = { ...this.retentionPolicy, ...savedState.retentionPolicy }
     }
+    // Repository and snapshots
+    if (savedState.repository) this.repository = savedState.repository
+    if (savedState.snapshots) this.snapshots = savedState.snapshots
+    if (savedState.selectedSnapshot) this.selectedSnapshot = savedState.selectedSnapshot
+    if (savedState.browseEntries) this.browseEntries = savedState.browseEntries
+    if (savedState.browsePath) this.browsePath = savedState.browsePath
+    if (savedState.stats) this.stats = savedState.stats
+    // Comparison state
+    if (savedState.compareSnapshot1) this.compareSnapshot1 = savedState.compareSnapshot1
+    if (savedState.compareSnapshot2) this.compareSnapshot2 = savedState.compareSnapshot2
+    if (savedState.diffResult) this.diffResult = savedState.diffResult
+    // File browser state
+    if (savedState.expandedPaths) this.expandedPaths = new Set(savedState.expandedPaths)
+    if (savedState.selectedFiles) this.selectedFiles = new Set(savedState.selectedFiles)
 
     // Listen for backup progress events
     // Note: preload strips the event, so we only receive the data
@@ -984,6 +998,20 @@ export class ResticUI extends LitElement {
         keepMonthly: this.retentionPolicy.keepMonthly,
         keepYearly: this.retentionPolicy.keepYearly,
       },
+      // Repository and snapshots
+      repository: this.repository,
+      snapshots: this.snapshots,
+      selectedSnapshot: this.selectedSnapshot,
+      browseEntries: this.browseEntries,
+      browsePath: this.browsePath,
+      stats: this.stats,
+      // Comparison state
+      compareSnapshot1: this.compareSnapshot1,
+      compareSnapshot2: this.compareSnapshot2,
+      diffResult: this.diffResult,
+      // File browser state
+      expandedPaths: Array.from(this.expandedPaths),
+      selectedFiles: Array.from(this.selectedFiles),
     })
   }
 

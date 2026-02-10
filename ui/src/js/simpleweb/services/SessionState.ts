@@ -25,6 +25,20 @@ export interface ResticState {
     keepMonthly?: number
     keepYearly?: number
   }
+  // Repository and snapshots
+  repository?: any // ResticRepository
+  snapshots?: any[] // ResticSnapshot[]
+  selectedSnapshot?: any // ResticSnapshot
+  browseEntries?: any[] // ResticFileEntry[]
+  browsePath?: string
+  stats?: any // ResticStats
+  // Comparison state
+  compareSnapshot1?: any // ResticSnapshot
+  compareSnapshot2?: any // ResticSnapshot
+  diffResult?: any // ResticDiffResult
+  // File browser state
+  expandedPaths?: string[]
+  selectedFiles?: string[]
 }
 
 // All app states
