@@ -153,6 +153,20 @@ export class ResticCommand implements ICommand {
     return new Promise((resolve, reject) => {
       const args = ['backup', '--json'];
 
+      // Send initial progress event to confirm the callback chain works
+      if (this.progressCallback) {
+        console.log('[Restic] Sending initial progress event');
+        this.progressCallback({
+          type: 'progress',
+          percentDone: 0,
+          totalFiles: 0,
+          filesDone: 0,
+          totalBytes: 0,
+          bytesDone: 0,
+          currentFile: 'Starting backup...',
+        });
+      }
+
       // Add exclude patterns
       if (excludePatterns?.length) {
         excludePatterns.forEach((pattern: string) => {
@@ -183,16 +197,22 @@ export class ResticCommand implements ICommand {
           if (line.trim()) {
             try {
               const progress = JSON.parse(line);
-              if (progress.message_type === 'status' && this.progressCallback) {
-                this.progressCallback({
-                  type: 'progress',
-                  percentDone: progress.percent_done || 0,
-                  totalFiles: progress.total_files || 0,
-                  filesDone: progress.files_done || 0,
-                  totalBytes: progress.total_bytes || 0,
-                  bytesDone: progress.bytes_done || 0,
-                  currentFile: progress.current_files?.[0] || '',
-                });
+              console.log('[Restic] Parsed JSON:', progress.message_type);
+              if (progress.message_type === 'status') {
+                console.log('[Restic] Status message, progressCallback exists:', !!this.progressCallback);
+                if (this.progressCallback) {
+                  const progressData = {
+                    type: 'progress',
+                    percentDone: progress.percent_done || 0,
+                    totalFiles: progress.total_files || 0,
+                    filesDone: progress.files_done || 0,
+                    totalBytes: progress.total_bytes || 0,
+                    bytesDone: progress.bytes_done || 0,
+                    currentFile: progress.current_files?.[0] || '',
+                  };
+                  console.log('[Restic] Calling progressCallback with:', progressData);
+                  this.progressCallback(progressData);
+                }
               }
               if (progress.message_type === 'summary') {
                 summary = progress;

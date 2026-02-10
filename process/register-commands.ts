@@ -134,6 +134,21 @@ export function registerCommands(ipcMain: any, version: string) {
           );
         }
 
+        // If it's a restic command with backup operation, set up progress callback
+        if (
+          toolname === 'restic' &&
+          params.operation === 'backup' &&
+          command
+        ) {
+          // Reset cancellation flag before starting
+          (command as any).resetCancellation?.();
+
+          // Set up progress callback to send events to renderer
+          (command as any).setProgressCallback?.((progress: any) => {
+            event.sender?.send('restic-backup-progress', progress);
+          });
+        }
+
         // Execute command directly
         const result = await handler.execute(toolname, params);
 
@@ -154,6 +169,15 @@ export function registerCommands(ipcMain: any, version: string) {
         if (
           toolname === 'garbage-finder' &&
           params.operation === 'scan' &&
+          command
+        ) {
+          (command as any).setProgressCallback?.(undefined);
+        }
+
+        // Clear restic progress callback after operation completes
+        if (
+          toolname === 'restic' &&
+          params.operation === 'backup' &&
           command
         ) {
           (command as any).setProgressCallback?.(undefined);
@@ -184,6 +208,15 @@ export function registerCommands(ipcMain: any, version: string) {
 
         // Clear garbage-finder progress callback on error
         if (toolname === 'garbage-finder' && params.operation === 'scan') {
+          const handler = getCommandHandler();
+          const command = handler.getCommand(toolname);
+          if (command) {
+            (command as any).setProgressCallback?.(undefined);
+          }
+        }
+
+        // Clear restic progress callback on error
+        if (toolname === 'restic' && params.operation === 'backup') {
           const handler = getCommandHandler();
           const command = handler.getCommand(toolname);
           if (command) {

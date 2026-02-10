@@ -34,11 +34,13 @@ export class IpcBridge {
       async (event: IpcEvent, toolname: string, params: any) => {
         try {
           console.log('[IPC] cli-execute called:', { toolname, params });
+          console.log('[IPC] params.operation:', params?.operation);
 
           // Get command instance to set up progress callback for zip operations
           const command = this.handler.getCommand(toolname);
 
           console.log('[IPC] Command retrieved:', !!command);
+          console.log('[IPC] Check backup condition:', toolname === 'restic', params?.operation === 'backup', !!command);
 
           // If it's a file-operations command with zip or copy operation, set up progress callback
           if (
@@ -115,11 +117,21 @@ export class IpcBridge {
             console.log(
               '[IPC] Setting up progress callback for restic backup',
             );
+            console.log('[IPC] event.sender available:', !!event.sender);
+            console.log('[IPC] command has setProgressCallback:', typeof (command as any).setProgressCallback);
 
             // Set up progress callback to send events to renderer
-            (command as any).setProgressCallback?.((progress: any) => {
-              event.sender?.send('restic-backup-progress', progress);
-            });
+            const callbackFn = (progress: any) => {
+              console.log('[IPC] Restic progress callback called:', progress);
+              if (event.sender) {
+                event.sender.send('restic-backup-progress', progress);
+                console.log('[IPC] Sent restic-backup-progress event');
+              } else {
+                console.log('[IPC] WARNING: event.sender is not available!');
+              }
+            };
+            (command as any).setProgressCallback?.(callbackFn);
+            console.log('[IPC] Progress callback set, verifying:', !!(command as any).progressCallback);
           }
 
           const result = await this.handler.execute(toolname, params);

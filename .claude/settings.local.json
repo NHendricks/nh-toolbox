@@ -5,7 +5,9 @@
       "Bash(npx tsc:*)",
       "Bash(npm run build:*)",
       "Bash(node -e:*)",
-      "WebFetch(domain:restic.readthedocs.io)"
+      "WebFetch(domain:restic.readthedocs.io)",
+      "Bash(ls:*)",
+      "Bash(dir:*)"
     ]
   }
 }

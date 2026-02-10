@@ -869,9 +869,11 @@ export class ResticUI extends LitElement {
     this.loadSavedConnections()
 
     // Listen for backup progress events
+    // Note: preload strips the event, so we only receive the data
     ;(window as any).electron?.ipcRenderer?.on(
       'restic-backup-progress',
       (data: any) => {
+        console.log('[Restic] Progress received:', data)
         this.backupProgress = data
         this.requestUpdate()
       },
