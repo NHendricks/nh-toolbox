@@ -8,6 +8,18 @@ export type SortField = 'name' | 'size' | 'modified' | 'extension'
 export type SortDirection = 'asc' | 'desc'
 
 /**
+ * Convert a date value (Date, string, or number) to a timestamp
+ */
+function getTimeValue(date: Date | string | number | undefined | null): number {
+  if (!date) return 0
+  if (date instanceof Date) return date.getTime()
+  if (typeof date === 'number') return date
+  // String - parse as date
+  const parsed = new Date(date)
+  return isNaN(parsed.getTime()) ? 0 : parsed.getTime()
+}
+
+/**
  * Sort file items by the specified field and direction
  * Directories are always sorted before files
  * Parent directory (..) is always first
@@ -41,8 +53,8 @@ export function sortItems(
         break
 
       case 'modified':
-        const aTime = a.modified instanceof Date ? a.modified.getTime() : 0
-        const bTime = b.modified instanceof Date ? b.modified.getTime() : 0
+        const aTime = getTimeValue(a.modified)
+        const bTime = getTimeValue(b.modified)
         comparison = aTime - bTime
         break
 
@@ -85,10 +97,10 @@ export function getNextSortState(
       sortDirection: currentDirection === 'asc' ? 'desc' : 'asc',
     }
   } else {
-    // New field, start with ascending
+    // New field: date starts descending (newest first), others ascending
     return {
       sortBy: newSortBy,
-      sortDirection: 'asc',
+      sortDirection: newSortBy === 'modified' ? 'desc' : 'asc',
     }
   }
 }

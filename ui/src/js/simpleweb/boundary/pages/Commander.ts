@@ -2666,21 +2666,30 @@ export class Commander extends LitElement {
   sortItems = sortItems
 
   toggleSort(sortBy: 'name' | 'size' | 'modified' | 'extension') {
-    const pane = this.getActivePane()
+    // Get current pane directly from reactive properties
+    const currentPane =
+      this.activePane === 'left' ? this.leftPane : this.rightPane
+
     const nextState = getNextSortState(
-      pane.sortBy as any,
-      pane.sortDirection as any,
+      currentPane.sortBy,
+      currentPane.sortDirection,
       sortBy,
     )
 
-    this.updateActivePane(nextState)
+    // Update reactive properties directly to ensure Lit re-renders
+    if (this.activePane === 'left') {
+      this.leftPane = { ...this.leftPane, ...nextState }
+      this.paneManager.setPane('left', this.leftPane)
+    } else {
+      this.rightPane = { ...this.rightPane, ...nextState }
+      this.paneManager.setPane('right', this.rightPane)
+    }
 
-    // Save sort settings through PaneManager
-    this.paneManager.setActivePane(this.activePane)
+    // Save sort settings
     this.paneManager.saveSortSettings(this.activePane)
 
     this.setStatus(
-      `Sorted by ${sortBy} (${this.getActivePane().sortDirection})`,
+      `Sorted by ${sortBy} (${nextState.sortDirection})`,
       'success',
     )
   }
@@ -3094,7 +3103,8 @@ export class Commander extends LitElement {
           <button
             @click=${(e: Event) => {
               e.stopPropagation()
-              if (isActive) this.toggleSort('name')
+              this.handlePaneClick(side)
+              this.toggleSort('name')
             }}
             style="padding: 0.25rem 0.5rem; background: ${pane.sortBy === 'name'
               ? '#0ea5e9'
@@ -3111,7 +3121,8 @@ export class Commander extends LitElement {
           <button
             @click=${(e: Event) => {
               e.stopPropagation()
-              if (isActive) this.toggleSort('size')
+              this.handlePaneClick(side)
+              this.toggleSort('size')
             }}
             style="padding: 0.25rem 0.5rem; background: ${pane.sortBy === 'size'
               ? '#0ea5e9'
@@ -3128,7 +3139,8 @@ export class Commander extends LitElement {
           <button
             @click=${(e: Event) => {
               e.stopPropagation()
-              if (isActive) this.toggleSort('modified')
+              this.handlePaneClick(side)
+              this.toggleSort('modified')
             }}
             style="padding: 0.25rem 0.5rem; background: ${pane.sortBy ===
             'modified'
@@ -3146,7 +3158,8 @@ export class Commander extends LitElement {
           <button
             @click=${(e: Event) => {
               e.stopPropagation()
-              if (isActive) this.toggleSort('extension')
+              this.handlePaneClick(side)
+              this.toggleSort('extension')
             }}
             style="padding: 0.25rem 0.5rem; background: ${pane.sortBy ===
             'extension'

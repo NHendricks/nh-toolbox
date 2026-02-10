@@ -6,8 +6,8 @@ export interface FileItem {
   name: string
   path: string
   size: number
-  created: Date
-  modified: Date
+  created: Date | string | number
+  modified: Date | string | number
   isDirectory: boolean
   isFile: boolean
 }
