@@ -1,0 +1,3 @@
+- taskboard (jira-like)
+  - save tasks as textfiles here in repo
+  - prevent merge conflicts - not too much metadata

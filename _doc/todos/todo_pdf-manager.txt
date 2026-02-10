@@ -1,0 +1,17 @@
+- pdf manager
+  - define own managed folder
+  - scan pdf
+  - split pdf incl. preview
+  - show text
+      - ocr scan if wanted(ocrmypdf must be installed, check this!)
+  - find text in pdfs 
+    - write textfile for each pdf
+    - find text within text files
+  - rename and move to folder sender as sender(-account)_date_billingnr
+    - in dialog
+    - read text and extract 
+      - sender(-account)
+      - date
+      - billing nr
+      make these fields editable and save them in preferences for future scans 
+  - rename pdf (date/sender/account)

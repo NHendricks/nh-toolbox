@@ -4,10 +4,9 @@
  */
 
 import { LitElement, css, html } from 'lit'
-import { customElement, property, state } from 'lit/decorators.js'
+import { customElement, state } from 'lit/decorators.js'
 import type {
   ResticBackupProgress,
-  ResticBackupSummary,
   ResticDiffResult,
   ResticFileEntry,
   ResticRepository,
@@ -26,7 +25,8 @@ function obfuscatePassword(password: string): string {
   let result = ''
   for (let i = 0; i < password.length; i++) {
     result += String.fromCharCode(
-      password.charCodeAt(i) ^ OBFUSCATION_KEY.charCodeAt(i % OBFUSCATION_KEY.length),
+      password.charCodeAt(i) ^
+        OBFUSCATION_KEY.charCodeAt(i % OBFUSCATION_KEY.length),
     )
   }
   return btoa(result)
@@ -38,7 +38,8 @@ function deobfuscatePassword(obfuscated: string): string {
     let result = ''
     for (let i = 0; i < decoded.length; i++) {
       result += String.fromCharCode(
-        decoded.charCodeAt(i) ^ OBFUSCATION_KEY.charCodeAt(i % OBFUSCATION_KEY.length),
+        decoded.charCodeAt(i) ^
+          OBFUSCATION_KEY.charCodeAt(i % OBFUSCATION_KEY.length),
       )
     }
     return result
@@ -896,7 +897,10 @@ export class ResticUI extends LitElement {
   @state() private browsePath: string = '/'
   @state() private isLoading: boolean = false
   @state() private loadingMessage: string = ''
-  @state() private message: { type: 'success' | 'error' | 'info'; text: string } | null = null
+  @state() private message: {
+    type: 'success' | 'error' | 'info'
+    text: string
+  } | null = null
   @state() private resticInstalled: boolean | null = null
   @state() private resticVersion: string = ''
 
@@ -960,7 +964,10 @@ export class ResticUI extends LitElement {
   }
 
   private persistSavedConnections() {
-    localStorage.setItem('restic-connections', JSON.stringify(this.savedConnections))
+    localStorage.setItem(
+      'restic-connections',
+      JSON.stringify(this.savedConnections),
+    )
   }
 
   private saveCurrentConnection() {
@@ -981,11 +988,14 @@ export class ResticUI extends LitElement {
       name: this.connectionName.trim(),
       repoPath: this.repoPath,
       passwordObfuscated: obfuscatePassword(this.repoPassword),
-      backupPaths: this.backupPaths.length > 0 ? [...this.backupPaths] : undefined,
+      backupPaths:
+        this.backupPaths.length > 0 ? [...this.backupPaths] : undefined,
     }
 
     // Check if connection with same name exists
-    const existingIndex = this.savedConnections.findIndex(c => c.name === connection.name)
+    const existingIndex = this.savedConnections.findIndex(
+      (c) => c.name === connection.name,
+    )
     if (existingIndex >= 0) {
       this.savedConnections[existingIndex] = connection
     } else {
@@ -1009,7 +1019,7 @@ export class ResticUI extends LitElement {
 
   private deleteConnection(name: string, event: Event) {
     event.stopPropagation()
-    this.savedConnections = this.savedConnections.filter(c => c.name !== name)
+    this.savedConnections = this.savedConnections.filter((c) => c.name !== name)
     this.persistSavedConnections()
     this.showMessage('info', `Connection "${name}" deleted`)
   }
@@ -1017,13 +1027,119 @@ export class ResticUI extends LitElement {
   private updateConnectionBackupPaths() {
     // Auto-save backup paths to the current connection (if one is loaded)
     if (!this.connectionName) return
-    const index = this.savedConnections.findIndex(c => c.name === this.connectionName)
+    const index = this.savedConnections.findIndex(
+      (c) => c.name === this.connectionName,
+    )
     if (index >= 0) {
       this.savedConnections[index] = {
         ...this.savedConnections[index],
-        backupPaths: this.backupPaths.length > 0 ? [...this.backupPaths] : undefined,
+        backupPaths:
+          this.backupPaths.length > 0 ? [...this.backupPaths] : undefined,
       }
       this.persistSavedConnections()
+    }
+  }
+
+  private async exportConnections() {
+    if (this.savedConnections.length === 0) {
+      this.showMessage('error', 'No connections to export')
+      return
+    }
+
+    try {
+      const response = await (window as any).electron.ipcRenderer.invoke(
+        'show-save-dialog',
+        {
+          title: 'Export Restic Connections',
+          defaultPath: 'restic-connections.json',
+          filters: [{ name: 'JSON', extensions: ['json'] }],
+        },
+      )
+
+      if (response.success && !response.canceled && response.filePath) {
+        // Write connections to file via backend
+        const writeResponse = await (window as any).electron.ipcRenderer.invoke(
+          'cli-execute',
+          'file-operations',
+          {
+            operation: 'write-file',
+            filePath: response.filePath,
+            content: JSON.stringify(this.savedConnections, null, 2),
+          },
+        )
+
+        if (writeResponse.success) {
+          this.showMessage(
+            'success',
+            `Exported ${this.savedConnections.length} connections`,
+          )
+        } else {
+          this.showMessage('error', writeResponse.error || 'Failed to export')
+        }
+      }
+    } catch (error: any) {
+      this.showMessage('error', error.message)
+    }
+  }
+
+  private async importConnections() {
+    try {
+      const response = await (window as any).electron.ipcRenderer.invoke(
+        'show-open-dialog',
+        {
+          title: 'Import Restic Connections',
+          filters: [{ name: 'JSON', extensions: ['json'] }],
+          properties: ['openFile'],
+        },
+      )
+
+      if (
+        response.success &&
+        !response.canceled &&
+        response.filePaths?.length > 0
+      ) {
+        // Read connections from file via backend
+        const readResponse = await (window as any).electron.ipcRenderer.invoke(
+          'cli-execute',
+          'file-operations',
+          {
+            operation: 'read',
+            filePath: response.filePaths[0],
+          },
+        )
+
+        if (readResponse.success && readResponse.data?.content) {
+          const imported = JSON.parse(
+            readResponse.data.content,
+          ) as SavedResticConnection[]
+
+          if (!Array.isArray(imported)) {
+            this.showMessage('error', 'Invalid file format')
+            return
+          }
+
+          // Merge with existing connections (skip duplicates by name)
+          let addedCount = 0
+          for (const conn of imported) {
+            if (conn.name && conn.repoPath && conn.passwordObfuscated) {
+              const exists = this.savedConnections.some(
+                (c) => c.name === conn.name,
+              )
+              if (!exists) {
+                this.savedConnections = [...this.savedConnections, conn]
+                addedCount++
+              }
+            }
+          }
+
+          this.persistSavedConnections()
+          this.showMessage('success', `Imported ${addedCount} new connections`)
+        } else {
+          this.showMessage('error', readResponse.error || 'Failed to read file')
+        }
+      }
+    } catch (error: any) {
+      this.showMessage('error', error.message)
     }
   }
 
@@ -1040,11 +1156,15 @@ export class ResticUI extends LitElement {
   }
 
   private async invokeRestic(params: any): Promise<any> {
-    return (window as any).electron.ipcRenderer.invoke('cli-execute', 'restic', {
-      ...params,
-      repoPath: params.repoPath || this.repoPath,
-      password: params.password || this.repoPassword,
-    })
+    return (window as any).electron.ipcRenderer.invoke(
+      'cli-execute',
+      'restic',
+      {
+        ...params,
+        repoPath: params.repoPath || this.repoPath,
+        password: params.password || this.repoPassword,
+      },
+    )
   }
 
   private async connectRepository() {
@@ -1081,15 +1201,30 @@ export class ResticUI extends LitElement {
             this.backupPaths = Array.from(allPaths).sort()
           }
         }
-        this.showMessage('success', `Connected! Found ${this.snapshots.length} snapshots.`)
+        this.showMessage(
+          'success',
+          `Connected! Found ${this.snapshots.length} snapshots.`,
+        )
         await this.loadStats()
       } else {
         const errorMsg = result.error || response.error || 'Failed to connect'
         // Check if repository needs initialization
-        if (errorMsg.includes('does not exist') || errorMsg.includes('unable to open')) {
-          this.showMessage('info', 'Repository not found. Click "Initialize" to create a new one.')
-        } else if (errorMsg.includes('wrong password') || errorMsg.includes('no key found')) {
-          this.showMessage('error', 'Wrong password. Please check your credentials.')
+        if (
+          errorMsg.includes('does not exist') ||
+          errorMsg.includes('unable to open')
+        ) {
+          this.showMessage(
+            'info',
+            'Repository not found. Click "Initialize" to create a new one.',
+          )
+        } else if (
+          errorMsg.includes('wrong password') ||
+          errorMsg.includes('no key found')
+        ) {
+          this.showMessage(
+            'error',
+            'Wrong password. Please check your credentials.',
+          )
         } else {
           this.showMessage('error', errorMsg)
         }
@@ -1113,7 +1248,9 @@ export class ResticUI extends LitElement {
 
     try {
       // First check if the path is safe for initialization
-      const safeCheck = await this.invokeRestic({ operation: 'check-init-safe' })
+      const safeCheck = await this.invokeRestic({
+        operation: 'check-init-safe',
+      })
       if (safeCheck.success && safeCheck.data && !safeCheck.data.safe) {
         this.showMessage(
           'error',
@@ -1134,7 +1271,10 @@ export class ResticUI extends LitElement {
         this.snapshots = []
         this.showMessage('success', 'Repository initialized successfully!')
       } else {
-        this.showMessage('error', response.error || 'Failed to initialize repository')
+        this.showMessage(
+          'error',
+          response.error || 'Failed to initialize repository',
+        )
       }
     } catch (error: any) {
       this.showMessage('error', error.message)
@@ -1288,18 +1428,26 @@ export class ResticUI extends LitElement {
         },
       )
 
-      if (response.success && !response.canceled && response.filePaths?.length > 0) {
+      if (
+        response.success &&
+        !response.canceled &&
+        response.filePaths?.length > 0
+      ) {
         this.isLoading = true
         this.loadingMessage = 'Restoring files...'
 
         const restoreResponse = await this.invokeRestic({
           operation: 'restore',
-          snapshotId: this.selectedSnapshot.short_id || this.selectedSnapshot.id,
+          snapshotId:
+            this.selectedSnapshot.short_id || this.selectedSnapshot.id,
           targetPath: response.filePaths[0],
         })
 
         if (restoreResponse.success) {
-          this.showMessage('success', `Files restored to ${response.filePaths[0]}`)
+          this.showMessage(
+            'success',
+            `Files restored to ${response.filePaths[0]}`,
+          )
         } else {
           this.showMessage('error', restoreResponse.error || 'Restore failed')
         }
@@ -1331,7 +1479,10 @@ export class ResticUI extends LitElement {
         await this.loadSnapshots()
         await this.loadStats()
       } else {
-        this.showMessage('error', response.error || 'Failed to apply retention policy')
+        this.showMessage(
+          'error',
+          response.error || 'Failed to apply retention policy',
+        )
       }
     } catch (error: any) {
       this.showMessage('error', error.message)
@@ -1353,7 +1504,10 @@ export class ResticUI extends LitElement {
       if (response.success && response.data?.success) {
         this.showMessage('success', 'Repository check passed!')
       } else {
-        this.showMessage('error', response.data?.error || response.error || 'Check failed')
+        this.showMessage(
+          'error',
+          response.data?.error || response.error || 'Check failed',
+        )
       }
     } catch (error: any) {
       this.showMessage('error', error.message)
@@ -1435,7 +1589,10 @@ export class ResticUI extends LitElement {
           this.diffResult.summary.addedCount +
           this.diffResult.summary.removedCount +
           this.diffResult.summary.modifiedCount
-        this.showMessage('success', `Comparison complete: ${total} changes found`)
+        this.showMessage(
+          'success',
+          `Comparison complete: ${total} changes found`,
+        )
       } else {
         this.showMessage('error', response.error || 'Comparison failed')
       }
@@ -1541,12 +1698,11 @@ export class ResticUI extends LitElement {
     return normalized.substring(0, lastSlash)
   }
 
-  private buildFileTree(entries: ResticFileEntry[]): Map<string, ResticFileEntry[]> {
+  private buildFileTree(
+    entries: ResticFileEntry[],
+  ): Map<string, ResticFileEntry[]> {
     // Group entries by their parent directory
     const tree = new Map<string, ResticFileEntry[]>()
-
-    // Debug: log first few entries to see path format
-    console.log('[Restic Tree] Sample entries:', entries.slice(0, 5).map(e => ({ path: e.path, type: e.type, name: e.name })))
 
     for (const entry of entries) {
       // Normalize path for consistent handling
@@ -1559,12 +1715,6 @@ export class ResticUI extends LitElement {
       // Store entry with normalized path
       tree.get(parentPath)!.push({ ...entry, path: normalizedPath })
     }
-
-    // Debug: log tree structure
-    console.log('[Restic Tree] Tree keys:', Array.from(tree.keys()))
-    tree.forEach((children, key) => {
-      console.log(`[Restic Tree] "${key}" has ${children.length} children:`, children.slice(0, 3).map(c => c.path))
-    })
 
     // Sort each directory's children (folders first, then alphabetically)
     tree.forEach((children, _path) => {
@@ -1588,16 +1738,15 @@ export class ResticUI extends LitElement {
     this.expandedPaths = newExpanded
   }
 
-  private renderTreeNode(entry: ResticFileEntry, tree: Map<string, ResticFileEntry[]>, depth: number = 0): any {
+  private renderTreeNode(
+    entry: ResticFileEntry,
+    tree: Map<string, ResticFileEntry[]>,
+    depth: number = 0,
+  ): any {
     const isDir = entry.type === 'dir'
     const isExpanded = this.expandedPaths.has(entry.path)
     const children = isDir ? tree.get(entry.path) || [] : []
     const indent = depth * 20
-
-    // Debug: log when trying to get children
-    if (isDir && isExpanded) {
-      console.log(`[Restic Tree] Expanding "${entry.path}", found ${children.length} children`)
-    }
 
     return html`
       <div class="tree-node">
@@ -1606,30 +1755,45 @@ export class ResticUI extends LitElement {
           style="padding-left: ${indent + 8}px"
           @click=${() => isDir && this.toggleTreeNode(entry.path)}
         >
-          <span class="tree-toggle" style="visibility: ${isDir && children.length > 0 ? 'visible' : 'hidden'}">
+          <span
+            class="tree-toggle"
+            style="visibility: ${isDir && children.length > 0
+              ? 'visible'
+              : 'hidden'}"
+          >
             ${isExpanded ? '▼' : '▶'}
           </span>
           <span class="tree-icon">${isDir ? '📁' : '📄'}</span>
           <span class="tree-name">${entry.name}</span>
-          ${!isDir ? html`<span class="tree-size">${this.formatSize(entry.size)}</span>` : ''}
+          ${!isDir
+            ? html`<span class="tree-size"
+                >${this.formatSize(entry.size)}</span
+              >`
+            : ''}
         </div>
-        ${isDir && isExpanded ? html`
-          <div class="tree-children">
-            ${children.map(child => this.renderTreeNode(child, tree, depth + 1))}
-          </div>
-        ` : ''}
+        ${isDir && isExpanded
+          ? html`
+              <div class="tree-children">
+                ${children.map((child) =>
+                  this.renderTreeNode(child, tree, depth + 1),
+                )}
+              </div>
+            `
+          : ''}
       </div>
     `
   }
 
-  private getRootEntries(tree: Map<string, ResticFileEntry[]>): ResticFileEntry[] {
+  private getRootEntries(
+    tree: Map<string, ResticFileEntry[]>,
+  ): ResticFileEntry[] {
     // Find the root entries - entries whose parent is '/' or a Windows drive root
     const rootEntries: ResticFileEntry[] = []
     const allPaths = new Set<string>()
 
     // Collect all entry paths (normalized)
     tree.forEach((entries) => {
-      entries.forEach(e => allPaths.add(e.path))
+      entries.forEach((e) => allPaths.add(e.path))
     })
 
     // Find entries that don't have their parent in allPaths (they are roots)
@@ -1686,8 +1850,8 @@ export class ResticUI extends LitElement {
             <div class="not-installed">
               <h2>Restic Not Installed</h2>
               <p>
-                Restic backup tool is not installed on your system.
-                Please install it to use this feature.
+                Restic backup tool is not installed on your system. Please
+                install it to use this feature.
               </p>
               <p>
                 <a href="https://restic.net" target="_blank">
@@ -1715,15 +1879,43 @@ export class ResticUI extends LitElement {
         </div>
 
         ${this.message
-          ? html`<div class="message ${this.message.type}">${this.message.text}</div>`
+          ? html`<div class="message ${this.message.type}">
+              ${this.message.text}
+            </div>`
           : ''}
 
         <div class="repo-config">
           ${this.savedConnections.length > 0
             ? html`
-                <div style="margin-bottom: 1rem; padding: 0.75rem; background: #0f172a; border-radius: 6px;">
-                  <div style="margin-bottom: 0.5rem; color: #f59e0b; font-weight: 600; font-size: 0.85rem;">
-                    Saved Connections
+                <div
+                  style="margin-bottom: 1rem; padding: 0.75rem; background: #0f172a; border-radius: 6px;"
+                >
+                  <div
+                    style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;"
+                  >
+                    <span
+                      style="color: #f59e0b; font-weight: 600; font-size: 0.85rem;"
+                    >
+                      Saved Connections
+                    </span>
+                    <div style="display: flex; gap: 0.5rem;">
+                      <button
+                        class="btn btn-small btn-secondary"
+                        @click=${this.exportConnections}
+                        title="Export connections to file"
+                        style="padding: 0.2rem 0.5rem; font-size: 0.75rem;"
+                      >
+                        Export
+                      </button>
+                      <button
+                        class="btn btn-small btn-secondary"
+                        @click=${this.importConnections}
+                        title="Import connections from file"
+                        style="padding: 0.2rem 0.5rem; font-size: 0.75rem;"
+                      >
+                        Import
+                      </button>
+                    </div>
                   </div>
                   <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
                     ${this.savedConnections.map(
@@ -1732,11 +1924,18 @@ export class ResticUI extends LitElement {
                           style="display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0.75rem; background: #1e293b; border-radius: 4px; cursor: pointer; border: 1px solid #334155;"
                           @click=${() => this.loadConnection(conn)}
                         >
-                          <span style="color: #0ea5e9; font-weight: 600;">${conn.name}</span>
-                          <span style="color: #64748b; font-size: 0.8rem;">${conn.repoPath.length > 30 ? conn.repoPath.substring(0, 30) + '...' : conn.repoPath}</span>
+                          <span style="color: #0ea5e9; font-weight: 600;"
+                            >${conn.name}</span
+                          >
+                          <span style="color: #64748b; font-size: 0.8rem;"
+                            >${conn.repoPath.length > 30
+                              ? conn.repoPath.substring(0, 30) + '...'
+                              : conn.repoPath}</span
+                          >
                           <button
                             style="background: #dc2626; color: white; border: none; padding: 0.15rem 0.4rem; border-radius: 3px; cursor: pointer; font-size: 0.75rem;"
-                            @click=${(e: Event) => this.deleteConnection(conn.name, e)}
+                            @click=${(e: Event) =>
+                              this.deleteConnection(conn.name, e)}
                             title="Delete connection"
                           >
                             ×
@@ -1747,7 +1946,18 @@ export class ResticUI extends LitElement {
                   </div>
                 </div>
               `
-            : ''}
+            : html`
+                <div style="margin-bottom: 0.5rem; text-align: right;">
+                  <button
+                    class="btn btn-small btn-secondary"
+                    @click=${this.importConnections}
+                    title="Import connections from file"
+                    style="padding: 0.2rem 0.5rem; font-size: 0.75rem;"
+                  >
+                    Import Connections
+                  </button>
+                </div>
+              `}
           <div class="repo-form">
             <div class="form-group">
               <label>Repository Path</label>
@@ -1777,7 +1987,9 @@ export class ResticUI extends LitElement {
                 @click=${this.connectRepository}
                 ?disabled=${this.isLoading}
               >
-                ${this.isLoading ? html`<span class="spinner"></span>` : 'Connect'}
+                ${this.isLoading
+                  ? html`<span class="spinner"></span>`
+                  : 'Connect'}
               </button>
               <button
                 class="btn btn-secondary"
@@ -1788,7 +2000,9 @@ export class ResticUI extends LitElement {
               </button>
             </div>
           </div>
-          <div style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid #334155;">
+          <div
+            style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid #334155;"
+          >
             <input
               type="text"
               placeholder="Connection name..."
@@ -1802,7 +2016,9 @@ export class ResticUI extends LitElement {
               class="btn btn-secondary"
               style="white-space: nowrap;"
               @click=${this.saveCurrentConnection}
-              ?disabled=${this.isLoading || !this.repoPath || !this.repoPassword}
+              ?disabled=${this.isLoading ||
+              !this.repoPath ||
+              !this.repoPassword}
             >
               Save Connection
             </button>
@@ -1871,7 +2087,9 @@ export class ResticUI extends LitElement {
                 ${this.activeTab === 'backup' ? this.renderBackupPanel() : ''}
                 ${this.activeTab === 'browse' ? this.renderBrowsePanel() : ''}
                 ${this.activeTab === 'compare' ? this.renderComparePanel() : ''}
-                ${this.activeTab === 'retention' ? this.renderRetentionPanel() : ''}
+                ${this.activeTab === 'retention'
+                  ? this.renderRetentionPanel()
+                  : ''}
                 ${this.activeTab === 'health' ? this.renderHealthPanel() : ''}
               </div>
             `
@@ -1891,16 +2109,27 @@ export class ResticUI extends LitElement {
     return html`
       <div style="display: flex; flex-direction: column; gap: 1rem;">
         <!-- Paths section -->
-        <div class="backup-paths" style="background: #0f172a; border-radius: 8px; padding: 1rem;">
+        <div
+          class="backup-paths"
+          style="background: #0f172a; border-radius: 8px; padding: 1rem;"
+        >
           <div class="path-list" style="margin-bottom: 0.75rem;">
             ${this.backupPaths.length === 0
-              ? html`<div style="color: #64748b; font-size: 0.9rem; padding: 1rem; text-align: center;">
+              ? html`<div
+                  style="color: #64748b; font-size: 0.9rem; padding: 1rem; text-align: center;"
+                >
                   No folders selected. Add a folder to backup.
                 </div>`
               : this.backupPaths.map(
                   (path) => html`
-                    <div class="path-item" style="display: flex; align-items: center; justify-content: space-between; padding: 0.6rem 0.75rem; background: #1e293b; border-radius: 4px; margin-bottom: 0.5rem;">
-                      <span style="font-family: monospace; font-size: 0.9rem; color: #e2e8f0;">${path}</span>
+                    <div
+                      class="path-item"
+                      style="display: flex; align-items: center; justify-content: space-between; padding: 0.6rem 0.75rem; background: #1e293b; border-radius: 4px; margin-bottom: 0.5rem;"
+                    >
+                      <span
+                        style="font-family: monospace; font-size: 0.9rem; color: #e2e8f0;"
+                        >${path}</span
+                      >
                       <button
                         class="btn btn-small btn-danger"
                         @click=${() => this.removePath(path)}
@@ -1913,7 +2142,11 @@ export class ResticUI extends LitElement {
                 )}
           </div>
           <div style="display: flex; gap: 0.75rem;">
-            <button class="btn btn-secondary" @click=${this.selectFolder} style="flex: 1;">
+            <button
+              class="btn btn-secondary"
+              @click=${this.selectFolder}
+              style="flex: 1;"
+            >
               + Add Folder
             </button>
             <button
@@ -1930,15 +2163,25 @@ export class ResticUI extends LitElement {
         <!-- Progress section (only shown when backing up) -->
         ${this.isBackingUp
           ? html`
-              <div class="backup-progress" style="background: #0f172a; border-radius: 8px; padding: 1rem;">
-                <h3 style="margin: 0 0 0.75rem 0; font-size: 1rem; color: #e2e8f0;">Backup in Progress</h3>
+              <div
+                class="backup-progress"
+                style="background: #0f172a; border-radius: 8px; padding: 1rem;"
+              >
+                <h3
+                  style="margin: 0 0 0.75rem 0; font-size: 1rem; color: #e2e8f0;"
+                >
+                  Backup in Progress
+                </h3>
                 <div class="progress-bar-container">
                   <div
                     class="progress-bar"
-                    style="width: ${(this.backupProgress?.percentDone || 0) * 100}%"
+                    style="width: ${(this.backupProgress?.percentDone || 0) *
+                    100}%"
                   ></div>
                   <div class="progress-bar-text">
-                    ${Math.round((this.backupProgress?.percentDone || 0) * 100)}%
+                    ${Math.round(
+                      (this.backupProgress?.percentDone || 0) * 100,
+                    )}%
                   </div>
                 </div>
                 <div class="progress-details">
@@ -2023,12 +2266,17 @@ export class ResticUI extends LitElement {
                       : (() => {
                           const tree = this.buildFileTree(this.browseEntries)
                           const rootEntries = this.getRootEntries(tree)
-                          return rootEntries.map(entry => this.renderTreeNode(entry, tree, 0))
+                          return rootEntries.map((entry) =>
+                            this.renderTreeNode(entry, tree, 0),
+                          )
                         })()}
                 </div>
 
                 <div class="file-actions">
-                  <button class="btn btn-primary" @click=${this.restoreSelected}>
+                  <button
+                    class="btn btn-primary"
+                    @click=${this.restoreSelected}
+                  >
                     Restore All
                   </button>
                 </div>
@@ -2053,7 +2301,8 @@ export class ResticUI extends LitElement {
             <select
               @change=${(e: Event) => {
                 const id = (e.target as HTMLSelectElement).value
-                this.compareSnapshot1 = this.snapshots.find((s) => s.id === id) || null
+                this.compareSnapshot1 =
+                  this.snapshots.find((s) => s.id === id) || null
                 this.diffResult = null
               }}
             >
@@ -2064,14 +2313,17 @@ export class ResticUI extends LitElement {
                     value=${s.id}
                     ?selected=${this.compareSnapshot1?.id === s.id}
                   >
-                    ${s.short_id || s.id.substring(0, 8)} - ${this.formatDate(s.time)}
+                    ${s.short_id || s.id.substring(0, 8)} -
+                    ${this.formatDate(s.time)}
                   </option>
                 `,
               )}
             </select>
             ${this.compareSnapshot1
               ? html`
-                  <div style="font-size: 0.8rem; color: #64748b; margin-top: 0.25rem">
+                  <div
+                    style="font-size: 0.8rem; color: #64748b; margin-top: 0.25rem"
+                  >
                     ${this.compareSnapshot1.paths?.join(', ')}
                   </div>
                 `
@@ -2085,7 +2337,8 @@ export class ResticUI extends LitElement {
             <select
               @change=${(e: Event) => {
                 const id = (e.target as HTMLSelectElement).value
-                this.compareSnapshot2 = this.snapshots.find((s) => s.id === id) || null
+                this.compareSnapshot2 =
+                  this.snapshots.find((s) => s.id === id) || null
                 this.diffResult = null
               }}
             >
@@ -2096,14 +2349,17 @@ export class ResticUI extends LitElement {
                     value=${s.id}
                     ?selected=${this.compareSnapshot2?.id === s.id}
                   >
-                    ${s.short_id || s.id.substring(0, 8)} - ${this.formatDate(s.time)}
+                    ${s.short_id || s.id.substring(0, 8)} -
+                    ${this.formatDate(s.time)}
                   </option>
                 `,
               )}
             </select>
             ${this.compareSnapshot2
               ? html`
-                  <div style="font-size: 0.8rem; color: #64748b; margin-top: 0.25rem">
+                  <div
+                    style="font-size: 0.8rem; color: #64748b; margin-top: 0.25rem"
+                  >
                     ${this.compareSnapshot2.paths?.join(', ')}
                   </div>
                 `
@@ -2115,7 +2371,9 @@ export class ResticUI extends LitElement {
           <button
             class="btn btn-primary"
             @click=${this.compareSnapshots}
-            ?disabled=${!this.compareSnapshot1 || !this.compareSnapshot2 || this.isComparing}
+            ?disabled=${!this.compareSnapshot1 ||
+            !this.compareSnapshot2 ||
+            this.isComparing}
             style="padding: 0.75rem 2rem"
           >
             ${this.isComparing ? html`<span class="spinner"></span>` : ''}
@@ -2127,15 +2385,21 @@ export class ResticUI extends LitElement {
           ? html`
               <div class="compare-summary">
                 <div class="summary-stat added">
-                  <span class="count">${this.diffResult.summary.addedCount}</span>
+                  <span class="count"
+                    >${this.diffResult.summary.addedCount}</span
+                  >
                   <span>Added</span>
                 </div>
                 <div class="summary-stat removed">
-                  <span class="count">${this.diffResult.summary.removedCount}</span>
+                  <span class="count"
+                    >${this.diffResult.summary.removedCount}</span
+                  >
                   <span>Removed</span>
                 </div>
                 <div class="summary-stat modified">
-                  <span class="count">${this.diffResult.summary.modifiedCount}</span>
+                  <span class="count"
+                    >${this.diffResult.summary.modifiedCount}</span
+                  >
                   <span>Modified</span>
                 </div>
               </div>
@@ -2144,7 +2408,9 @@ export class ResticUI extends LitElement {
                 <div class="diff-section added">
                   <h4>
                     Added
-                    <span class="diff-count">${this.diffResult.summary.addedCount}</span>
+                    <span class="diff-count"
+                      >${this.diffResult.summary.addedCount}</span
+                    >
                   </h4>
                   <div class="diff-list">
                     ${this.diffResult.added.length === 0
@@ -2153,7 +2419,9 @@ export class ResticUI extends LitElement {
                         </div>`
                       : this.diffResult.added.map(
                           (path) => html`
-                            <div class="diff-item added" title=${path}>${path}</div>
+                            <div class="diff-item added" title=${path}>
+                              ${path}
+                            </div>
                           `,
                         )}
                   </div>
@@ -2162,7 +2430,9 @@ export class ResticUI extends LitElement {
                 <div class="diff-section removed">
                   <h4>
                     Removed
-                    <span class="diff-count">${this.diffResult.summary.removedCount}</span>
+                    <span class="diff-count"
+                      >${this.diffResult.summary.removedCount}</span
+                    >
                   </h4>
                   <div class="diff-list">
                     ${this.diffResult.removed.length === 0
@@ -2171,7 +2441,9 @@ export class ResticUI extends LitElement {
                         </div>`
                       : this.diffResult.removed.map(
                           (path) => html`
-                            <div class="diff-item removed" title=${path}>${path}</div>
+                            <div class="diff-item removed" title=${path}>
+                              ${path}
+                            </div>
                           `,
                         )}
                   </div>
@@ -2180,7 +2452,9 @@ export class ResticUI extends LitElement {
                 <div class="diff-section modified">
                   <h4>
                     Modified
-                    <span class="diff-count">${this.diffResult.summary.modifiedCount}</span>
+                    <span class="diff-count"
+                      >${this.diffResult.summary.modifiedCount}</span
+                    >
                   </h4>
                   <div class="diff-list">
                     ${this.diffResult.modified.length === 0
@@ -2189,7 +2463,9 @@ export class ResticUI extends LitElement {
                         </div>`
                       : this.diffResult.modified.map(
                           (path) => html`
-                            <div class="diff-item modified" title=${path}>${path}</div>
+                            <div class="diff-item modified" title=${path}>
+                              ${path}
+                            </div>
                           `,
                         )}
                   </div>
@@ -2199,7 +2475,9 @@ export class ResticUI extends LitElement {
           : html`
               <div class="empty-state">
                 <div class="empty-state-icon">🔍</div>
-                <div>Select two snapshots and click Compare to see the differences</div>
+                <div>
+                  Select two snapshots and click Compare to see the differences
+                </div>
               </div>
             `}
       </div>
@@ -2234,7 +2512,8 @@ export class ResticUI extends LitElement {
               @input=${(e: Event) => {
                 this.retentionPolicy = {
                   ...this.retentionPolicy,
-                  keepDaily: parseInt((e.target as HTMLInputElement).value) || 0,
+                  keepDaily:
+                    parseInt((e.target as HTMLInputElement).value) || 0,
                 }
               }}
             />
@@ -2248,7 +2527,8 @@ export class ResticUI extends LitElement {
               @input=${(e: Event) => {
                 this.retentionPolicy = {
                   ...this.retentionPolicy,
-                  keepWeekly: parseInt((e.target as HTMLInputElement).value) || 0,
+                  keepWeekly:
+                    parseInt((e.target as HTMLInputElement).value) || 0,
                 }
               }}
             />
@@ -2277,7 +2557,8 @@ export class ResticUI extends LitElement {
               @input=${(e: Event) => {
                 this.retentionPolicy = {
                   ...this.retentionPolicy,
-                  keepYearly: parseInt((e.target as HTMLInputElement).value) || 0,
+                  keepYearly:
+                    parseInt((e.target as HTMLInputElement).value) || 0,
                 }
               }}
             />
