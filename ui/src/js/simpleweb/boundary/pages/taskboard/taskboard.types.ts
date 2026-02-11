@@ -11,10 +11,29 @@ export interface Task {
   description: string
   status: TaskStatus
   priority: TaskPriority
+  category: string // Category name (folder name)
   created: string // ISO date
   updated: string // ISO date
   order: number // For ordering within a column
 }
+
+export interface Category {
+  name: string
+  color: string
+}
+
+export const DEFAULT_CATEGORY = 'General'
+
+export const CATEGORY_COLORS = [
+  '#3b82f6', // blue
+  '#22c55e', // green
+  '#f59e0b', // amber
+  '#8b5cf6', // violet
+  '#ec4899', // pink
+  '#06b6d4', // cyan
+  '#f97316', // orange
+  '#6366f1', // indigo
+]
 
 export interface TaskColumn {
   id: TaskStatus

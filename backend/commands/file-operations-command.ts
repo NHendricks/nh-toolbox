@@ -3338,6 +3338,13 @@ export class FileOperationsCommand implements ICommand {
     const absolutePath = path.resolve(filePath);
 
     try {
+      const dir = path.dirname(absolutePath);
+
+      // Create directory if it doesn't exist
+      if (!fs.existsSync(dir)) {
+        await mkdir(dir, { recursive: true });
+      }
+
       // Write the file
       fs.writeFileSync(absolutePath, content, 'utf-8');
 
