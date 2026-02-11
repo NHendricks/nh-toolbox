@@ -477,7 +477,7 @@ export class TaskBoard extends LitElement {
       const response = await (window as any).electron.ipcRenderer.invoke(
         'cli-execute',
         'file-operations',
-        { operation: 'list', path: this.folderPath },
+        { operation: 'list', folderPath: this.folderPath },
       )
 
       console.log('loadCategories response:', response)
@@ -617,7 +617,7 @@ export class TaskBoard extends LitElement {
       const response = await (window as any).electron.ipcRenderer.invoke(
         'cli-execute',
         'file-operations',
-        { operation: 'list', path: this.folderPath },
+        { operation: 'list', folderPath: this.folderPath },
       )
 
       if (response.success) {
@@ -688,7 +688,7 @@ export class TaskBoard extends LitElement {
         const response = await (window as any).electron.ipcRenderer.invoke(
           'cli-execute',
           'file-operations',
-          { operation: 'list', path: categoryPath },
+          { operation: 'list', folderPath: categoryPath },
         )
 
         console.log(`Files in ${category.name}:`, response)
