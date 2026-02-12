@@ -548,6 +548,37 @@ export class ResticUI extends LitElement {
       flex-shrink: 0;
     }
 
+    input[type='checkbox']:checked {
+      background-color: blue;
+    }
+
+    input[type='checkbox']:checked::after {
+      content: '';
+      position: absolute;
+      left: 4px;
+      top: 0px;
+      width: 5px;
+      height: 10px;
+      border: solid white;
+      border-width: 0 2px 2px 0;
+      transform: rotate(45deg);
+    }
+
+    input[type='checkbox'] {
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      appearance: none;
+
+      width: 18px;
+      height: 18px;
+      border: 2px solid blue;
+      border-radius: 4px;
+      background-color: white;
+      cursor: pointer;
+      display: inline-block;
+      position: relative;
+    }
+
     .tree-icon {
       flex-shrink: 0;
     }
@@ -1020,10 +1051,7 @@ export class ResticUI extends LitElement {
         // Linux
         this.repoPath = '/home/user/backup_restic'
       }
-      console.log(
-        '[ResticUI] Set fallback repository path:',
-        this.repoPath,
-      )
+      console.log('[ResticUI] Set fallback repository path:', this.repoPath)
     }
   }
 
@@ -1961,7 +1989,6 @@ export class ResticUI extends LitElement {
                 type="checkbox"
                 .checked=${isSelected}
                 @click=${(e: Event) => this.toggleFileSelection(entry.path, e)}
-                style="margin-right: 0.25rem; cursor: pointer;"
               />`
             : ''}
           <span class="tree-icon">${isDir ? '📁' : '📄'}</span>
