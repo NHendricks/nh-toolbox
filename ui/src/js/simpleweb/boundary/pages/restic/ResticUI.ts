@@ -5,6 +5,10 @@
 
 import { LitElement, css, html } from 'lit'
 import { customElement, state } from 'lit/decorators.js'
+import {
+  getResticState,
+  saveResticState,
+} from '../../../services/SessionState.js'
 import type {
   ResticBackupProgress,
   ResticDiffResult,
@@ -17,10 +21,6 @@ import type {
   SavedResticConnection,
   SnapshotGroup,
 } from './restic.types.js'
-import {
-  getResticState,
-  saveResticState,
-} from '../../../services/SessionState.js'
 
 // Obfuscation key for password storage (not cryptographically secure, but prevents plain text storage)
 const OBFUSCATION_KEY = 'nh-restic-conn-key'
@@ -950,27 +950,36 @@ export class ResticUI extends LitElement {
     if (savedState.repoPath) this.repoPath = savedState.repoPath
     if (savedState.repoPassword) this.repoPassword = savedState.repoPassword
     if (savedState.backupPaths) this.backupPaths = savedState.backupPaths
-    if (savedState.connectionName) this.connectionName = savedState.connectionName
+    if (savedState.connectionName)
+      this.connectionName = savedState.connectionName
     if (savedState.retentionPolicy) {
-      this.retentionPolicy = { ...this.retentionPolicy, ...savedState.retentionPolicy }
+      this.retentionPolicy = {
+        ...this.retentionPolicy,
+        ...savedState.retentionPolicy,
+      }
     }
     // Repository and snapshots
     if (savedState.repository) this.repository = savedState.repository
     if (savedState.snapshots) this.snapshots = savedState.snapshots
-    if (savedState.selectedSnapshot) this.selectedSnapshot = savedState.selectedSnapshot
+    if (savedState.selectedSnapshot)
+      this.selectedSnapshot = savedState.selectedSnapshot
     if (savedState.browseEntries) this.browseEntries = savedState.browseEntries
     if (savedState.browsePath) this.browsePath = savedState.browsePath
     if (savedState.stats) this.stats = savedState.stats
     // Comparison state
-    if (savedState.compareSnapshot1) this.compareSnapshot1 = savedState.compareSnapshot1
-    if (savedState.compareSnapshot2) this.compareSnapshot2 = savedState.compareSnapshot2
+    if (savedState.compareSnapshot1)
+      this.compareSnapshot1 = savedState.compareSnapshot1
+    if (savedState.compareSnapshot2)
+      this.compareSnapshot2 = savedState.compareSnapshot2
     if (savedState.diffResult) this.diffResult = savedState.diffResult
     // File browser state
-    if (savedState.expandedPaths) this.expandedPaths = new Set(savedState.expandedPaths)
-    if (savedState.selectedFiles) this.selectedFiles = new Set(savedState.selectedFiles)
+    if (savedState.expandedPaths)
+      this.expandedPaths = new Set(savedState.expandedPaths)
+    if (savedState.selectedFiles)
+      this.selectedFiles = new Set(savedState.selectedFiles)
 
-    // Listen for backup progress events
-    // Note: preload strips the event, so we only receive the data
+      // Listen for backup progress events
+      // Note: preload strips the event, so we only receive the data
     ;(window as any).electron?.ipcRenderer?.on(
       'restic-backup-progress',
       (data: any) => {
@@ -1245,6 +1254,11 @@ export class ResticUI extends LitElement {
       const response = await this.invokeRestic({ operation: 'snapshots' })
       const result = response.data || response
 
+      console.log('[ResticUI] Connect response:', response)
+      console.log('[ResticUI] Connect result:', result)
+
+      // Check both IPC success AND restic command success
+      // Only connect if BOTH are successful
       if (response.success && result.success) {
         this.repository = {
           path: this.repoPath,
@@ -1271,6 +1285,8 @@ export class ResticUI extends LitElement {
         )
         await this.loadStats()
       } else {
+        // Connection failed - do NOT set this.repository
+        this.repository = null
         const errorMsg = result.error || response.error || 'Failed to connect'
         // Check if repository needs initialization
         if (
@@ -1294,6 +1310,7 @@ export class ResticUI extends LitElement {
         }
       }
     } catch (error: any) {
+      this.repository = null
       this.showMessage('error', error.message)
     } finally {
       this.isLoading = false
@@ -1320,13 +1337,20 @@ export class ResticUI extends LitElement {
           'error',
           `Cannot initialize: folder contains ${safeCheck.data.fileCount} files. Use an empty folder or connect to existing repository.`,
         )
+        this.isLoading = false
+        this.loadingMessage = ''
         return
       }
 
       this.loadingMessage = 'Initializing repository...'
       const response = await this.invokeRestic({ operation: 'init' })
+      const result = response.data || response
 
-      if (response.success) {
+      console.log('[ResticUI] Init response:', response)
+      console.log('[ResticUI] Init result:', result)
+
+      // Check both IPC success AND restic command success
+      if (response.success && result.success) {
         this.repository = {
           path: this.repoPath,
           password: this.repoPassword,
@@ -1338,10 +1362,9 @@ export class ResticUI extends LitElement {
         this.connectionName = ''
         this.showMessage('success', 'Repository initialized successfully!')
       } else {
-        this.showMessage(
-          'error',
-          response.error || 'Failed to initialize repository',
-        )
+        const errorMsg =
+          result.error || response.error || 'Failed to initialize repository'
+        this.showMessage('error', errorMsg)
       }
     } catch (error: any) {
       this.showMessage('error', error.message)
@@ -1882,7 +1905,9 @@ export class ResticUI extends LitElement {
     return html`
       <div class="tree-node">
         <div
-          class="tree-item ${isDir ? 'directory' : 'file'} ${isSelected ? 'selected' : ''}"
+          class="tree-item ${isDir ? 'directory' : 'file'} ${isSelected
+            ? 'selected'
+            : ''}"
           style="padding-left: ${indent + 8}px"
           @click=${() => isDir && this.toggleTreeNode(entry.path)}
         >
@@ -2422,12 +2447,17 @@ export class ResticUI extends LitElement {
         <div class="file-browser">
           <h3>
             ${this.selectedSnapshot
-              ? html`Files in ${this.selectedSnapshot.short_id || this.selectedSnapshot.id}
-                  ${this.browseEntries.length > 0
-                    ? html`<span style="color: #64748b; font-weight: normal; font-size: 0.85rem; margin-left: 0.5rem;">
-                        (${this.browseEntries.filter((e) => e.type === 'file').length} files)
-                      </span>`
-                    : ''}`
+              ? html`Files in
+                ${this.selectedSnapshot.short_id || this.selectedSnapshot.id}
+                ${this.browseEntries.length > 0
+                  ? html`<span
+                      style="color: #64748b; font-weight: normal; font-size: 0.85rem; margin-left: 0.5rem;"
+                    >
+                      (${this.browseEntries.filter((e) => e.type === 'file')
+                        .length}
+                      files)
+                    </span>`
+                  : ''}`
               : 'Select a snapshot'}
           </h3>
 
@@ -2457,10 +2487,7 @@ export class ResticUI extends LitElement {
                   >
                     Restore Selected (${this.selectedFiles.size})
                   </button>
-                  <button
-                    class="btn btn-secondary"
-                    @click=${this.restoreAll}
-                  >
+                  <button class="btn btn-secondary" @click=${this.restoreAll}>
                     Restore All
                   </button>
                 </div>
