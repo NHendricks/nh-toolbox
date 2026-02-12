@@ -2831,7 +2831,9 @@ export class FileOperationsCommand implements ICommand {
     try {
       // Load .n2henv environment variables if present
       const n2hEnv = loadN2hEnvFile(absoluteWorkingDir);
-      const env = { ...process.env, ...n2hEnv };
+      // Use initialEnv (captured at startup) instead of process.env, unless overridden by .n2henv
+      const initialEnv = (global as any).initialEnv || process.env;
+      const env = { ...initialEnv, ...n2hEnv };
 
       // Execute the command with a timeout of 30 seconds
       const { stdout, stderr } = await execPromise(command, {

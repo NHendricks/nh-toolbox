@@ -10,7 +10,8 @@ You can find the binary downloads here: https://github.com/NHendricks/nh-toolbox
 
 (you can download and test the dev version from https://github.com/NHendricks/nice-2-have-toolbox/actions/workflows/node.js.yml)
 
-...
+- commander
+  - start commands or commandline (SHIFT+F9) with cleaned up environment (dont inherit env variables from n2hcommander)
 
 ### v2.0.0 (12.02.2026)
 

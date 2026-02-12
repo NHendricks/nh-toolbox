@@ -1,6 +1,11 @@
-import * as fs from 'fs';
 import { spawn } from 'child_process';
+import * as fs from 'fs';
 import { registerCommands } from './register-commands';
+// Make initialEnv available globally for backend modules
+const initialEnv = { ...process.env };
+delete initialEnv.NODE_ENV;
+Object.freeze(initialEnv);
+(global as any).initialEnv = initialEnv;
 
 // electron/main.js
 const {
@@ -58,7 +63,10 @@ function loadN2hEnvFile(dirPath: string): Record<string, string> {
             envVars[key] = value;
           }
         }
-        console.log(`[n2henv] Loaded from ${envFilePath}:`, Object.keys(envVars));
+        console.log(
+          `[n2henv] Loaded from ${envFilePath}:`,
+          Object.keys(envVars),
+        );
         break; // Stop at first .n2henv file found
       } catch (error) {
         console.warn(`[n2henv] Failed to read ${envFilePath}:`, error);
@@ -304,8 +312,8 @@ ipcMain.handle('open-terminal', async (_event: any, dirPath: string) => {
     // Load .n2henv file if present
     const n2hEnv = loadN2hEnvFile(dirPath);
     const n2hEnvKeys = Object.keys(n2hEnv);
-    // Set up environment with NODE_ENV and .n2henv variables
-    const env = { ...process.env, NODE_ENV: 'development', ...n2hEnv };
+    // Set up environment with initialEnv and .n2henv variables (n2hEnv overrides initialEnv)
+    const env = { ...initialEnv, NODE_ENV: 'development', ...n2hEnv };
 
     // Build startup message for terminal
     let startupMsg = '';
