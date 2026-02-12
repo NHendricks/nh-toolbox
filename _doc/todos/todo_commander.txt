@@ -1,9 +1,9 @@
 Commander:
-- open cmdline - reset NODE_ENV
-- ftp copy dir does not work
+- open cmdline - reset NODE_ENV, better dont inherit any env from my process, only standard vars 
+- compare files 
 - quick launch ENTER doesnt work
 - cleanup UI (remove header)
-- explain .n2henv in help
+- explain .n2henv in www.nice2havetoolbox.de
 - move up/down favorites
 - create zip in memory, not in filesystem (if not yet so)
 - drag and drop files / folders from or to another app should work

@@ -13,6 +13,7 @@ ou can find the binary downloads here: https://github.com/NHendricks/nh-toolbox/
   - fix mac samba connection needs to be started multiple time to work
   - fix install restic detection on mac
   - set a default path for restic backup repo when not specified
+  - fix: ftp copy dir does not work
 - restic
   - create nicer checkboxes
   - restore folders (not only files) from backups

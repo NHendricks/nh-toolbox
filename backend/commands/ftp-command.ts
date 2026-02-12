@@ -322,40 +322,81 @@ export class FTPCommand implements ICommand {
   }
 
   /**
-   * Download file from FTP
+   * Download file or directory from FTP
    */
   private async downloadFile(ftpUrl: string, localPath: string): Promise<any> {
     const { connection, remotePath } = this.parseFTPUrl(ftpUrl);
     const client = await this.getClient(connection);
 
     try {
-      // Create local directory if needed
-      const localDir = path.dirname(localPath);
-      if (!fs.existsSync(localDir)) {
-        await mkdir(localDir, { recursive: true });
+      // Check if remote path is a directory or file
+      let isDirectory = false;
+      let fileSize = 0;
+
+      try {
+        // Try to list the path as a directory
+        await client.cd(remotePath);
+        isDirectory = true;
+        // Go back to parent directory
+        await client.cdup();
+      } catch {
+        // Not a directory, it's a file
+        isDirectory = false;
       }
 
-      // Download file
-      await client.downloadTo(localPath, remotePath);
+      if (isDirectory) {
+        // Download directory recursively
+        console.log('[FTP] Downloading directory:', remotePath, 'to', localPath);
 
-      const stats = fs.statSync(localPath);
+        // Create local directory if needed
+        if (!fs.existsSync(localPath)) {
+          await mkdir(localPath, { recursive: true });
+        }
 
-      return {
-        success: true,
-        operation: 'download',
-        source: ftpUrl,
-        destination: localPath,
-        size: stats.size,
-        type: 'file',
-        timestamp: new Date().toISOString(),
-      };
+        // Download directory recursively
+        await client.downloadToDir(localPath, remotePath);
+
+        return {
+          success: true,
+          operation: 'download',
+          source: ftpUrl,
+          destination: localPath,
+          type: 'directory',
+          timestamp: new Date().toISOString(),
+        };
+      } else {
+        // Download single file
+        console.log('[FTP] Downloading file:', remotePath, 'to', localPath);
+
+        // Create local directory if needed
+        const localDir = path.dirname(localPath);
+        if (!fs.existsSync(localDir)) {
+          await mkdir(localDir, { recursive: true });
+        }
+
+        // Download file
+        await client.downloadTo(localPath, remotePath);
+
+        const stats = fs.statSync(localPath);
+        fileSize = stats.size;
+
+        return {
+          success: true,
+          operation: 'download',
+          source: ftpUrl,
+          destination: localPath,
+          size: fileSize,
+          type: 'file',
+          timestamp: new Date().toISOString(),
+        };
+      }
     } catch (error: any) {
-      throw new Error(`Failed to download file: ${error.message}`);
+      throw new Error(`Failed to download: ${error.message}`);
     }
   }
 
   /**
-   * Upload file to FTP
+   * Upload file or directory to FTP
    */
   private async uploadFile(localPath: string, ftpUrl: string): Promise<any> {
     const { connection, remotePath } = this.parseFTPUrl(ftpUrl);
@@ -363,25 +404,49 @@ export class FTPCommand implements ICommand {
 
     try {
       if (!fs.existsSync(localPath)) {
-        throw new Error(`Local file does not exist: ${localPath}`);
+        throw new Error(`Local path does not exist: ${localPath}`);
       }
 
-      // Upload file
-      await client.uploadFrom(localPath, remotePath);
-
       const stats = fs.statSync(localPath);
+      const isDirectory = stats.isDirectory();
 
-      return {
-        success: true,
-        operation: 'upload',
-        source: localPath,
-        destination: ftpUrl,
-        size: stats.size,
-        type: 'file',
-        timestamp: new Date().toISOString(),
-      };
+      if (isDirectory) {
+        // Upload directory recursively
+        console.log('[FTP] Uploading directory:', localPath, 'to', remotePath);
+
+        // Ensure remote directory exists
+        await client.ensureDir(remotePath);
+
+        // Upload directory recursively
+        await client.uploadFromDir(localPath, remotePath);
+
+        return {
+          success: true,
+          operation: 'upload',
+          source: localPath,
+          destination: ftpUrl,
+          type: 'directory',
+          timestamp: new Date().toISOString(),
+        };
+      } else {
+        // Upload single file
+        console.log('[FTP] Uploading file:', localPath, 'to', remotePath);
+
+        // Upload file
+        await client.uploadFrom(localPath, remotePath);
+
+        return {
+          success: true,
+          operation: 'upload',
+          source: localPath,
+          destination: ftpUrl,
+          size: stats.size,
+          type: 'file',
+          timestamp: new Date().toISOString(),
+        };
+      }
     } catch (error: any) {
-      throw new Error(`Failed to upload file: ${error.message}`);
+      throw new Error(`Failed to upload: ${error.message}`);
     }
   }
 
@@ -479,7 +544,7 @@ export class FTPCommand implements ICommand {
   }
 
   getDescription(): string {
-    return 'FTP operations: connect, list, download, upload, rename, delete files';
+    return 'FTP operations: connect, list, download/upload files and directories, rename, delete';
   }
 
   getParameters(): CommandParameter[] {
