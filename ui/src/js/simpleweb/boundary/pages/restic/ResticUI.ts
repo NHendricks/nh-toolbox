@@ -1035,7 +1035,12 @@ export class ResticUI extends LitElement {
       const homePath = await (window as any).electron.ipcRenderer.invoke(
         'get-home-path',
       )
-      this.repoPath = `${homePath}/backup_restic`
+      const isWindows = navigator.platform.toUpperCase().indexOf('WIN') >= 0
+      if (isWindows) {
+        this.repoPath = `${homePath}\\backup_restic`
+      } else {
+        this.repoPath = `${homePath}/backup_restic`
+      }
       console.log('[ResticUI] Set default repository path:', this.repoPath)
     } catch (error) {
       console.error('[ResticUI] Failed to get home path:', error)
