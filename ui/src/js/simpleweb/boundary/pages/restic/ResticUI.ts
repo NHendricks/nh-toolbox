@@ -1591,6 +1591,64 @@ export class ResticUI extends LitElement {
     this.selectedFiles = newSelected
   }
 
+  private toggleDirectorySelection(
+    path: string,
+    tree: Map<string, ResticFileEntry[]>,
+    event: Event,
+  ) {
+    event.stopPropagation()
+    const newSelected = new Set(this.selectedFiles)
+    const isCurrentlySelected = newSelected.has(path)
+
+    // Get all paths within this directory (recursively)
+    const allPaths = this.getAllPathsInDirectory(path, tree)
+
+    if (isCurrentlySelected) {
+      // Deselect the directory and all its contents
+      newSelected.delete(path)
+      allPaths.forEach((p) => newSelected.delete(p))
+    } else {
+      // Select the directory and all its contents
+      newSelected.add(path)
+      allPaths.forEach((p) => newSelected.add(p))
+    }
+
+    this.selectedFiles = newSelected
+  }
+
+  private getAllPathsInDirectory(
+    dirPath: string,
+    tree: Map<string, ResticFileEntry[]>,
+  ): string[] {
+    const paths: string[] = []
+    const children = tree.get(dirPath) || []
+
+    for (const child of children) {
+      paths.push(child.path)
+      if (child.type === 'dir') {
+        // Recursively get paths from subdirectories
+        paths.push(...this.getAllPathsInDirectory(child.path, tree))
+      }
+    }
+
+    return paths
+  }
+
+  private isDirectoryPartiallySelected(
+    dirPath: string,
+    tree: Map<string, ResticFileEntry[]>,
+  ): boolean {
+    const allPaths = this.getAllPathsInDirectory(dirPath, tree)
+    if (allPaths.length === 0) return false
+
+    const selectedCount = allPaths.filter((p) =>
+      this.selectedFiles.has(p),
+    ).length
+
+    // Partially selected if some but not all children are selected
+    return selectedCount > 0 && selectedCount < allPaths.length
+  }
+
   private async restoreAll() {
     if (!this.selectedSnapshot) return
 
@@ -1969,6 +2027,8 @@ export class ResticUI extends LitElement {
     const isDir = entry.type === 'dir'
     const isExpanded = this.expandedPaths.has(entry.path)
     const isSelected = this.selectedFiles.has(entry.path)
+    const isPartiallySelected =
+      isDir && !isSelected && this.isDirectoryPartiallySelected(entry.path, tree)
     const children = isDir ? tree.get(entry.path) || [] : []
     const indent = depth * 20
 
@@ -1989,13 +2049,15 @@ export class ResticUI extends LitElement {
           >
             ${isExpanded ? '▼' : '▶'}
           </span>
-          ${!isDir
-            ? html`<input
-                type="checkbox"
-                .checked=${isSelected}
-                @click=${(e: Event) => this.toggleFileSelection(entry.path, e)}
-              />`
-            : ''}
+          <input
+            type="checkbox"
+            .checked=${isSelected}
+            .indeterminate=${isPartiallySelected}
+            @click=${(e: Event) =>
+              isDir
+                ? this.toggleDirectorySelection(entry.path, tree, e)
+                : this.toggleFileSelection(entry.path, e)}
+          />
           <span class="tree-icon">${isDir ? '📁' : '📄'}</span>
           <span class="tree-name">${entry.name}</span>
           ${!isDir

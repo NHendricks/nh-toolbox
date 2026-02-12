@@ -15,7 +15,7 @@ ou can find the binary downloads here: https://github.com/NHendricks/nh-toolbox/
   - set a default path for restic backup repo when not specified
 - restic
   - create nicer checkboxes
-    ...
+  - restore folders (not only files) from backups
 
 ### v1.9.0 (11.02.2026)
 

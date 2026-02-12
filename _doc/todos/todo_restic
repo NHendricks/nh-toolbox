@@ -1,5 +1,4 @@
-- create nicer checkboxes
-- add checkbox and folder checkout opportunity
+x add checkbox and folder checkout opportunity
 - open folder in commander when clicking a file in the diff view
 - show recent commands and output
 - test linux
