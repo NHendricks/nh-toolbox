@@ -9,7 +9,9 @@ ou can find the binary downloads here: https://github.com/NHendricks/nh-toolbox/
 
 (you can download and test the dev version from https://github.com/NHendricks/nice-2-have-toolbox/actions/workflows/node.js.yml)
 
-...
+- commander
+  - fix mac samba connection needs to be started multiple time to work
+    ...
 
 ### v1.9.0 (11.02.2026)
 

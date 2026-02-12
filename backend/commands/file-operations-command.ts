@@ -598,6 +598,7 @@ export class FileOperationsCommand implements ICommand {
   /**
    * Mount a network share on macOS and return the mount point
    * Converts \\computer\share to smb://computer/share and mounts it
+   * Uses retry mechanism with polling to handle slow network connections
    */
   private async mountNetworkShareOnMac(uncPath: string): Promise<{
     success: boolean;
@@ -646,22 +647,31 @@ export class FileOperationsCommand implements ICommand {
           timeout: 10000,
         });
 
-        // Wait a bit for the mount to complete
-        await new Promise((resolve) => setTimeout(resolve, 2000));
+        // Polling loop: Wait up to 10 seconds, checking every 500ms
+        // This handles slow network connections gracefully
+        const maxAttempts = 20; // 20 * 500ms = 10 seconds
+        const pollInterval = 500; // 500ms between checks
 
-        // Check if mount succeeded
-        if (fs.existsSync(mountPoint)) {
-          console.log(`[Mac] Successfully mounted at: ${mountPoint}`);
-          return {
-            success: true,
-            mountPoint: fullPath,
-          };
-        } else {
-          return {
-            success: false,
-            error: 'Mount point not found after mounting attempt',
-          };
+        for (let attempt = 0; attempt < maxAttempts; attempt++) {
+          await new Promise((resolve) => setTimeout(resolve, pollInterval));
+
+          // Check if mount succeeded
+          if (fs.existsSync(mountPoint)) {
+            console.log(
+              `[Mac] Successfully mounted at: ${mountPoint} (after ${(attempt + 1) * pollInterval}ms)`,
+            );
+            return {
+              success: true,
+              mountPoint: fullPath,
+            };
+          }
         }
+
+        // After all attempts, mount point still not found
+        return {
+          success: false,
+          error: `Mount point not found after ${(maxAttempts * pollInterval) / 1000} seconds. The network connection might be too slow or the share is unavailable.`,
+        };
       } catch (error: any) {
         console.error(`[Mac] Mount error:`, error);
         return {
