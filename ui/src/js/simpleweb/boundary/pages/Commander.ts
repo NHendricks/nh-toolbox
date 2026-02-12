@@ -19,7 +19,10 @@ import { KeyboardHandler } from './commander/services/KeyboardHandler.js'
 import { PaneManager } from './commander/services/PaneManager.js'
 import { settingsService } from './commander/services/SettingsService.js'
 import { FILE_ICONS } from './commander/utils/file-utils.js'
-import { formatFileSize, formatCompactDate } from './commander/utils/FormatUtils.js'
+import {
+  formatCompactDate,
+  formatFileSize,
+} from './commander/utils/FormatUtils.js'
 import {
   getParentPath,
   getPathSeparator,
@@ -487,7 +490,16 @@ export class Commander extends LitElement {
     previousPath?: string,
   ) {
     try {
-      this.setStatus(`Loading ${path}`, 'normal')
+      // Check if this is a network path (SMB/UNC) - show special loading message
+      const isNetworkPath = path.startsWith('\\\\') || path.startsWith('//')
+      if (isNetworkPath) {
+        this.setStatus(
+          `Connecting to ${path} (this may take up to 60 seconds)...`,
+          'normal',
+        )
+      } else {
+        this.setStatus(`Loading ${path}`, 'normal')
+      }
       console.log(`Loading directory for ${pane}: ${path}`)
 
       // Check if this is an FTP path
@@ -597,7 +609,10 @@ export class Commander extends LitElement {
       // Check if SMB authentication is needed (needsAuth is inside response.data due to IPC bridge wrapping)
       const innerData = response.data as any
       if (innerData?.needsAuth) {
-        const isNetworkPath = path.startsWith('\\\\') || path.startsWith('//') || path.startsWith('smb://')
+        const isNetworkPath =
+          path.startsWith('\\\\') ||
+          path.startsWith('//') ||
+          path.startsWith('smb://')
         if (isNetworkPath) {
           this.pendingSmbPath = innerData.uncPath || path
           this.pendingSmbPane = pane
@@ -610,7 +625,12 @@ export class Commander extends LitElement {
       // IPC bridge wraps result as { success: true, data: <backend_result> }
       // Check the inner success flag for actual errors (e.g. mount failures)
       const data = response.data as any
-      if (response.success && data && data.success !== false && data.directories) {
+      if (
+        response.success &&
+        data &&
+        data.success !== false &&
+        data.directories
+      ) {
         const items: FileItem[] = []
 
         // Add parent directory entry if not at root
@@ -1492,7 +1512,9 @@ export class Commander extends LitElement {
         // Toggle only the current item, then move
         const currentItem = displayItems[currentDisplayIndex]
         if (currentItem && currentItem.name !== '..') {
-          const originalIndex = pane.items.findIndex((it) => it.path === currentItem.path)
+          const originalIndex = pane.items.findIndex(
+            (it) => it.path === currentItem.path,
+          )
           if (originalIndex !== -1) {
             if (newSelected.has(originalIndex)) {
               newSelected.delete(originalIndex)
@@ -1512,12 +1534,15 @@ export class Commander extends LitElement {
         const currentOriginalIndex = currentItem
           ? pane.items.findIndex((it) => it.path === currentItem.path)
           : -1
-        const shouldSelect = currentOriginalIndex === -1 || !newSelected.has(currentOriginalIndex)
+        const shouldSelect =
+          currentOriginalIndex === -1 || !newSelected.has(currentOriginalIndex)
 
         for (let i = startIdx; i <= endIdx; i++) {
           const item = displayItems[i]
           if (item && item.name !== '..') {
-            const originalIndex = pane.items.findIndex((it) => it.path === item.path)
+            const originalIndex = pane.items.findIndex(
+              (it) => it.path === item.path,
+            )
             if (originalIndex !== -1) {
               if (shouldSelect) {
                 newSelected.add(originalIndex)
@@ -1541,7 +1566,8 @@ export class Commander extends LitElement {
 
     // Always update selection, update focus if possible
     this.updateActivePane({
-      focusedIndex: newOriginalIndex !== -1 ? newOriginalIndex : pane.focusedIndex,
+      focusedIndex:
+        newOriginalIndex !== -1 ? newOriginalIndex : pane.focusedIndex,
       selectedIndices: newSelected,
     })
 
@@ -1589,7 +1615,10 @@ export class Commander extends LitElement {
 
     // Also write file paths to system clipboard for external apps
     const pathsText = files.join('\n')
-    ;(window as any).electron.ipcRenderer.invoke('clipboard-write-text', pathsText)
+    ;(window as any).electron.ipcRenderer.invoke(
+      'clipboard-write-text',
+      pathsText,
+    )
 
     this.setStatus(`${files.length} file(s) copied to clipboard`, 'success')
   }
@@ -1605,7 +1634,10 @@ export class Commander extends LitElement {
 
     // Also write file paths to system clipboard for external apps
     const pathsText = files.join('\n')
-    ;(window as any).electron.ipcRenderer.invoke('clipboard-write-text', pathsText)
+    ;(window as any).electron.ipcRenderer.invoke(
+      'clipboard-write-text',
+      pathsText,
+    )
 
     this.setStatus(`${files.length} file(s) cut to clipboard`, 'success')
   }
@@ -2928,7 +2960,11 @@ export class Commander extends LitElement {
                 const { smbUrl, uncPath } = e.detail
                 const path = this.pendingSmbPath || uncPath || ''
                 try {
-                  await this.loadDirectoryWithSmbUrl(this.pendingSmbPane, path, smbUrl)
+                  await this.loadDirectoryWithSmbUrl(
+                    this.pendingSmbPane,
+                    path,
+                    smbUrl,
+                  )
                   if (!this.smbConnectionCancelled) {
                     const dialog = this.shadowRoot?.querySelector(
                       '#smb-dialog',
@@ -3262,7 +3298,9 @@ export class Commander extends LitElement {
                 <span class="file-name ${item.isDirectory ? 'directory' : ''}"
                   >${item.name}</span
                 >
-                <span class="file-date">${this.formatCompactDate(item.modified)}</span>
+                <span class="file-date"
+                  >${this.formatCompactDate(item.modified)}</span
+                >
                 <span class="file-size">${this.formatFileSize(item.size)}</span>
               </div>
             `,

@@ -647,30 +647,46 @@ export class FileOperationsCommand implements ICommand {
           timeout: 10000,
         });
 
-        // Polling loop: Wait up to 10 seconds, checking every 500ms
-        // This handles slow network connections gracefully
-        const maxAttempts = 20; // 20 * 500ms = 10 seconds
+        // Polling loop: Wait up to 60 seconds, checking every 500ms
+        // This handles slow network connections and manual password entry gracefully
+        const maxAttempts = 120; // 120 * 500ms = 60 seconds (enough for password entry)
         const pollInterval = 500; // 500ms between checks
 
         for (let attempt = 0; attempt < maxAttempts; attempt++) {
           await new Promise((resolve) => setTimeout(resolve, pollInterval));
 
-          // Check if mount succeeded
+          // Check if mount point exists
           if (fs.existsSync(mountPoint)) {
             console.log(
-              `[Mac] Successfully mounted at: ${mountPoint} (after ${(attempt + 1) * pollInterval}ms)`,
+              `[Mac] Mount point detected at: ${mountPoint} (after ${(attempt + 1) * pollInterval}ms)`,
             );
-            return {
-              success: true,
-              mountPoint: fullPath,
-            };
+
+            // Wait a bit longer and verify we can actually access it
+            await new Promise((resolve) => setTimeout(resolve, 1000));
+
+            // Try to access the mount point to ensure it's fully mounted
+            try {
+              await fs.promises.access(mountPoint, fs.constants.R_OK);
+              console.log(
+                `[Mac] Successfully mounted and accessible at: ${mountPoint}`,
+              );
+              return {
+                success: true,
+                mountPoint: fullPath,
+              };
+            } catch (accessError) {
+              console.log(
+                `[Mac] Mount point exists but not yet accessible, continuing to wait...`,
+              );
+              // Continue polling
+            }
           }
         }
 
         // After all attempts, mount point still not found
         return {
           success: false,
-          error: `Mount point not found after ${(maxAttempts * pollInterval) / 1000} seconds. The network connection might be too slow or the share is unavailable.`,
+          error: `Mount point not found after ${(maxAttempts * pollInterval) / 1000} seconds. Please check if the share is accessible and credentials are correct.`,
         };
       } catch (error: any) {
         console.error(`[Mac] Mount error:`, error);
