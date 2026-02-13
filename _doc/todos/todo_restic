@@ -13,4 +13,4 @@ restic:
 - click on added, remove or changed and fiter trees
   - remove snapshot details below timeline
   - show date below snapshot in treecompare
-  -
+  - compare files on diff file click. Reuse compare from commander.

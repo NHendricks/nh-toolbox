@@ -128,7 +128,6 @@ export class FileCompare extends LitElement {
   connectedCallback() {
     super.connectedCallback()
     window.addEventListener('keydown', this.onKeyDown)
-    this.loadFiles()
   }
 
   disconnectedCallback() {
@@ -141,12 +140,20 @@ export class FileCompare extends LitElement {
       this.computeDiffs()
       this.currentDiff = 0
     }
+    // Load files when paths are set (properties may not be available in connectedCallback)
+    if (changed.has('leftPath') || changed.has('rightPath')) {
+      console.log('[FileCompare] Paths changed:', { leftPath: this.leftPath, rightPath: this.rightPath })
+      if (this.leftPath && this.rightPath) {
+        this.loadFiles()
+      }
+    }
   }
 
   /* ---------- File loading ---------- */
   async loadFiles() {
     if (!this.leftPath || !this.rightPath) return
 
+    console.log('[FileCompare] Loading files:', { leftPath: this.leftPath, rightPath: this.rightPath })
     this.loading = true
     this.error = ''
 
@@ -163,14 +170,31 @@ export class FileCompare extends LitElement {
         { operation: 'read', filePath: this.rightPath },
       )
 
+      console.log('[FileCompare] Read results:', {
+        leftSuccess: left.success,
+        leftDataSuccess: left.data?.success,
+        leftContentLength: left.data?.content?.length,
+        rightSuccess: right.success,
+        rightDataSuccess: right.data?.success,
+        rightContentLength: right.data?.content?.length,
+        leftError: left.error || left.data?.error,
+        rightError: right.error || right.data?.error
+      })
+
       if (left.success && right.success) {
         this.leftContent = left.data.content
         this.rightContent = right.data.content
+        console.log('[FileCompare] Content loaded:', {
+          leftContentLength: this.leftContent.length,
+          rightContentLength: this.rightContent.length
+        })
       } else {
         this.error = left.error || right.error || 'Error loading'
+        console.error('[FileCompare] Load error:', this.error)
       }
     } catch (e: any) {
       this.error = e.message ?? 'Unknown error'
+      console.error('[FileCompare] Exception:', e)
     } finally {
       this.loading = false
     }

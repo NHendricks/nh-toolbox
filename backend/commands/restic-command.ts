@@ -4,7 +4,8 @@
  */
 
 import { ChildProcess, exec, spawn } from 'child_process';
-import { existsSync, readdirSync, statSync } from 'fs';
+import { existsSync, readdirSync, statSync, writeFileSync } from 'fs';
+import { tmpdir } from 'os';
 import { join, resolve } from 'path';
 import { promisify } from 'util';
 import { CommandParameter, ICommand } from './command-interface.js';
@@ -136,6 +137,8 @@ export class ResticCommand implements ICommand {
           return await this.diff(params.snapshotId1, params.snapshotId2, env);
         case 'list-current-fs':
           return await this.listCurrentFilesystem(params.paths);
+        case 'dump':
+          return await this.dumpToTempFile(params.snapshotId, params.filePath, env);
         default:
           return { success: false, error: `Unknown operation: ${operation}` };
       }
@@ -703,6 +706,47 @@ export class ResticCommand implements ICommand {
       };
     } catch (error: any) {
       throw error;
+    }
+  }
+
+  /**
+   * Dump a file from a snapshot to a temp file for comparison
+   */
+  private async dumpToTempFile(
+    snapshotId: string,
+    filePath: string,
+    env: NodeJS.ProcessEnv,
+  ): Promise<any> {
+    if (!snapshotId || !filePath) {
+      return {
+        success: false,
+        error: 'snapshotId and filePath are required for dump operation',
+      };
+    }
+
+    try {
+      const cmd = `restic dump "${snapshotId}" "${filePath}"`;
+      this.lastCommandLine = this.buildCommandLine(cmd, env);
+
+      const { stdout } = await execPromise(cmd, {
+        env: this.getExtendedEnv(env),
+        maxBuffer: 50 * 1024 * 1024,
+      });
+
+      // Write to temp file
+      const tempPath = join(
+        tmpdir(),
+        `restic-dump-${snapshotId}-${Date.now()}.tmp`,
+      );
+      writeFileSync(tempPath, stdout, 'utf-8');
+
+      return {
+        success: true,
+        tempPath,
+        commandLine: this.lastCommandLine,
+      };
+    } catch (error: any) {
+      return { success: false, error: error.message };
     }
   }
 

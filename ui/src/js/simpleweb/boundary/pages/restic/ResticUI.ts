@@ -9,6 +9,7 @@ import {
   getResticState,
   saveResticState,
 } from '../../../services/SessionState.js'
+import '../../components/FileCompare'
 import type {
   CurrentFileEntry,
   DiffStatus,
@@ -794,6 +795,13 @@ export class ResticUI extends LitElement {
       border-left: 3px solid #f59e0b;
     }
 
+    .tree-item.clickable {
+      cursor: pointer;
+    }
+    .tree-item.clickable:hover {
+      background: rgba(245, 158, 11, 0.25);
+    }
+
     .tree-item.diff-unchanged {
       opacity: 0.6;
     }
@@ -1311,6 +1319,10 @@ export class ResticUI extends LitElement {
   } | null = null
   @state() private timelineSliderPosition: number = 0
   @state() private isDiffLoading: boolean = false
+  @state() private diffFileCompare: {
+    leftPath: string
+    rightPath: string
+  } | null = null
   private sliderDebounceTimer: any = null
 
   connectedCallback() {
@@ -2811,6 +2823,62 @@ export class ResticUI extends LitElement {
   }
 
   /**
+   * Convert normalized OS path back to Restic format for dump command
+   * D:/Users/... -> /D/Users/...
+   */
+  private denormalizeResticPath(path: string): string {
+    if (path.match(/^[A-Za-z]:\//)) {
+      return '/' + path[0] + path.substring(2)
+    }
+    return path
+  }
+
+  /**
+   * Handle click on a file in the diff tree - open file comparison
+   */
+  private async handleDiffFileClick(entry: any) {
+    const normalized = this.normalizePathForComparison(entry.path)
+    if (!this.timelineDiffResult?.comparison.modified.has(normalized)) return
+
+    // Dump snapshot file to temp
+    const resticPath = this.denormalizeResticPath(entry.path)
+    console.log('[ResticUI] Dumping file:', {
+      entryPath: entry.path,
+      resticPath,
+      snapshotId: this.timelineDiffSnapshot!.short_id || this.timelineDiffSnapshot!.id
+    })
+
+    const dumpResult = await this.invokeRestic({
+      operation: 'dump',
+      snapshotId:
+        this.timelineDiffSnapshot!.short_id || this.timelineDiffSnapshot!.id,
+      filePath: resticPath,
+    })
+
+    console.log('[ResticUI] Dump result:', dumpResult)
+
+    // Check both IPC-level and backend-level success
+    if (!dumpResult.success || dumpResult.data?.success === false || !dumpResult.data?.tempPath) {
+      this.showMessage(
+        'error',
+        `Failed to dump file: ${dumpResult.data?.error || dumpResult.error || 'Unknown error'}`,
+      )
+      return
+    }
+
+    console.log('[ResticUI] Opening file-compare:', {
+      leftPath: dumpResult.data.tempPath,
+      rightPath: entry.path,
+    })
+
+    // Open file-compare: left = snapshot (temp file), right = current file
+    this.diffFileCompare = {
+      leftPath: dumpResult.data.tempPath,
+      rightPath: entry.path,
+    }
+  }
+
+  /**
    * Normalize path for comparison (handles Windows/Unix and Restic path formats)
    */
   private normalizePathForComparison(path: string): string {
@@ -3620,6 +3688,15 @@ export class ResticUI extends LitElement {
           </div>
         </div>
       </div>
+      ${this.diffFileCompare
+        ? html`<file-compare
+            .leftPath=${this.diffFileCompare.leftPath}
+            .rightPath=${this.diffFileCompare.rightPath}
+            @close=${() => {
+              this.diffFileCompare = null
+            }}
+          ></file-compare>`
+        : ''}
     `
   }
 
@@ -3690,12 +3767,19 @@ export class ResticUI extends LitElement {
       if (!hasChangedChildren) return null
     }
 
+    const isClickable = !isDir && diffStatus === 'modified'
+
     return html`
       <div class="tree-node">
         <div
-          class="tree-item ${isDir ? 'directory' : 'file'} diff-${diffStatus}"
+          class="tree-item ${isDir
+            ? 'directory'
+            : 'file'} diff-${diffStatus} ${isClickable ? 'clickable' : ''}"
           style="padding-left: ${indent + 8}px"
-          @click=${() => isDir && this.toggleTreeNode(entry.path)}
+          @click=${() => {
+            if (isDir) this.toggleTreeNode(entry.path)
+            else if (isClickable) this.handleDiffFileClick(entry)
+          }}
         >
           <span
             class="tree-toggle"
