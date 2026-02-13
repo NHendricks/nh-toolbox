@@ -3430,19 +3430,11 @@ export class ResticUI extends LitElement {
   private renderDiffModeTimeline(groups: SnapshotGroup[]) {
     return html`
       <div class="diff-mode-toggle">
-        <button
-          class="btn btn-small btn-secondary"
-          @click=${this.toggleDiffMode}
-        >
-          ← Back to Normal View
-        </button>
-      </div>
-
-      ${this.snapshots.length === 0
-        ? html`<div style="color: #64748b; font-size: 0.85rem">
-            No snapshots
-          </div>`
-        : html`
+        ${this.snapshots.length === 0
+          ? html`<div style="color: #64748b; font-size: 0.85rem">
+              No snapshots
+            </div>`
+          : html`
             <div class="timeline-slider-container">
               <label
                 style="font-size: 0.85rem; color: #94a3b8; margin-bottom: 0.5rem; display: block;"
@@ -3480,30 +3472,15 @@ export class ResticUI extends LitElement {
                 )}
               </div>
             </div>
-
-            ${this.timelineDiffSnapshot
-              ? html`
-                  <div
-                    style="padding: 0.75rem; background: #1e293b; border-radius: 4px; margin-top: 0.5rem;"
-                  >
-                    <div
-                      style="font-size: 0.9rem; font-weight: 600; color: #0ea5e9; margin-bottom: 0.25rem;"
-                    >
-                      ${this.timelineDiffSnapshot.short_id ||
-                      this.timelineDiffSnapshot.id.substring(0, 8)}
-                    </div>
-                    <div style="font-size: 0.75rem; color: #94a3b8;">
-                      ${this.formatDate(this.timelineDiffSnapshot.time)}
-                    </div>
-                    <div
-                      style="font-size: 0.75rem; color: #64748b; margin-top: 0.25rem;"
-                    >
-                      ${this.timelineDiffSnapshot.paths?.join(', ')}
-                    </div>
-                  </div>
-                `
-              : ''}
+        <button
+          class="btn btn-small btn-secondary"
+          @click=${this.toggleDiffMode}
+        >
+          ← Back
+        </button>
+      </div>
           `}
+      </div>
     `
   }
 
