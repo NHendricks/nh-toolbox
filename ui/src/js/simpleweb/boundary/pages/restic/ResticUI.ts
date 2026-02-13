@@ -2931,15 +2931,19 @@ export class ResticUI extends LitElement {
     const snapshotMap = new Map<string, ResticFileEntry>()
     const currentMap = new Map<string, CurrentFileEntry>()
 
-    // Build lookup maps (normalize paths for comparison)
-    snapshotEntries.forEach((e) => {
-      const normalizedPath = this.normalizePathForComparison(e.path)
-      snapshotMap.set(normalizedPath, e)
-    })
-    currentEntries.forEach((e) => {
-      const normalizedPath = this.normalizePathForComparison(e.path)
-      currentMap.set(normalizedPath, e)
-    })
+    // Build lookup maps - only compare FILES, not directories
+    snapshotEntries
+      .filter((e) => e.type !== 'dir')
+      .forEach((e) => {
+        const normalizedPath = this.normalizePathForComparison(e.path)
+        snapshotMap.set(normalizedPath, e)
+      })
+    currentEntries
+      .filter((e) => e.type !== 'dir')
+      .forEach((e) => {
+        const normalizedPath = this.normalizePathForComparison(e.path)
+        currentMap.set(normalizedPath, e)
+      })
 
     const added = new Set<string>()
     const removed = new Set<string>()
