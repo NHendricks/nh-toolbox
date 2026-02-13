@@ -1,6 +1,6 @@
 import { diffLines, diffWords, type ChangeObject } from 'diff'
 import { LitElement, css, html } from 'lit'
-import { property } from 'lit/decorators.js'
+import { property, state } from 'lit/decorators.js'
 import './SimpleDialog'
 
 export class FileCompare extends LitElement {
@@ -119,9 +119,13 @@ export class FileCompare extends LitElement {
   @property({ type: Boolean })
   showOnlyDiffs = false
 
+  @state()
   private diffLines: number[] = []
-  private currentDiff = 0
+
+  @state()
   private lineDiffMap: { left: string; right: string; changed: boolean }[] = []
+
+  private currentDiff = 0
   private isSyncing = false
 
   /* ---------- Lifecycle ---------- */
