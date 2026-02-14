@@ -146,6 +146,7 @@ export const commanderStyles = css`
   }
 
   .file-item.selected {
+    background: rgba(255, 159, 10, 0.15);
     color: var(--warning);
   }
 

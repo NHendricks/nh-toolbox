@@ -3387,7 +3387,7 @@ export class Commander extends LitElement {
           ${filteredItems.map(
             (item, displayIndex) => html`
               <div
-                class="file-item ${displayFocusedIndex === displayIndex
+                class="file-item ${isActive && displayFocusedIndex === displayIndex
                   ? 'focused'
                   : ''} ${displaySelectedIndices.has(displayIndex)
                   ? 'selected'

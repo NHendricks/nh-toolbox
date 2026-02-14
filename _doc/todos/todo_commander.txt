@@ -1,5 +1,6 @@
 Commander:
-- ftp update connection - update saved connection when changes are made
+- context (where cursor is) is still displayed if pane ois not acitve any more 
+- ftp connection - show error message when it fails to connect
 - show help for replace function in texteditor (how to replace text with line braks)
 - new dos2unix and unix2dos actions in text editor (show current format bottom right)
 - drag and drop files / folders from or to another app should work
