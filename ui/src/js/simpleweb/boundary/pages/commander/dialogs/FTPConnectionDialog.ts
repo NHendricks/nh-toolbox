@@ -299,7 +299,44 @@ export class FTPConnectionDialog extends LitElement {
       return
     }
 
-    // Save connection if requested
+    // Clear any previous error messages
+    this.statusMessage = ''
+    this.statusType = ''
+
+    this.connecting = true
+    this.setStatus('Testing connection...', 'info')
+
+    // Test connection first before attempting to connect
+    try {
+      const response = await (window as any).electron.ipcRenderer.invoke(
+        'cli-execute',
+        'ftp',
+        {
+          operation: 'test-connection',
+          host: this.host,
+          port: parseInt(this.port, 10) || 21,
+          user: this.user || 'anonymous',
+          password: this.password || 'anonymous@',
+          secure: this.secure,
+        },
+      )
+
+      if (!response.success || !response.data?.success) {
+        // Connection test failed - show error and stop
+        this.connecting = false
+        this.setStatus(
+          `Connection failed: ${response.data?.error || response.error || 'Unknown error'}`,
+          'error',
+        )
+        return
+      }
+    } catch (error: any) {
+      this.connecting = false
+      this.setStatus(`Error: ${error.message}`, 'error')
+      return
+    }
+
+    // Test successful - save connection if requested
     if (this.rememberConnection && this.saveName) {
       const existing = this.savedConnections.findIndex(
         (c) => c.name === this.saveName,
@@ -322,7 +359,6 @@ export class FTPConnectionDialog extends LitElement {
       this.saveSavedConnections()
     }
 
-    this.connecting = true
     this.setStatus('Connecting...', 'info')
 
     // Build FTP URL (encode user and password to handle special characters)
@@ -366,7 +402,8 @@ export class FTPConnectionDialog extends LitElement {
     this.statusMessage = message
     this.statusType = type
 
-    if (type !== 'info') {
+    // Auto-clear success messages after 3 seconds, but keep errors and info visible
+    if (type === 'success') {
       setTimeout(() => {
         this.statusMessage = ''
         this.statusType = ''

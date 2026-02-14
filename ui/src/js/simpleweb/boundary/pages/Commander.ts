@@ -3077,7 +3077,10 @@ export class Commander extends LitElement {
                     const dialog = this.shadowRoot?.querySelector(
                       '#ftp-dialog',
                     ) as any
-                    dialog?.connectionFailed(error.message || 'Unknown error')
+                    const errorMsg = error.message || 'Unknown error'
+                    dialog?.connectionFailed(errorMsg)
+                    // Also show error in Commander status bar as fallback
+                    this.setStatus(`FTP connection failed: ${errorMsg}`, 'error')
                   }
                 }
                 this.pendingFtpUrl = null
