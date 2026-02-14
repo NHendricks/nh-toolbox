@@ -308,17 +308,22 @@ export class TextEditorDialog extends LitElement {
     }
 
     try {
+      // Process escape sequences in search query (e.g., \n for newline)
+      const processedQuery = this.processEscapeSequences(this.searchQuery)
+      console.log('[updateSearchMatches] searchQuery:', JSON.stringify(this.searchQuery), 'processed:', JSON.stringify(processedQuery))
+
       const flags = this.caseSensitive ? 'g' : 'gi'
       const regex = this.useRegex
-        ? new RegExp(this.searchQuery, flags)
+        ? new RegExp(processedQuery, flags)
         : new RegExp(
-            this.searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
+            processedQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
             flags,
           )
 
       const matches = this.editedContent.match(regex)
       this.searchMatches = matches ? matches.length : 0
       this.currentMatchIndex = this.searchMatches > 0 ? 0 : -1
+      console.log('[updateSearchMatches] Found', this.searchMatches, 'matches')
       this.requestUpdate()
 
       // Auto-scroll to first match
@@ -448,10 +453,10 @@ export class TextEditorDialog extends LitElement {
     }, 0)
   }
 
-  private processReplacement(replaceText: string): string {
-    // Process escape sequences in replacement text
+  private processEscapeSequences(text: string): string {
+    // Process escape sequences in text
     // Use a single pass to handle all sequences correctly
-    return replaceText.replace(/\\(.)/g, (match, char) => {
+    const result = text.replace(/\\(.)/g, (match, char) => {
       switch (char) {
         case 'n': return '\n'
         case 't': return '\t'
@@ -460,17 +465,31 @@ export class TextEditorDialog extends LitElement {
         default: return match // Keep unknown escape sequences as-is
       }
     })
+    return result
+  }
+
+  private processReplacement(replaceText: string): string {
+    const result = this.processEscapeSequences(replaceText)
+    console.log('[processReplacement] input:', JSON.stringify(replaceText), 'output:', JSON.stringify(result))
+    return result
   }
 
   private replaceNext() {
-    if (!this.searchQuery || this.searchMatches === 0) return
+    console.log('[replaceNext] Called with replaceQuery:', JSON.stringify(this.replaceQuery), 'searchMatches:', this.searchMatches)
+    if (!this.searchQuery || this.searchMatches === 0) {
+      console.log('[replaceNext] Returning early - no search or no matches')
+      return
+    }
 
     try {
+      // Process escape sequences in search query
+      const processedQuery = this.processEscapeSequences(this.searchQuery)
+
       const flags = this.caseSensitive ? 'g' : 'gi'
       const regex = this.useRegex
-        ? new RegExp(this.searchQuery, flags)
+        ? new RegExp(processedQuery, flags)
         : new RegExp(
-            this.searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
+            processedQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
             flags,
           )
 
@@ -480,6 +499,7 @@ export class TextEditorDialog extends LitElement {
       const match = matches[this.currentMatchIndex]
       if (match.index !== undefined) {
         const processedReplacement = this.processReplacement(this.replaceQuery)
+        console.log('[replaceNext] Replacing:', JSON.stringify(match[0]), 'with:', JSON.stringify(processedReplacement))
         this.editedContent =
           this.editedContent.substring(0, match.index) +
           processedReplacement +
@@ -496,20 +516,30 @@ export class TextEditorDialog extends LitElement {
   }
 
   private replaceAll() {
-    if (!this.searchQuery || this.searchMatches === 0) return
+    console.log('[replaceAll] Called with replaceQuery:', JSON.stringify(this.replaceQuery), 'searchMatches:', this.searchMatches)
+    if (!this.searchQuery || this.searchMatches === 0) {
+      console.log('[replaceAll] Returning early - no search or no matches')
+      return
+    }
 
     try {
+      // Process escape sequences in search query
+      const processedQuery = this.processEscapeSequences(this.searchQuery)
+
       const flags = this.caseSensitive ? 'g' : 'gi'
       const regex = this.useRegex
-        ? new RegExp(this.searchQuery, flags)
+        ? new RegExp(processedQuery, flags)
         : new RegExp(
-            this.searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
+            processedQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
             flags,
           )
 
       const processedReplacement = this.processReplacement(this.replaceQuery)
+      console.log('[replaceAll] Replacing all matches of:', this.searchQuery, 'with:', JSON.stringify(processedReplacement))
       // Use a function to avoid special $ replacement patterns being interpreted
+      const oldContent = this.editedContent
       this.editedContent = this.editedContent.replace(regex, () => processedReplacement)
+      console.log('[replaceAll] Content changed:', oldContent !== this.editedContent)
       this.isModified = true
       this.updateSearchMatches()
       this.requestUpdate()
@@ -630,7 +660,7 @@ export class TextEditorDialog extends LitElement {
                     ${this.showReplaceHelp
                       ? html`
                           <div class="help-tooltip">
-                            Use escape sequences: <code>\\n</code> = newline,
+                            Escape sequences in Find/Replace: <code>\\n</code> = newline,
                             <code>\\t</code> = tab, <code>\\\\</code> = backslash
                           </div>
                         `
