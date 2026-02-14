@@ -297,6 +297,10 @@ export class TextEditorDialog extends LitElement {
       this.editedContent = this.content
       this.isModified = false
     }
+    // Reset modified flag when saving completes successfully
+    if (changed.has('saving') && !this.saving && changed.get('saving') === true) {
+      this.isModified = false
+    }
   }
 
   private updateSearchMatches() {
