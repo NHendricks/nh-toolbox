@@ -1,5 +1,9 @@
 restic:
 
+- compare binaries freezes ui
+- show date below snapshot in treecompare
+- click on added, remove or changed and fiter trees
+- fix no scrollbar please in compare snapshots title
 - test linux
   - i can only select files, not folders. i want to be able to only select folders on ubuntu
 - test ftps => klappt
@@ -8,7 +12,3 @@ restic:
     - Terminal (on Windows: use Git Bash):
       - ssh-keygen
       - ssh-copy-id user@host
-- click on added, remove or changed and fiter trees
-  - fix no scrollbar please in compare snapshots title
-  - show date below snapshot in treecompare
-  - compare files on diff file click. Reuse compare from commander.

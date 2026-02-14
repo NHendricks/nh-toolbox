@@ -13,7 +13,7 @@ You can find the binary downloads here: https://github.com/NHendricks/nh-toolbox
 - commander
   - start commands or commandline (SHIFT+F9) with cleaned up environment (dont inherit env variables from n2hcommander)
 - restic:
-  - compare files on diff file click. Reuse compare from commander.
+  - compare files on diff file click. Reuse compare dialog from commander.
 - garbagefinder: Fix to work for linmux and mac.
 
 ### v2.0.0 (12.02.2026)

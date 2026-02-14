@@ -88,6 +88,22 @@ export class SimpleDialog extends LitElement {
   @property({ type: Boolean })
   showCloseButton = true
 
+  connectedCallback() {
+    super.connectedCallback()
+    window.addEventListener('keydown', this.handleKeyDown)
+  }
+
+  disconnectedCallback() {
+    window.removeEventListener('keydown', this.handleKeyDown)
+    super.disconnectedCallback()
+  }
+
+  handleKeyDown = (e: KeyboardEvent) => {
+    if (e.key === 'Escape' && this.open) {
+      this.close()
+    }
+  }
+
   handleOverlayClick(e: Event) {
     if (e.target === e.currentTarget) {
       this.close()

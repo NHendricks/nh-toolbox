@@ -138,7 +138,11 @@ export class ResticCommand implements ICommand {
         case 'list-current-fs':
           return await this.listCurrentFilesystem(params.paths);
         case 'dump':
-          return await this.dumpToTempFile(params.snapshotId, params.filePath, env);
+          return await this.dumpToTempFile(
+            params.snapshotId,
+            params.filePath,
+            env,
+          );
         default:
           return { success: false, error: `Unknown operation: ${operation}` };
       }
@@ -418,8 +422,8 @@ export class ResticCommand implements ICommand {
       const { stdout, stderr } = await execPromise(cmd, {
         env: this.getExtendedEnv(env),
       });
-      console.log('[Restic] Snapshots stdout:', stdout);
-      console.log('[Restic] Snapshots stderr:', stderr);
+      // console.log('[Restic] Snapshots stdout:', stdout);
+      // console.log('[Restic] Snapshots stderr:', stderr);
 
       // Handle empty output
       if (!stdout || stdout.trim() === '') {
@@ -589,7 +593,11 @@ export class ResticCommand implements ICommand {
     const { stdout } = await execPromise(cmd, {
       env: this.getExtendedEnv(env),
     });
-    return { success: true, message: stdout, commandLine: this.lastCommandLine };
+    return {
+      success: true,
+      message: stdout,
+      commandLine: this.lastCommandLine,
+    };
   }
 
   private async prune(env: NodeJS.ProcessEnv): Promise<any> {
@@ -598,7 +606,11 @@ export class ResticCommand implements ICommand {
     const { stdout } = await execPromise(cmd, {
       env: this.getExtendedEnv(env),
     });
-    return { success: true, message: stdout, commandLine: this.lastCommandLine };
+    return {
+      success: true,
+      message: stdout,
+      commandLine: this.lastCommandLine,
+    };
   }
 
   private async check(env: NodeJS.ProcessEnv): Promise<any> {
@@ -646,7 +658,11 @@ export class ResticCommand implements ICommand {
     const { stdout } = await execPromise(cmd, {
       env: this.getExtendedEnv(env),
     });
-    return { success: true, message: stdout, commandLine: this.lastCommandLine };
+    return {
+      success: true,
+      message: stdout,
+      commandLine: this.lastCommandLine,
+    };
   }
 
   private async diff(

@@ -2842,20 +2842,12 @@ export class ResticUI extends LitElement {
 
     // Dump snapshot file to temp
     const resticPath = this.denormalizeResticPath(entry.path)
-    console.log('[ResticUI] Dumping file:', {
-      entryPath: entry.path,
-      resticPath,
-      snapshotId: this.timelineDiffSnapshot!.short_id || this.timelineDiffSnapshot!.id
-    })
-
     const dumpResult = await this.invokeRestic({
       operation: 'dump',
       snapshotId:
         this.timelineDiffSnapshot!.short_id || this.timelineDiffSnapshot!.id,
       filePath: resticPath,
     })
-
-    console.log('[ResticUI] Dump result:', dumpResult)
 
     // Check both IPC-level and backend-level success
     if (!dumpResult.success || dumpResult.data?.success === false || !dumpResult.data?.tempPath) {
@@ -2865,11 +2857,6 @@ export class ResticUI extends LitElement {
       )
       return
     }
-
-    console.log('[ResticUI] Opening file-compare:', {
-      leftPath: dumpResult.data.tempPath,
-      rightPath: entry.path,
-    })
 
     // Open file-compare: left = snapshot (temp file), right = current file
     this.diffFileCompare = {

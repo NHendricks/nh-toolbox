@@ -125,6 +125,9 @@ export class FileCompare extends LitElement {
   @state()
   private lineDiffMap: { left: string; right: string; changed: boolean }[] = []
 
+  @state()
+  private isBinary = false
+
   private currentDiff = 0
   private isSyncing = false
 
@@ -146,7 +149,6 @@ export class FileCompare extends LitElement {
     }
     // Load files when paths are set (properties may not be available in connectedCallback)
     if (changed.has('leftPath') || changed.has('rightPath')) {
-      console.log('[FileCompare] Paths changed:', { leftPath: this.leftPath, rightPath: this.rightPath })
       if (this.leftPath && this.rightPath) {
         this.loadFiles()
       }
@@ -157,7 +159,6 @@ export class FileCompare extends LitElement {
   async loadFiles() {
     if (!this.leftPath || !this.rightPath) return
 
-    console.log('[FileCompare] Loading files:', { leftPath: this.leftPath, rightPath: this.rightPath })
     this.loading = true
     this.error = ''
 
@@ -174,31 +175,19 @@ export class FileCompare extends LitElement {
         { operation: 'read', filePath: this.rightPath },
       )
 
-      console.log('[FileCompare] Read results:', {
-        leftSuccess: left.success,
-        leftDataSuccess: left.data?.success,
-        leftContentLength: left.data?.content?.length,
-        rightSuccess: right.success,
-        rightDataSuccess: right.data?.success,
-        rightContentLength: right.data?.content?.length,
-        leftError: left.error || left.data?.error,
-        rightError: right.error || right.data?.error
-      })
-
       if (left.success && right.success) {
+        // Check if files are binary (images or contain null bytes)
+        const isLeftBinary = left.data.isImage || this.containsNullBytes(left.data.content)
+        const isRightBinary = right.data.isImage || this.containsNullBytes(right.data.content)
+        this.isBinary = isLeftBinary || isRightBinary
+
         this.leftContent = left.data.content
         this.rightContent = right.data.content
-        console.log('[FileCompare] Content loaded:', {
-          leftContentLength: this.leftContent.length,
-          rightContentLength: this.rightContent.length
-        })
       } else {
         this.error = left.error || right.error || 'Error loading'
-        console.error('[FileCompare] Load error:', this.error)
       }
     } catch (e: any) {
       this.error = e.message ?? 'Unknown error'
-      console.error('[FileCompare] Exception:', e)
     } finally {
       this.loading = false
     }
@@ -209,15 +198,14 @@ export class FileCompare extends LitElement {
     const l = this.leftContent
     const r = this.rightContent
 
-    console.log('[FileCompare] computeDiffs called:', {
-      leftLength: l.length,
-      rightLength: r.length,
-      leftContent: l.substring(0, 100),
-      rightContent: r.substring(0, 100)
-    })
+    // Skip diff computation for binary files to avoid freezing UI
+    if (this.isBinary) {
+      this.diffLines = []
+      this.lineDiffMap = []
+      return
+    }
 
     const changes: ChangeObject<string>[] = diffLines(l, r)
-    console.log('[FileCompare] diffLines changes:', changes)
 
     this.diffLines = []
     this.lineDiffMap = []
@@ -273,12 +261,13 @@ export class FileCompare extends LitElement {
       }
       i++
     }
+  }
 
-    console.log('[FileCompare] computeDiffs result:', {
-      lineDiffMapLength: this.lineDiffMap.length,
-      diffLinesLength: this.diffLines.length,
-      lineDiffMap: this.lineDiffMap
-    })
+  /* ---------- Helper methods ---------- */
+  containsNullBytes(content: string): boolean {
+    // Check first 8KB for null bytes (indicator of binary content)
+    const sample = content.substring(0, 8192)
+    return sample.includes('\0')
   }
 
   scrollToDiff(index: number) {
@@ -453,7 +442,12 @@ export class FileCompare extends LitElement {
   /* ---------- Render ---------- */
   render() {
     return html`
-      <simple-dialog .open=${true} title="📊 file comparison" width="95%">
+      <simple-dialog
+        .open=${true}
+        title="📊 file comparison"
+        width="95%"
+        @dialog-close=${this.close}
+      >
         <div class="root">
           <div class="toolbar">
             <button
@@ -507,9 +501,23 @@ export class FileCompare extends LitElement {
               ? html`<div style="padding:2rem;color:#ef4444">
                   ${this.error}
                 </div>`
-              : this.viewMode === 'side'
-                ? this.renderSide()
-                : this.renderUnified()}
+              : this.isBinary
+                ? html`<div style="padding:2rem;color:#94a3b8">
+                    <div style="font-size:1.2rem;margin-bottom:1rem">⚠️ Binary File Comparison</div>
+                    <div>Binary files cannot be compared as text.</div>
+                    <div style="margin-top:1rem">
+                      Left: ${this.leftPath} (${this.leftContent.length} bytes)<br/>
+                      Right: ${this.rightPath} (${this.rightContent.length} bytes)
+                    </div>
+                    <div style="margin-top:1rem;color:#fbbf24">
+                      ${this.leftContent.length === this.rightContent.length
+                        ? '✓ Files are the same size'
+                        : '✗ Files have different sizes'}
+                    </div>
+                  </div>`
+                : this.viewMode === 'side'
+                  ? this.renderSide()
+                  : this.renderUnified()}
         </div>
 
         <div slot="footer">
