@@ -12,6 +12,7 @@ interface Window {
       writeText: (text: string) => void
       readText: () => string
     }
-    startDrag: (filePath: string) => void
+    startDrag: (filePath: string | string[]) => void
+    getPathForFile: (file: File) => string
   }
 }

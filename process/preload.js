@@ -1,4 +1,4 @@
-const { contextBridge, ipcRenderer, clipboard } = require('electron');
+const { contextBridge, ipcRenderer, clipboard, webUtils } = require('electron');
 
 // Expose versions safely in sandbox mode
 const versions = process.versions || {};
@@ -41,5 +41,8 @@ contextBridge.exposeInMainWorld('electron', {
   },
   startDrag: (filePath) => {
     ipcRenderer.send('start-drag', filePath);
+  },
+  getPathForFile: (file) => {
+    return webUtils.getPathForFile(file);
   },
 });

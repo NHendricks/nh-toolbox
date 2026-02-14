@@ -21,8 +21,9 @@ You can find the binary downloads here: https://github.com/NHendricks/nh-toolbox
   - show date instead of id
   - timeline compare: add filters for added/removed/modified files
   - fix linux folder selection
+  - support dragndrop for files
 - GarbageFinder
-  - Fix to work for linmux and mac.
+  - Fix to work for linux and mac.
   - show files also, not only folders
   - sort by size should be default behaviour
 

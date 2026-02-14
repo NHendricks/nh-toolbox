@@ -1079,6 +1079,91 @@ export class Commander extends LitElement {
     }
   }
 
+  handleDragOver(e: DragEvent) {
+    e.preventDefault()
+    e.stopPropagation()
+    // Allow drop
+    if (e.dataTransfer) {
+      e.dataTransfer.dropEffect = 'copy'
+    }
+  }
+
+  async handleDrop(e: DragEvent, targetPath?: string) {
+    e.preventDefault()
+    e.stopPropagation()
+
+    const files = e.dataTransfer?.files
+    if (!files || files.length === 0) {
+      console.log('[drop] No files dropped')
+      return
+    }
+
+    // Use target path if provided (dropping on folder), otherwise use current directory
+    const destinationPath = targetPath || this.getActivePane().currentPath
+
+    console.log('[drop] Dropping', files.length, 'files into:', destinationPath)
+
+    // Get file paths from dropped files
+    // Use webUtils.getPathForFile for sandboxed Electron
+    const filePaths: string[] = []
+
+    for (const file of Array.from(files)) {
+      try {
+        const filePath = window.electron?.getPathForFile?.(file)
+        if (filePath) {
+          console.log('[drop] Got path for file:', file.name, '→', filePath)
+          filePaths.push(filePath)
+        } else {
+          console.error('[drop] Could not get path for file:', file.name)
+        }
+      } catch (error) {
+        console.error('[drop] Error getting path for file:', file.name, error)
+      }
+    }
+
+    if (filePaths.length === 0) {
+      console.error('[drop] No valid file paths found')
+      this.setStatus('Error: Could not get file paths', 'error')
+      return
+    }
+
+    try {
+      // Copy files to destination
+      const { FileService } = await import(
+        './commander/services/FileService.js'
+      )
+
+      for (const sourcePath of filePaths) {
+        const fileName = sourcePath.split(/[\\/]/).pop()
+        const destPath = `${destinationPath}/${fileName}`
+
+        console.log('[drop] Copying:', sourcePath, 'to:', destPath)
+
+        const result = await FileService.copy(sourcePath, destPath)
+        if (!result.success) {
+          console.error('[drop] Failed to copy:', result.error)
+          this.setStatus(`Failed to copy ${fileName}: ${result.error}`, 'error')
+          return
+        }
+      }
+
+      this.setStatus(
+        `Copied ${filePaths.length} file(s) to ${destinationPath}`,
+        'success',
+      )
+
+      // Refresh the directory
+      await this.loadDirectory(
+        this.activePane,
+        destinationPath,
+        destinationPath,
+      )
+    } catch (error: any) {
+      console.error('[drop] Error:', error)
+      this.setStatus(`Error copying files: ${error.message}`, 'error')
+    }
+  }
+
   async navigateToDirectory(path: string, addToHistory = true) {
     // Don't log paths as FTP URLs contain passwords
     // console.log('navigateToDirectory called with:', path)
@@ -3425,7 +3510,11 @@ export class Commander extends LitElement {
             `
           : ''}
 
-        <div class="file-list">
+        <div
+          class="file-list"
+          @dragover=${(e: DragEvent) => this.handleDragOver(e)}
+          @drop=${(e: DragEvent) => this.handleDrop(e)}
+        >
           ${filteredItems.map(
             (item, displayIndex) => html`
               <div
@@ -3438,9 +3527,27 @@ export class Commander extends LitElement {
                 @dragstart=${(e: DragEvent) => {
                   e.preventDefault()
                   e.stopPropagation()
+
                   // Use window.electron.startDrag to initiate native drag
                   if (window.electron?.startDrag) {
-                    window.electron.startDrag(item.path)
+                    // Find original index of the dragged item
+                    const originalIndex = pane.items.findIndex(
+                      (i) => i.path === item.path,
+                    )
+
+                    // Check if dragged item is in selection
+                    const isInSelection = originalIndex !== -1 && pane.selectedIndices.has(originalIndex)
+
+                    if (isInSelection && pane.selectedIndices.size > 0) {
+                      // Drag all selected items
+                      const selectedPaths = Array.from(pane.selectedIndices)
+                        .map(idx => pane.items[idx]?.path)
+                        .filter(path => path !== undefined)
+                      window.electron.startDrag(selectedPaths)
+                    } else {
+                      // Drag only the current item
+                      window.electron.startDrag(item.path)
+                    }
                   }
                 }}
                 @click=${(e: MouseEvent) => {
@@ -3476,6 +3583,12 @@ export class Commander extends LitElement {
                     this.openContextMenu()
                   }
                 }}
+                @dragover=${item.isDirectory
+                  ? (e: DragEvent) => this.handleDragOver(e)
+                  : undefined}
+                @drop=${item.isDirectory
+                  ? (e: DragEvent) => this.handleDrop(e, item.path)
+                  : undefined}
               >
                 <span class="file-icon"
                   >${item.isDirectory

@@ -307,23 +307,43 @@ ipcMain.handle('show-save-dialog', async (_event: any, options: any) => {
 });
 
 // Drag and drop IPC handler
-ipcMain.on('start-drag', async (event: any, filePath: string) => {
+ipcMain.on('start-drag', async (event: any, filePathOrPaths: string | string[]) => {
   try {
-    // Ensure we have an absolute path
-    const absolutePath = path.isAbsolute(filePath)
-      ? filePath
-      : path.resolve(filePath);
+    const isMultiple = Array.isArray(filePathOrPaths);
 
-    console.log('[start-drag] Dragging file:', absolutePath);
+    if (isMultiple) {
+      // Handle multiple files
+      const absolutePaths = filePathOrPaths.map(fp =>
+        path.isAbsolute(fp) ? fp : path.resolve(fp)
+      );
 
-    // Get file icon (required parameter)
-    const icon = await app.getFileIcon(absolutePath, { size: 'normal' });
+      console.log('[start-drag] Dragging', absolutePaths.length, 'files:', absolutePaths);
 
-    // Start drag with icon
-    event.sender.startDrag({
-      file: absolutePath,
-      icon: icon,
-    });
+      // Get icon from first file
+      const icon = await app.getFileIcon(absolutePaths[0], { size: 'normal' });
+
+      // Start drag with multiple files
+      event.sender.startDrag({
+        files: absolutePaths,
+        icon: icon,
+      });
+    } else {
+      // Handle single file
+      const absolutePath = path.isAbsolute(filePathOrPaths)
+        ? filePathOrPaths
+        : path.resolve(filePathOrPaths);
+
+      console.log('[start-drag] Dragging file:', absolutePath);
+
+      // Get file icon (required parameter)
+      const icon = await app.getFileIcon(absolutePath, { size: 'normal' });
+
+      // Start drag with icon
+      event.sender.startDrag({
+        file: absolutePath,
+        icon: icon,
+      });
+    }
   } catch (error: any) {
     console.error('[start-drag] Error:', error);
   }
