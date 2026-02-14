@@ -3,7 +3,6 @@ restic:
 - click on added, remove or changed and fiter trees
 - test linux
   - i can only select files, not folders. i want to be able to only select folders on ubuntu
-- test ftps => klappt
 - add docs
   - prepare:
     - Terminal (on Windows: use Git Bash):
