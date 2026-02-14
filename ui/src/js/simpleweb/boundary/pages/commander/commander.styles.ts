@@ -31,11 +31,18 @@ export const commanderStyles = css`
     display: flex;
     gap: 1rem;
     align-items: center;
+    justify-content: space-between;
   }
 
   .toolbar-title {
     font-weight: bold;
     font-size: 1.1rem;
+  }
+
+  .toolbar-right {
+    display: flex;
+    justify-content: space-between;
+    margin-right: 3rem;
   }
 
   .panes-container {
@@ -259,7 +266,8 @@ export const commanderStyles = css`
   }
 
   .function-key,
-  .function-key-top {
+  .function-key-top,
+  .function-key-top-right {
     flex: 1;
     background: #475569;
     border: 1px solid #64748b;
@@ -272,7 +280,7 @@ export const commanderStyles = css`
   }
 
   .function-key-top {
-    margin-right: 4em;
+    margin-right: 1em;
   }
 
   .function-key:hover {
@@ -284,6 +292,7 @@ export const commanderStyles = css`
     display: block;
     font-size: 0.75rem;
     color: #94a3b8;
+    margin-top: 0.2rem;
     margin-bottom: 0.2rem;
   }
 

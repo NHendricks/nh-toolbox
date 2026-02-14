@@ -1,6 +1,7 @@
 import { LitElement, html } from 'lit'
 import { property } from 'lit/decorators.js'
 import '../components/CompareDialog'
+import '../components/FileCompare'
 
 // Import from refactored modules
 import { commanderStyles } from './commander/commander.styles.js'
@@ -167,6 +168,9 @@ export class Commander extends LitElement {
 
   @property({ type: Object })
   mkdirDialog: { currentPath: string; folderName: string } | null = null
+
+  @property({ type: Object })
+  fileCompareDialog: { leftPath: string; rightPath: string } | null = null
 
   @property({ type: Object })
   zipDialog: { files: string[]; zipFileName: string } | null = null
@@ -336,18 +340,24 @@ export class Commander extends LitElement {
     })
 
     // Add IPC listener for FTP download progress
-    ;(window as any).electron.ipcRenderer.on('ftp-download-progress', (data: any) => {
-      this.ftpDownloadProgress = data
-      // Force UI update
-      this.requestUpdate()
-    })
+    ;(window as any).electron.ipcRenderer.on(
+      'ftp-download-progress',
+      (data: any) => {
+        this.ftpDownloadProgress = data
+        // Force UI update
+        this.requestUpdate()
+      },
+    )
 
     // Add IPC listener for FTP upload progress
-    ;(window as any).electron.ipcRenderer.on('ftp-upload-progress', (data: any) => {
-      this.ftpUploadProgress = data
-      // Force UI update
-      this.requestUpdate()
-    })
+    ;(window as any).electron.ipcRenderer.on(
+      'ftp-upload-progress',
+      (data: any) => {
+        this.ftpUploadProgress = data
+        // Force UI update
+        this.requestUpdate()
+      },
+    )
 
     // Add IPC listener for compare progress
     ;(window as any).electron.ipcRenderer.on(
@@ -982,9 +992,16 @@ export class Commander extends LitElement {
     return this.paneManager.getInactivePane()
   }
 
-  getOperationProgress(): { current: number; total: number; fileName: string; percentage: number } | null {
+  getOperationProgress(): {
+    current: number
+    total: number
+    fileName: string
+    percentage: number
+  } | null {
     // Return the active progress (FTP download, FTP upload, or regular copy)
-    return this.ftpDownloadProgress || this.ftpUploadProgress || this.copyProgress
+    return (
+      this.ftpDownloadProgress || this.ftpUploadProgress || this.copyProgress
+    )
   }
 
   updateActivePane(updates: Partial<PaneState>) {
@@ -1882,6 +1899,63 @@ export class Commander extends LitElement {
     }
   }
 
+  handleF11() {
+    // Get the focused item from the active pane (where cursor is)
+    const activePane = this.getActivePane()
+    const inactivePane = this.getInactivePane()
+    const activeFocusedItem = activePane.items[activePane.focusedIndex]
+
+    // Check if the focused item in active pane is a valid file
+    if (
+      !activeFocusedItem ||
+      activeFocusedItem.name === '..' ||
+      !activeFocusedItem.isFile
+    ) {
+      this.setStatus('Select a file to compare', 'error')
+      return
+    }
+
+    // Try to find a file with the same name in the inactive pane
+    let inactiveItem = inactivePane.items.find(
+      (item) => item.isFile && item.name === activeFocusedItem.name,
+    )
+
+    // If no matching filename found, use the focused item in the inactive pane
+    if (!inactiveItem) {
+      inactiveItem = inactivePane.items[inactivePane.focusedIndex]
+
+      // Check if the fallback item is a valid file
+      if (!inactiveItem || inactiveItem.name === '..' || !inactiveItem.isFile) {
+        this.setStatus(
+          `No matching file "${activeFocusedItem.name}" found in other pane`,
+          'error',
+        )
+        return
+      }
+    }
+
+    // Determine left and right paths based on which pane is active
+    const leftPath =
+      this.activePane === 'left' ? activeFocusedItem.path : inactiveItem.path
+    const rightPath =
+      this.activePane === 'left' ? inactiveItem.path : activeFocusedItem.path
+
+    // Open file compare dialog
+    this.fileCompareDialog = {
+      leftPath,
+      rightPath,
+    }
+
+    const matchInfo =
+      inactiveItem.name === activeFocusedItem.name
+        ? '(same name)'
+        : '(cursor position)'
+    this.setStatus(
+      `Comparing ${activeFocusedItem.name} ↔ ${inactiveItem.name} ${matchInfo}`,
+      'normal',
+    )
+  }
+
   updateCommand(value: string) {
     if (this.commandDialog) {
       this.commandDialog = {
@@ -2774,30 +2848,22 @@ export class Commander extends LitElement {
       <div class="commander-container">
         <div class="toolbar">
           <span class="toolbar-title">📁 Nice2Have Commander</span>
-          <div
-            class="function-key-top"
-            @click=${() => this.handleCompare()}
-            style="min-width: 100px; background: ${this.compareRecursive
-              ? ''
-              : '#475569'};"
-            title="compare"
-          >
-            <span class="function-key-label">📂 : 📂</span>
-          </div>
-          <div
-            class="function-key-top"
-            @click=${() => this.openHelp()}
-            style="min-width: 80px;"
-          >
-            <span class="function-key-label">F1</span>
-          </div>
-          <div
-            class="function-key-top"
-            @click=${() => this.openSettings()}
-            style="margin-left: auto; min-width: 80px; margin-right: 0.5rem;"
-            title="Settings"
-          >
-            <span class="function-key-label">⚙️</span>
+          <div class="toolbar-right">
+            <div
+              class="function-key-top"
+              @click=${() => this.openHelp()}
+              style="min-width: 80px;"
+            >
+              <span class="function-key-label">F1</span>
+            </div>
+            <div
+              class="function-key-top"
+              @click=${() => this.openSettings()}
+              style="margin-left: auto; min-width: 80px; margin-right: 0.5rem;"
+              title="Settings"
+            >
+              <span class="function-key-label">⚙️</span>
+            </div>
           </div>
         </div>
 
@@ -2842,6 +2908,10 @@ export class Commander extends LitElement {
           <div class="function-key" @click=${() => this.handleF10()}>
             <span class="function-key-label">F10</span>
             <span class="function-key-action">📋 path</span>
+          </div>
+          <div class="function-key" @click=${() => this.handleF11()}>
+            <span class="function-key-label">F11</span>
+            <span class="function-key-action">📄 ↔ 📄</span>
           </div>
           <div class="function-key" @click=${() => this.handleF12()}>
             <span class="function-key-label">F12</span>
@@ -2932,6 +3002,13 @@ export class Commander extends LitElement {
               @toggle-recursive=${this.toggleCompareRecursive}
               @recompare=${this.handleCompare}
             ></compare-dialog>`
+          : ''}
+        ${this.fileCompareDialog
+          ? html`<file-compare
+              .leftPath=${this.fileCompareDialog.leftPath}
+              .rightPath=${this.fileCompareDialog.rightPath}
+              @close=${() => (this.fileCompareDialog = null)}
+            ></file-compare>`
           : ''}
         ${this.showDriveSelector
           ? html`<drive-selector-dialog

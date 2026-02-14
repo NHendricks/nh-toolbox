@@ -1,9 +1,11 @@
 Commander:
-- compare files option directly in pane view
+- compare files option directly in pane view (F11)
+  - use SHIFT+F11 for compare directories
+  - if left and right has file selected, compare those
+- add option to move up/down favorites in driveselection
 - ftp update connection - update saved connection when changes are made
 - fix: quick command launch ENTER doesnt work
 - cleanup UI (remove header)
-- move up/down favorites
 - drag and drop files / folders from or to another app should work
 - add examples for replace in texteditor (e.g. line feed replacement with line feed and something)
 - new dos2unix and unix2dos actions in text editor (show current format bottom right)

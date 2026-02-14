@@ -457,6 +457,15 @@ export class KeyboardHandler {
           }
           return
 
+        case 'F11':
+          // F11 compares files, SHIFT + F11 compares directories
+          if (event.shiftKey) {
+            this.commander.handleCompare()
+          } else {
+            this.commander.handleF11()
+          }
+          return
+
         case 'F12':
           this.commander.handleF12()
           return
