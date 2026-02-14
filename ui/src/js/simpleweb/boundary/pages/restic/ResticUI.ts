@@ -1956,7 +1956,8 @@ export class ResticUI extends LitElement {
       const response = await (window as any).electron.ipcRenderer.invoke(
         'show-open-dialog',
         {
-          properties: ['openDirectory'],
+          properties: ['openDirectory', 'createDirectory'],
+          title: 'Select folder to backup',
         },
       )
 
