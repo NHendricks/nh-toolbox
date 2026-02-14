@@ -114,7 +114,7 @@ export const commanderStyles = css`
 
   .path-display {
     font-size: 0.85rem;
-    color: var(--text-secondary);
+    color: var(--text-primary);
   }
 
   /* ========= FILE LIST ========= */

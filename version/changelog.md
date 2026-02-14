@@ -17,9 +17,11 @@ You can find the binary downloads here: https://github.com/NHendricks/nh-toolbox
   - compare files on diff file click. Reuse compare dialog from commander.
   - show date instead of id
   - timeline compare: add filters for added/removed/modified files
-- garbagefinder:
+  - fix linux folder selection
+- GarbageFinder
   - Fix to work for linmux and mac.
   - show files also, not only folders
+  - sort by size should be default behaviour
 
 ### v2.0.0 (12.02.2026)
 

@@ -1,4 +1,0 @@
-- GarbageFinder
-- show delete action for files
-  - really delete in file system
-- sort by size should be default behaviour

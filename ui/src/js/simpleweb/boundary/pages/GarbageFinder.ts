@@ -528,7 +528,7 @@ export class GarbageFinder extends LitElement {
   }
 
   @property({ type: Boolean })
-  sortBySize: boolean = false
+  sortBySize: boolean = true
 
   private expandedPaths: Set<string> = new Set()
 

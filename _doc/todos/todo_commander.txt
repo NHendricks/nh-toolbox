@@ -1,10 +1,5 @@
 Commander:
-- add option to move up/down favorites in driveselection
 - ftp update connection - update saved connection when changes are made
-- drag and drop files / folders from or to another app should work
-- show help for replace in texteditor (how to replace text with line braks)
+- show help for replace function in texteditor (how to replace text with line braks)
 - new dos2unix and unix2dos actions in text editor (show current format bottom right)
-
-- create zip in memory, not in filesystem (if not yet so)
-- add support for browse into asar files
-- test and fix ftps
+- drag and drop files / folders from or to another app should work

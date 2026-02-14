@@ -1,7 +1,4 @@
 restic:
-
-- test linux
-  - i can only select files, not folders. i want to be able to only select folders on ubuntu
 - add docs
   - prepare:
     - Terminal (on Windows: use Git Bash):
