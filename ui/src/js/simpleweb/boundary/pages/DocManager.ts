@@ -1,5 +1,6 @@
 import { LitElement, css, html } from 'lit'
 import { customElement, state } from 'lit/decorators.js'
+import { scannerPreferencesService } from './docmanager/ScannerPreferencesService.js'
 
 interface Document {
   name: string
@@ -31,6 +32,8 @@ export class DocManager extends LitElement {
   @state() private resolution = '300'
   @state() private colorMode = 'color'
   @state() private format = 'pdf'
+  @state() private duplex = true
+  @state() private multiPage = true
 
   static styles = css`
     :host {
@@ -155,6 +158,25 @@ export class DocManager extends LitElement {
 
     button.danger {
       background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+    }
+
+    .checkbox-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 0;
+    }
+
+    .checkbox-group input[type='checkbox'] {
+      width: 18px;
+      height: 18px;
+      cursor: pointer;
+    }
+
+    .checkbox-group label {
+      margin: 0;
+      cursor: pointer;
+      font-weight: 500;
     }
 
     .message {
@@ -311,8 +333,20 @@ export class DocManager extends LitElement {
 
   connectedCallback() {
     super.connectedCallback()
+    this.loadPreferences()
     this.loadDocuments()
     this.loadScanners()
+  }
+
+  /**
+   * Load saved preferences from service
+   */
+  loadPreferences() {
+    this.resolution = scannerPreferencesService.getResolution()
+    this.colorMode = scannerPreferencesService.getColorMode()
+    this.format = scannerPreferencesService.getFormat()
+    this.duplex = scannerPreferencesService.getDuplex()
+    this.multiPage = scannerPreferencesService.getMultiPage()
   }
 
   async loadScanners() {
@@ -327,10 +361,24 @@ export class DocManager extends LitElement {
 
       if (result.success) {
         this.scanners = result.scanners || []
-        // Auto-select first scanner if available
+
+        // Try to restore last used scanner from preferences service
+        const lastScannerId = scannerPreferencesService.getLastScannerId()
+
         if (this.scanners.length > 0 && !this.selectedScannerId) {
-          this.selectedScannerId = this.scanners[0].id || ''
+          // Check if last used scanner is still available
+          if (
+            lastScannerId &&
+            this.scanners.some((s) => s.id === lastScannerId)
+          ) {
+            this.selectedScannerId = lastScannerId
+            console.log('Restored last used scanner:', lastScannerId)
+          } else {
+            // Fall back to first scanner
+            this.selectedScannerId = this.scanners[0].id || ''
+          }
         }
+
         if (result.message) {
           this.showMessage(result.message, 'info')
         }
@@ -375,6 +423,36 @@ export class DocManager extends LitElement {
     }
   }
 
+  handleResolutionChange(e: any) {
+    this.resolution = e.target.value
+    scannerPreferencesService.setResolution(this.resolution)
+  }
+
+  handleColorModeChange(e: any) {
+    this.colorMode = e.target.value
+    scannerPreferencesService.setColorMode(this.colorMode)
+  }
+
+  handleFormatChange(e: any) {
+    this.format = e.target.value
+    scannerPreferencesService.setFormat(this.format)
+  }
+
+  handleDuplexChange(e: any) {
+    this.duplex = e.target.checked
+    scannerPreferencesService.setDuplex(this.duplex)
+  }
+
+  handleMultiPageChange(e: any) {
+    this.multiPage = e.target.checked
+    scannerPreferencesService.setMultiPage(this.multiPage)
+  }
+
+  handleScannerChange(e: any) {
+    this.selectedScannerId = e.target.value
+    scannerPreferencesService.setLastScannerId(this.selectedScannerId)
+  }
+
   async scanDocument() {
     if (this.scanning) return
 
@@ -393,6 +471,8 @@ export class DocManager extends LitElement {
           resolution: this.resolution,
           colorMode: this.colorMode,
           format: this.format,
+          duplex: this.duplex,
+          multiPage: this.multiPage,
         },
       )
       const result = response.data || response
@@ -403,6 +483,17 @@ export class DocManager extends LitElement {
           'success',
         )
         this.fileName = '' // Reset filename
+
+        // Save all preferences to service
+        scannerPreferencesService.updatePreferences({
+          lastScannerId: this.selectedScannerId,
+          resolution: this.resolution,
+          colorMode: this.colorMode,
+          format: this.format,
+          duplex: this.duplex,
+          multiPage: this.multiPage,
+        })
+
         await this.loadDocuments() // Refresh document list
       } else {
         this.showMessage(
@@ -585,14 +676,13 @@ export class DocManager extends LitElement {
               ? html`
                   <div class="form-group">
                     <label>Select Scanner</label>
-                    <select
-                      .value="${this.selectedScannerId}"
-                      @change="${(e: any) =>
-                        (this.selectedScannerId = e.target.value)}"
-                    >
+                    <select @change="${this.handleScannerChange}">
                       ${this.scanners.map(
                         (scanner) => html`
-                          <option value="${scanner.id || ''}">
+                          <option
+                            value="${scanner.id || ''}"
+                            ?selected="${scanner.id === this.selectedScannerId}"
+                          >
                             ${scanner.name}
                           </option>
                         `,
@@ -621,38 +711,77 @@ export class DocManager extends LitElement {
             </div>
             <div class="form-group">
               <label>Resolution (DPI)</label>
-              <select
-                .value="${this.resolution}"
-                @change="${(e: any) => (this.resolution = e.target.value)}"
-              >
-                <option value="150">150 DPI</option>
-                <option value="300">300 DPI</option>
-                <option value="600">600 DPI</option>
+              <select @change="${this.handleResolutionChange}">
+                <option value="150" ?selected="${this.resolution === '150'}">
+                  150 DPI
+                </option>
+                <option value="300" ?selected="${this.resolution === '300'}">
+                  300 DPI
+                </option>
+                <option value="600" ?selected="${this.resolution === '600'}">
+                  600 DPI
+                </option>
               </select>
             </div>
             <div class="form-group">
               <label>Color Mode</label>
-              <select
-                .value="${this.colorMode}"
-                @change="${(e: any) => (this.colorMode = e.target.value)}"
-              >
-                <option value="color">Color</option>
-                <option value="grayscale">Grayscale</option>
-                <option value="lineart">Black & White</option>
+              <select @change="${this.handleColorModeChange}">
+                <option value="color" ?selected="${this.colorMode === 'color'}">
+                  Color
+                </option>
+                <option
+                  value="grayscale"
+                  ?selected="${this.colorMode === 'grayscale'}"
+                >
+                  Grayscale
+                </option>
+                <option
+                  value="lineart"
+                  ?selected="${this.colorMode === 'lineart'}"
+                >
+                  Black & White
+                </option>
               </select>
             </div>
             <div class="form-group">
               <label>Format</label>
-              <select
-                .value="${this.format}"
-                @change="${(e: any) => (this.format = e.target.value)}"
-              >
-                <option value="pdf">PDF</option>
-                <option value="png">PNG</option>
-                <option value="jpg">JPG</option>
+              <select @change="${this.handleFormatChange}">
+                <option value="pdf" ?selected="${this.format === 'pdf'}">
+                  PDF
+                </option>
+                <option value="png" ?selected="${this.format === 'png'}">
+                  PNG
+                </option>
+                <option value="jpg" ?selected="${this.format === 'jpg'}">
+                  JPG
+                </option>
               </select>
             </div>
           </div>
+
+          <div style="display: flex; gap: 20px; margin-top: 10px;">
+            <div class="checkbox-group">
+              <input
+                type="checkbox"
+                id="multiPage"
+                .checked="${this.multiPage}"
+                @change="${this.handleMultiPageChange}"
+              />
+              <label for="multiPage"
+                >Scan all pages (ADF - Automatic Document Feeder)</label
+              >
+            </div>
+            <div class="checkbox-group">
+              <input
+                type="checkbox"
+                id="duplex"
+                .checked="${this.duplex}"
+                @change="${this.handleDuplexChange}"
+              />
+              <label for="duplex">Duplex (scan both sides)</label>
+            </div>
+          </div>
+
           <div class="button-group">
             <button
               @click="${this.scanDocument}"

@@ -1,9 +1,11 @@
 - pdf manager
+  - remember last scanner (set as favorite)
+  - show scanned images in popup while scanning
+  - fix duplex
   - define own managed folder
-  - scan pdf
+  - rescan pdf (ocr)
   - split pdf incl. preview
   - show text
-      - ocr scan if wanted(ocrmypdf must be installed, check this!)
   - find text in pdfs 
     - write textfile for each pdf
     - find text within text files

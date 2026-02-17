@@ -75,6 +75,20 @@ export class ScannerCommand implements ICommand {
         options: ['pdf', 'png', 'jpg'],
         default: 'pdf',
       },
+      {
+        name: 'duplex',
+        type: 'boolean',
+        description: 'Enable duplex (both sides) scanning',
+        required: false,
+        default: true,
+      },
+      {
+        name: 'multiPage',
+        type: 'boolean',
+        description: 'Scan all pages from ADF (Automatic Document Feeder)',
+        required: false,
+        default: true,
+      },
     ];
   }
 
@@ -87,6 +101,8 @@ export class ScannerCommand implements ICommand {
       resolution,
       colorMode,
       format,
+      duplex,
+      multiPage,
     } = params;
 
     try {
@@ -101,6 +117,8 @@ export class ScannerCommand implements ICommand {
             resolution,
             colorMode,
             format,
+            duplex !== false, // default true
+            multiPage !== false, // default true
           );
         case 'list-documents':
           return await this.listDocuments(outputPath);
@@ -295,6 +313,8 @@ try {
     resolution: string = '300',
     colorMode: string = 'color',
     format: string = 'pdf',
+    duplex: boolean = true,
+    multiPage: boolean = true,
   ): Promise<any> {
     try {
       // Ensure output directory exists
@@ -325,6 +345,8 @@ try {
           resolution,
           colorMode,
           format,
+          duplex,
+          multiPage,
         );
       } else {
         // Unix-like systems (macOS, Linux) using scanimage
@@ -353,6 +375,8 @@ try {
     resolution: string,
     colorMode: string,
     format: string,
+    duplex: boolean,
+    multiPage: boolean,
   ): Promise<any> {
     try {
       // Improved PowerShell script for WIA scanning
@@ -440,6 +464,15 @@ try {
 
       // Now perform the actual scan
       const scannerIdParam = scannerId ? `"${scannerId}"` : '""';
+      const duplexEnabled = duplex ? '$true' : '$false';
+      const multiPageEnabled = multiPage ? '$true' : '$false';
+
+      // For multi-page, we need a temp directory
+      const tempDir = path.join(
+        process.env.TEMP || '',
+        `scan_${Date.now()}`,
+      );
+
       const psScript = `
 try {
     # Create WIA DeviceManager
@@ -474,9 +507,38 @@ try {
     }
 
     $device = $deviceInfo.Connect()
-    
+
     # Get scanner item (usually Item 1)
     $item = $device.Items.Item(1)
+
+    # Try to enable duplex and ADF/Feeder (Property ID: 3088)
+    $duplexEnabled = ${duplexEnabled}
+    $multiPageEnabled = ${multiPageEnabled}
+
+    if ($duplexEnabled -or $multiPageEnabled) {
+        try {
+            $handlingSelect = $item.Properties.Item("3088")
+            if ($handlingSelect -ne $null) {
+                # Bit flags: 1=Feeder, 2=Flatbed, 4=Duplex
+                $selectValue = 0
+
+                if ($multiPageEnabled) {
+                    $selectValue = $selectValue -bor 1  # Enable Feeder
+                    Write-Host "Multi-page scanning enabled (using ADF)"
+                }
+
+                if ($duplexEnabled) {
+                    $selectValue = $selectValue -bor 4  # Enable Duplex
+                    Write-Host "Duplex scanning enabled"
+                }
+
+                Write-Host "Setting document handling to: $selectValue"
+                $handlingSelect.Value = $selectValue
+            }
+        } catch {
+            Write-Warning "Could not configure document handling: $_. Scanner may not support these features."
+        }
+    }
     
     # Try to set resolution (Property IDs: 6147=Vertical, 6148=Horizontal DPI)
     try {
@@ -504,21 +566,77 @@ try {
     } catch {
         Write-Warning "Could not set color mode: $_"
     }
-    
-    # Perform the scan
+
+    # Create temp directory for multi-page scans
+    $tempDir = "${tempDir.replace(/\\/g, '\\\\')}"
+    if ($multiPageEnabled) {
+        New-Item -ItemType Directory -Force -Path $tempDir | Out-Null
+        Write-Host "Created temp directory: $tempDir"
+    }
+
+    # Perform the scan (multi-page loop)
     Write-Host "Starting scan..."
-    $imageProcess = New-Object -ComObject WIA.ImageProcess
-    $imageProcess.Filters.Add($imageProcess.FilterInfos.Item("Convert").FilterID)
-    $imageProcess.Filters.Item(1).Properties.Item("FormatID").Value = "${formatId}"
-    
-    # Transfer image from scanner
-    $image = $item.Transfer("${formatId}")
+    $pageNumber = 1
+    $scannedFiles = @()
 
-    # Process and save
-    $image = $imageProcess.Apply($image)
-    $image.SaveFile("${tempOutputFile.replace(/\\/g, '\\\\')}")
+    do {
+        try {
+            Write-Host "Scanning page $pageNumber..."
 
-    Write-Host "Scan completed successfully"
+            # Create image process for format conversion
+            $imageProcess = New-Object -ComObject WIA.ImageProcess
+            $imageProcess.Filters.Add($imageProcess.FilterInfos.Item("Convert").FilterID)
+            $imageProcess.Filters.Item(1).Properties.Item("FormatID").Value = "${formatId}"
+
+            # Transfer image from scanner
+            $image = $item.Transfer("${formatId}")
+
+            # Process image
+            $image = $imageProcess.Apply($image)
+
+            # Determine output file path
+            if ($multiPageEnabled) {
+                $outputPath = "$tempDir\\page_$pageNumber.png"
+            } else {
+                $outputPath = "${tempOutputFile.replace(/\\/g, '\\\\')}"
+            }
+
+            # Save image
+            $image.SaveFile($outputPath)
+            $scannedFiles += $outputPath
+            Write-Host "Page $pageNumber saved to: $outputPath"
+
+            $pageNumber++
+
+            # If not multi-page, break after first page
+            if (-not $multiPageEnabled) {
+                break
+            }
+
+            # Small delay between pages
+            Start-Sleep -Milliseconds 500
+
+        } catch {
+            # Check if error is due to no more pages
+            if ($_.Exception.Message -match "feeder|empty|no.*document" -or $pageNumber -gt 1) {
+                Write-Host "No more pages in feeder (scanned $($pageNumber - 1) pages)"
+                break
+            } else {
+                throw $_
+            }
+        }
+    } while ($multiPageEnabled)
+
+    # Output scanned file paths as JSON
+    $result = @{
+        success = $true
+        pageCount = $scannedFiles.Count
+        files = $scannedFiles
+        tempDir = if ($multiPageEnabled) { $tempDir } else { "" }
+    }
+
+    $result | ConvertTo-Json -Compress
+    Write-Host "Scan completed successfully - $($scannedFiles.Count) page(s)"
     exit 0
     
 } catch {
@@ -535,65 +653,104 @@ try {
         console.log('Starting WIA scan...');
         const { stdout, stderr } = await execAsync(
           `powershell -ExecutionPolicy Bypass -NoProfile -File "${tempScript}"`,
-          { timeout: 120000 }, // 2 minute timeout
+          { timeout: 300000 }, // 5 minute timeout for multi-page
         );
         console.log('WIA scan completed');
 
-        // Clean up
+        // Clean up temp script
         if (fs.existsSync(tempScript)) {
           fs.unlinkSync(tempScript);
         }
 
-        // Check if file was created and has reasonable size
-        if (fs.existsSync(tempOutputFile)) {
-          // If we need to convert PNG to PDF
-          if (scanAsPdf) {
+        // Parse the JSON result from PowerShell
+        const lines = stdout.split('\n');
+        let scanResult: any = null;
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (trimmed.startsWith('{')) {
             try {
-              console.log('Converting PNG to PDF...');
-              await this.convertImageToPdf(tempOutputFile, outputFile);
-
-              // Clean up temporary PNG file
-              if (fs.existsSync(tempOutputFile)) {
-                fs.unlinkSync(tempOutputFile);
-              }
-
-              const stats = fs.statSync(outputFile);
-              return {
-                success: true,
-                outputFile,
-                message: `Document scanned and converted to PDF successfully: ${outputFile}`,
-                method: 'WIA + PNG-to-PDF conversion',
-                fileSize: stats.size,
-                stdout: stdout,
-              };
-            } catch (conversionError: any) {
-              // If conversion fails, keep the PNG
-              console.error('PDF conversion failed:', conversionError.message);
-              return {
-                success: true,
-                outputFile: tempOutputFile,
-                message: `Document scanned as PNG (PDF conversion failed): ${tempOutputFile}`,
-                method: 'WIA',
-                fileSize: fs.statSync(tempOutputFile).size,
-                warning:
-                  'Could not convert to PDF. Saved as PNG instead. Error: ' +
-                  conversionError.message,
-              };
+              scanResult = JSON.parse(trimmed);
+              break;
+            } catch (e) {
+              // Not JSON, continue
             }
+          }
+        }
+
+        if (!scanResult || !scanResult.files || scanResult.files.length === 0) {
+          // Fallback: check if single file exists
+          if (fs.existsSync(tempOutputFile)) {
+            scanResult = {
+              success: true,
+              pageCount: 1,
+              files: [tempOutputFile],
+              tempDir: '',
+            };
           } else {
-            // Not converting, just return the scanned file
+            throw new Error('Scan completed but no files were created');
+          }
+        }
+
+        console.log(
+          `Scanned ${scanResult.pageCount} page(s): ${scanResult.files.join(', ')}`,
+        );
+
+        // Process the scanned files
+        try {
+          if (scanAsPdf) {
+            console.log('Converting to PDF...');
+            await this.convertImagesToPdf(scanResult.files, outputFile);
+
+            // Clean up temporary files
+            for (const file of scanResult.files) {
+              if (fs.existsSync(file)) {
+                fs.unlinkSync(file);
+              }
+            }
+
+            // Clean up temp directory if it exists
+            if (scanResult.tempDir && fs.existsSync(scanResult.tempDir)) {
+              fs.rmdirSync(scanResult.tempDir);
+            }
+
             const stats = fs.statSync(outputFile);
             return {
               success: true,
               outputFile,
-              message: `Document scanned successfully to ${outputFile}`,
-              method: 'WIA',
+              message: `Scanned ${scanResult.pageCount} page(s) and converted to PDF: ${outputFile}`,
+              method: 'WIA + PNG-to-PDF conversion',
+              pageCount: scanResult.pageCount,
               fileSize: stats.size,
-              stdout: stdout,
+            };
+          } else {
+            // Not PDF - if multi-page, just return first page or error
+            if (scanResult.pageCount > 1) {
+              return {
+                success: false,
+                error:
+                  'Multi-page scanning is only supported for PDF format. Please select PDF format.',
+                files: scanResult.files,
+              };
+            }
+
+            const stats = fs.statSync(scanResult.files[0]);
+            return {
+              success: true,
+              outputFile: scanResult.files[0],
+              message: `Document scanned successfully to ${scanResult.files[0]}`,
+              method: 'WIA',
+              pageCount: 1,
+              fileSize: stats.size,
             };
           }
-        } else {
-          throw new Error('Scan completed but file was not created');
+        } catch (conversionError: any) {
+          console.error('PDF conversion failed:', conversionError.message);
+          return {
+            success: false,
+            error: 'PDF conversion failed: ' + conversionError.message,
+            files: scanResult.files,
+          };
         }
       } catch (error: any) {
         // Clean up on error
@@ -633,38 +790,72 @@ try {
   }
 
   /**
-   * Convert an image (PNG/JPG) to PDF using PDFKit
+   * Convert multiple images (PNG/JPG) to a multi-page PDF using PDFKit
    */
-  private async convertImageToPdf(
-    inputFile: string,
+  private async convertImagesToPdf(
+    inputFiles: string[],
     outputFile: string,
   ): Promise<void> {
     return new Promise((resolve, reject) => {
       try {
-        // Get image dimensions
-        const imageBuffer = fs.readFileSync(inputFile);
-        const dimensions = sizeOf(imageBuffer);
+        if (!inputFiles || inputFiles.length === 0) {
+          reject(new Error('No input files provided'));
+          return;
+        }
 
-        // Create PDF with page size matching the image
+        console.log(
+          `Converting ${inputFiles.length} image(s) to PDF: ${outputFile}`,
+        );
+
+        // Get dimensions of first image to set initial page size
+        const firstImageBuffer = fs.readFileSync(inputFiles[0]);
+        const firstDimensions = sizeOf(firstImageBuffer);
+
+        // Create PDF with page size matching the first image
         const doc = new PDFDocument({
-          size: [dimensions.width, dimensions.height],
+          size: [firstDimensions.width || 612, firstDimensions.height || 792],
           margin: 0,
+          autoFirstPage: false, // We'll add pages manually
         });
 
         // Pipe to file
         const writeStream = fs.createWriteStream(outputFile);
         doc.pipe(writeStream);
 
-        // Add the image to fill the entire page
-        doc.image(inputFile, 0, 0, {
-          width: dimensions.width,
-          height: dimensions.height,
-        });
+        // Add each image as a separate page
+        for (let i = 0; i < inputFiles.length; i++) {
+          const inputFile = inputFiles[i];
+          console.log(`Adding page ${i + 1}/${inputFiles.length}: ${inputFile}`);
+
+          // Get dimensions for this image
+          const imageBuffer = fs.readFileSync(inputFile);
+          const dimensions = sizeOf(imageBuffer);
+
+          if (!dimensions.width || !dimensions.height) {
+            console.warn(
+              `Could not determine dimensions for ${inputFile}, using defaults`,
+            );
+            doc.addPage();
+          } else {
+            // Add a new page with size matching this image
+            doc.addPage({
+              size: [dimensions.width, dimensions.height],
+              margin: 0,
+            });
+          }
+
+          // Add the image to fill the entire page
+          doc.image(inputFile, 0, 0, {
+            width: dimensions.width || doc.page.width,
+            height: dimensions.height || doc.page.height,
+          });
+        }
 
         // Finalize the PDF
         doc.end();
 
         writeStream.on('finish', () => {
+          console.log('PDF created successfully');
           resolve();
         });
 
