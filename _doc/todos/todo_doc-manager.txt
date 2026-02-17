@@ -1,7 +1,7 @@
 - pdf manager
   - fix duplex
-  - remember all settings
   - show scanned images in popup while scanning
+  - remember all settings
   - define own managed folder
   - rescan pdf (ocr)
   - split pdf incl. preview

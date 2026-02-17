@@ -628,61 +628,6 @@ export class DocManager extends LitElement {
             `
           : ''}
 
-        <!-- Scanner Information -->
-        <div class="card">
-          <h2>🖨️ Available Scanners</h2>
-          ${this.loading
-            ? html`
-                <div class="loading">
-                  <div class="spinner"></div>
-                  <span>Loading scanners...</span>
-                </div>
-              `
-            : this.scanners.length > 0
-              ? html`
-                  <div class="scanner-list">
-                    ${this.scanners.map(
-                      (scanner) => html`
-                        <div class="scanner-item">
-                          <div class="scanner-name">
-                            ${scanner.name}
-                            ${scanner.manufacturer
-                              ? html` <span style="color: #999"
-                                  >(${scanner.manufacturer})</span
-                                >`
-                              : ''}
-                          </div>
-                          ${scanner.description
-                            ? html`<div class="scanner-info">
-                                ${scanner.description}
-                              </div>`
-                            : ''}
-                          ${scanner.note
-                            ? html`<div class="scanner-info">
-                                ${scanner.note}
-                              </div>`
-                            : ''}
-                        </div>
-                      `,
-                    )}
-                  </div>
-                `
-              : html`
-                  <div class="empty-state">
-                    <div class="empty-state-icon">🔍</div>
-                    <p>
-                      No scanners detected. Make sure your scanner is connected
-                      and drivers are installed.
-                    </p>
-                  </div>
-                `}
-          <div class="button-group">
-            <button @click="${this.loadScanners}" ?disabled="${this.loading}">
-              🔄 Refresh Scanners
-            </button>
-          </div>
-        </div>
-
         <!-- Scan Controls -->
         <div class="card">
           <h2>🎯 Scan Settings</h2>
