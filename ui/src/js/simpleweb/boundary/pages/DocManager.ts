@@ -30,7 +30,6 @@ export class DocManager extends LitElement {
   @state() private fileName = ''
   @state() private selectedScannerId = ''
   @state() private resolution = '300'
-  @state() private colorMode = 'color'
   @state() private format = 'pdf'
   @state() private multiPage = true
   @state() private showPreviewDialog = false
@@ -472,7 +471,6 @@ export class DocManager extends LitElement {
    */
   loadPreferences() {
     this.resolution = scannerPreferencesService.getResolution()
-    this.colorMode = scannerPreferencesService.getColorMode()
     this.format = scannerPreferencesService.getFormat()
     this.multiPage = scannerPreferencesService.getMultiPage()
   }
@@ -556,11 +554,6 @@ export class DocManager extends LitElement {
     scannerPreferencesService.setResolution(this.resolution)
   }
 
-  handleColorModeChange(e: any) {
-    this.colorMode = e.target.value
-    scannerPreferencesService.setColorMode(this.colorMode)
-  }
-
   handleFormatChange(e: any) {
     this.format = e.target.value
     scannerPreferencesService.setFormat(this.format)
@@ -577,10 +570,16 @@ export class DocManager extends LitElement {
   }
 
   async scanDocument() {
-    if (this.scanning) return
+    // Prevent multiple simultaneous scans with a more robust check
+    if (this.scanning) {
+      console.log('Scan already in progress, ignoring duplicate call')
+      return
+    }
+
+    // Set scanning flag immediately and synchronously
+    this.scanning = true
 
     try {
-      this.scanning = true
       this.previewFiles = []
       this.previewDataUrls = []
       this.previewTempDir = ''
@@ -594,7 +593,6 @@ export class DocManager extends LitElement {
           action: 'scan-preview',
           scannerId: this.selectedScannerId,
           resolution: this.resolution,
-          colorMode: this.colorMode,
           multiPage: this.multiPage,
         },
       )
@@ -612,7 +610,6 @@ export class DocManager extends LitElement {
         scannerPreferencesService.updatePreferences({
           lastScannerId: this.selectedScannerId,
           resolution: this.resolution,
-          colorMode: this.colorMode,
           format: this.format,
           multiPage: this.multiPage,
         })
@@ -880,26 +877,6 @@ export class DocManager extends LitElement {
               </select>
             </div>
             <div class="form-group">
-              <label>Color Mode</label>
-              <select @change="${this.handleColorModeChange}">
-                <option value="color" ?selected="${this.colorMode === 'color'}">
-                  Color
-                </option>
-                <option
-                  value="grayscale"
-                  ?selected="${this.colorMode === 'grayscale'}"
-                >
-                  Grayscale
-                </option>
-                <option
-                  value="lineart"
-                  ?selected="${this.colorMode === 'lineart'}"
-                >
-                  Black & White
-                </option>
-              </select>
-            </div>
-            <div class="form-group">
               <label>Format</label>
               <select @change="${this.handleFormatChange}">
                 <option value="pdf" ?selected="${this.format === 'pdf'}">
@@ -937,10 +914,7 @@ export class DocManager extends LitElement {
             >
               ${this.scanning ? '⏳ Scanning...' : '📷 Start Scan'}
             </button>
-            <button
-              @click="${this.loadScanners}"
-              ?disabled="${this.loading}"
-            >
+            <button @click="${this.loadScanners}" ?disabled="${this.loading}">
               🔄 Refresh Scanners
             </button>
             ${this.showPreviewDialog
@@ -1014,7 +988,11 @@ export class DocManager extends LitElement {
       <div class="preview-overlay">
         <div class="preview-dialog">
           <div class="preview-header">
-            <span>${isScanning ? 'Scanning...' : 'Scanned Pages - Review & Remove'}</span>
+            <span
+              >${isScanning
+                ? 'Scanning...'
+                : 'Scanned Pages - Review & Remove'}</span
+            >
           </div>
           <div class="preview-body">
             ${isScanning
@@ -1030,12 +1008,11 @@ export class DocManager extends LitElement {
                       ${this.previewDataUrls.map(
                         (dataUrl, index) => html`
                           <div class="preview-item">
-                            <img
-                              src="${dataUrl}"
-                              alt="Page ${index + 1}"
-                            />
+                            <img src="${dataUrl}" alt="Page ${index + 1}" />
                             <div class="preview-item-footer">
-                              <span class="preview-item-label">Page ${index + 1}</span>
+                              <span class="preview-item-label"
+                                >Page ${index + 1}</span
+                              >
                               <button
                                 class="preview-delete-btn"
                                 @click="${() => this.removePreviewPage(index)}"
@@ -1053,7 +1030,9 @@ export class DocManager extends LitElement {
                   </div>`}
           </div>
           <div class="preview-footer">
-            <span class="page-count">${this.previewDataUrls.length} page(s)</span>
+            <span class="page-count"
+              >${this.previewDataUrls.length} page(s)</span
+            >
             <div class="preview-footer-buttons">
               <button @click="${this.cancelPreview}" ?disabled="${isScanning}">
                 Cancel
@@ -1063,7 +1042,9 @@ export class DocManager extends LitElement {
                 @click="${this.finalizeScan}"
                 ?disabled="${this.previewFiles.length === 0 || this.scanning}"
               >
-                ${this.scanning && !isScanning ? 'Saving...' : `Save as ${this.format.toUpperCase()}`}
+                ${this.scanning && !isScanning
+                  ? 'Saving...'
+                  : `Save as ${this.format.toUpperCase()}`}
               </button>
             </div>
           </div>

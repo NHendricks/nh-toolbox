@@ -1,4 +1,6 @@
 - pdf manager
+  - fix after successfull scan i need several retrys to get another succeddful scan
+    Scan failed: Command failed: powershell -ExecutionPolicy Bypass -NoProfile -File "C:\Users\nilsh\AppData\Local\Temp\scan_wia.ps1" C:\Users\nilsh\AppData\Local\Temp\scan_wia.ps1 : Scan failed: Unbekannter Fehler + CategoryInfo : NotSpecified: (:) [Write-Error], WriteErrorException + FullyQualifiedErrorId : Microsoft.PowerShell.Commands.WriteErrorException,scan_wia.ps1 C:\Users\nilsh\AppData\Local\Temp\scan_wia.ps1 : Unbekannter Fehler + CategoryInfo : NotSpecified: (:) [Write-Error], WriteErrorException + FullyQualifiedErrorId : Microsoft.PowerShell.Commands.WriteErrorException,scan_wia.ps1
   - show scanned images in popup while scanning
   - fix duplex (use naps2)
   - remember all settings
@@ -16,3 +18,7 @@
       - date
       - billing nr
       make these fields editable and save them in preferences for future scans 
+
+
+
+
