@@ -12,6 +12,7 @@ You can find the binary downloads here: https://github.com/NHendricks/nh-toolbox
 
 - new app documentManager
   - scan documents (pdf, png, jpg)
+    - scan, remove images option in popup, save pdf
 
 ### v2.1.0 (14.02.2026)
 

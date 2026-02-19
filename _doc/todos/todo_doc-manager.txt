@@ -1,9 +1,10 @@
 - pdf manager
-  - fix duplex
+  - remove duplex checkbox (doesnt work)
   - show scanned images in popup while scanning
+  - fix duplex (use naps2)
   - remember all settings
   - define own managed folder
-  - rescan pdf (ocr)
+  - rescan pdf folder (ocr)
   - split pdf incl. preview
   - show text
   - find text in pdfs 
@@ -16,4 +17,3 @@
       - date
       - billing nr
       make these fields editable and save them in preferences for future scans 
-  - rename pdf (date/sender/account)

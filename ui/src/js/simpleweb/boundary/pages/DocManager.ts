@@ -32,8 +32,11 @@ export class DocManager extends LitElement {
   @state() private resolution = '300'
   @state() private colorMode = 'color'
   @state() private format = 'pdf'
-  @state() private duplex = true
   @state() private multiPage = true
+  @state() private showPreviewDialog = false
+  @state() private previewFiles: string[] = []
+  @state() private previewDataUrls: string[] = []
+  @state() private previewTempDir = ''
 
   static styles = css`
     :host {
@@ -329,6 +332,132 @@ export class DocManager extends LitElement {
       flex-wrap: wrap;
       gap: 10px;
     }
+
+    .preview-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.85);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+
+    .preview-dialog {
+      background: white;
+      border-radius: 12px;
+      width: 90%;
+      max-width: 1100px;
+      max-height: 85vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      box-shadow: 0 8px 40px rgba(0, 0, 0, 0.3);
+    }
+
+    .preview-header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      padding: 16px 24px;
+      color: white;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-weight: 600;
+      font-size: 1.1em;
+    }
+
+    .preview-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+    }
+
+    .preview-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 16px;
+    }
+
+    .preview-item {
+      position: relative;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      overflow: hidden;
+      background: #f8f9fa;
+      transition: border-color 0.2s;
+    }
+
+    .preview-item:hover {
+      border-color: #667eea;
+    }
+
+    .preview-item img {
+      width: 100%;
+      height: 250px;
+      object-fit: contain;
+      background: white;
+      display: block;
+    }
+
+    .preview-item-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 12px;
+      background: #f8f9fa;
+      border-top: 1px solid #e0e0e0;
+    }
+
+    .preview-item-label {
+      font-size: 0.85em;
+      color: #555;
+      font-weight: 600;
+    }
+
+    .preview-delete-btn {
+      background: #dc3545;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      padding: 4px 10px;
+      cursor: pointer;
+      font-size: 0.8em;
+      font-weight: 600;
+      margin: 0;
+    }
+
+    .preview-delete-btn:hover {
+      background: #c82333;
+      transform: none;
+      box-shadow: none;
+    }
+
+    .preview-footer {
+      padding: 16px 24px;
+      border-top: 2px solid #e0e0e0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #f8f9fa;
+    }
+
+    .preview-footer .page-count {
+      font-size: 0.95em;
+      color: #555;
+      font-weight: 600;
+    }
+
+    .preview-footer-buttons {
+      display: flex;
+      gap: 10px;
+    }
+
+    .preview-footer button {
+      margin: 0;
+    }
   `
 
   connectedCallback() {
@@ -345,7 +474,6 @@ export class DocManager extends LitElement {
     this.resolution = scannerPreferencesService.getResolution()
     this.colorMode = scannerPreferencesService.getColorMode()
     this.format = scannerPreferencesService.getFormat()
-    this.duplex = scannerPreferencesService.getDuplex()
     this.multiPage = scannerPreferencesService.getMultiPage()
   }
 
@@ -438,11 +566,6 @@ export class DocManager extends LitElement {
     scannerPreferencesService.setFormat(this.format)
   }
 
-  handleDuplexChange(e: any) {
-    this.duplex = e.target.checked
-    scannerPreferencesService.setDuplex(this.duplex)
-  }
-
   handleMultiPageChange(e: any) {
     this.multiPage = e.target.checked
     scannerPreferencesService.setMultiPage(this.multiPage)
@@ -458,59 +581,43 @@ export class DocManager extends LitElement {
 
     try {
       this.scanning = true
-      this.showMessage('Starting scan... Please wait.', 'info')
-
-      // Log scan parameters for debugging
-      console.log('Scan parameters:', {
-        duplex: this.duplex,
-        multiPage: this.multiPage,
-        resolution: this.resolution,
-        colorMode: this.colorMode,
-        format: this.format,
-        scannerId: this.selectedScannerId,
-      })
+      this.previewFiles = []
+      this.previewDataUrls = []
+      this.previewTempDir = ''
+      this.showPreviewDialog = true
+      this.showMessage('Scanning... Please wait.', 'info')
 
       const response = await (window as any).electron.ipcRenderer.invoke(
         'cli-execute',
         'scanner',
         {
-          action: 'scan',
-          outputPath: this.scanDirectory,
-          fileName: this.fileName,
+          action: 'scan-preview',
           scannerId: this.selectedScannerId,
           resolution: this.resolution,
           colorMode: this.colorMode,
-          format: this.format,
-          duplex: this.duplex,
           multiPage: this.multiPage,
         },
       )
       const result = response.data || response
 
-      // Log scan result for debugging
-      if (result.debugOutput) {
-        console.log('Scan debug output:', result.debugOutput)
-      }
-
       if (result.success) {
+        this.previewFiles = result.files || []
+        this.previewDataUrls = result.previews || []
+        this.previewTempDir = result.tempDir || ''
         this.showMessage(
-          'Document scanned successfully! ' + result.message,
+          `Scanned ${result.pageCount} page(s) - review and remove unwanted pages before saving.`,
           'success',
         )
-        this.fileName = '' // Reset filename
 
-        // Save all preferences to service
         scannerPreferencesService.updatePreferences({
           lastScannerId: this.selectedScannerId,
           resolution: this.resolution,
           colorMode: this.colorMode,
           format: this.format,
-          duplex: this.duplex,
           multiPage: this.multiPage,
         })
-
-        await this.loadDocuments() // Refresh document list
       } else {
+        this.showPreviewDialog = false
         this.showMessage(
           'Scan failed: ' + (result.error || result.message || 'Unknown error'),
           'error',
@@ -520,10 +627,101 @@ export class DocManager extends LitElement {
         }
       }
     } catch (error: any) {
+      this.showPreviewDialog = false
       this.showMessage('Error during scan: ' + error.message, 'error')
     } finally {
       this.scanning = false
     }
+  }
+
+  async removePreviewPage(index: number) {
+    const file = this.previewFiles[index]
+    if (!file) return
+
+    try {
+      await (window as any).electron.ipcRenderer.invoke(
+        'cli-execute',
+        'scanner',
+        {
+          action: 'cleanup-scan',
+          files: JSON.stringify([file]),
+        },
+      )
+    } catch (e) {
+      // Ignore cleanup errors
+    }
+
+    this.previewFiles = this.previewFiles.filter((_, i) => i !== index)
+    this.previewDataUrls = this.previewDataUrls.filter((_, i) => i !== index)
+  }
+
+  async finalizeScan() {
+    if (this.previewFiles.length === 0) {
+      this.showMessage('No pages to save.', 'error')
+      return
+    }
+
+    try {
+      this.scanning = true
+      this.showMessage('Creating document...', 'info')
+
+      const response = await (window as any).electron.ipcRenderer.invoke(
+        'cli-execute',
+        'scanner',
+        {
+          action: 'finalize-scan',
+          files: JSON.stringify(this.previewFiles),
+          outputPath: this.scanDirectory,
+          fileName: this.fileName,
+          format: this.format,
+        },
+      )
+      const result = response.data || response
+
+      if (result.success) {
+        this.showMessage(
+          'Document saved successfully! ' + result.message,
+          'success',
+        )
+        this.fileName = ''
+        this.showPreviewDialog = false
+        this.previewFiles = []
+        this.previewDataUrls = []
+        this.previewTempDir = ''
+        await this.loadDocuments()
+      } else {
+        this.showMessage(
+          'Save failed: ' + (result.error || 'Unknown error'),
+          'error',
+        )
+      }
+    } catch (error: any) {
+      this.showMessage('Error saving document: ' + error.message, 'error')
+    } finally {
+      this.scanning = false
+    }
+  }
+
+  async cancelPreview() {
+    try {
+      await (window as any).electron.ipcRenderer.invoke(
+        'cli-execute',
+        'scanner',
+        {
+          action: 'cleanup-scan',
+          files: JSON.stringify(this.previewFiles),
+          tempDir: this.previewTempDir,
+        },
+      )
+    } catch (e) {
+      // Ignore cleanup errors
+    }
+
+    this.showPreviewDialog = false
+    this.previewFiles = []
+    this.previewDataUrls = []
+    this.previewTempDir = ''
+    this.showMessage('Scan cancelled.', 'info')
   }
 
   async openDocument(doc: Document) {
@@ -632,25 +830,23 @@ export class DocManager extends LitElement {
         <div class="card">
           <h2>🎯 Scan Settings</h2>
           <div class="scan-controls">
-            ${this.scanners.length > 1
-              ? html`
-                  <div class="form-group">
-                    <label>Select Scanner</label>
-                    <select @change="${this.handleScannerChange}">
-                      ${this.scanners.map(
-                        (scanner) => html`
-                          <option
-                            value="${scanner.id || ''}"
-                            ?selected="${scanner.id === this.selectedScannerId}"
-                          >
-                            ${scanner.name}
-                          </option>
-                        `,
-                      )}
-                    </select>
-                  </div>
-                `
-              : ''}
+            <div class="form-group">
+              <label>Select Scanner</label>
+              <select @change="${this.handleScannerChange}">
+                ${this.scanners.length === 0
+                  ? html`<option value="">No scanners found</option>`
+                  : this.scanners.map(
+                      (scanner) => html`
+                        <option
+                          value="${scanner.id || ''}"
+                          ?selected="${scanner.id === this.selectedScannerId}"
+                        >
+                          ${scanner.name}
+                        </option>
+                      `,
+                    )}
+              </select>
+            </div>
             <div class="form-group">
               <label>Scan Directory</label>
               <input
@@ -731,25 +927,29 @@ export class DocManager extends LitElement {
                 >Scan all pages (ADF - Automatic Document Feeder)</label
               >
             </div>
-            <div class="checkbox-group">
-              <input
-                type="checkbox"
-                id="duplex"
-                .checked="${this.duplex}"
-                @change="${this.handleDuplexChange}"
-              />
-              <label for="duplex">Duplex (scan both sides)</label>
-            </div>
           </div>
 
           <div class="button-group">
             <button
               @click="${this.scanDocument}"
-              ?disabled="${this.scanning}"
+              ?disabled="${this.scanning || this.scanners.length === 0}"
               class="secondary"
             >
               ${this.scanning ? '⏳ Scanning...' : '📷 Start Scan'}
             </button>
+            <button
+              @click="${this.loadScanners}"
+              ?disabled="${this.loading}"
+            >
+              🔄 Refresh Scanners
+            </button>
+            ${this.showPreviewDialog
+              ? html`
+                  <button @click="${this.cancelPreview}" class="danger">
+                    Cancel
+                  </button>
+                `
+              : ''}
           </div>
         </div>
 
@@ -800,6 +1000,73 @@ export class DocManager extends LitElement {
                   </p>
                 </div>
               `}
+        </div>
+
+        ${this.showPreviewDialog ? this.renderPreviewDialog() : ''}
+      </div>
+    `
+  }
+
+  private renderPreviewDialog() {
+    const isScanning = this.scanning && this.previewDataUrls.length === 0
+
+    return html`
+      <div class="preview-overlay">
+        <div class="preview-dialog">
+          <div class="preview-header">
+            <span>${isScanning ? 'Scanning...' : 'Scanned Pages - Review & Remove'}</span>
+          </div>
+          <div class="preview-body">
+            ${isScanning
+              ? html`
+                  <div class="loading">
+                    <div class="spinner"></div>
+                    <span>Scanning documents... Please wait.</span>
+                  </div>
+                `
+              : this.previewDataUrls.length > 0
+                ? html`
+                    <div class="preview-grid">
+                      ${this.previewDataUrls.map(
+                        (dataUrl, index) => html`
+                          <div class="preview-item">
+                            <img
+                              src="${dataUrl}"
+                              alt="Page ${index + 1}"
+                            />
+                            <div class="preview-item-footer">
+                              <span class="preview-item-label">Page ${index + 1}</span>
+                              <button
+                                class="preview-delete-btn"
+                                @click="${() => this.removePreviewPage(index)}"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          </div>
+                        `,
+                      )}
+                    </div>
+                  `
+                : html`<div class="empty-state">
+                    <p>All pages removed.</p>
+                  </div>`}
+          </div>
+          <div class="preview-footer">
+            <span class="page-count">${this.previewDataUrls.length} page(s)</span>
+            <div class="preview-footer-buttons">
+              <button @click="${this.cancelPreview}" ?disabled="${isScanning}">
+                Cancel
+              </button>
+              <button
+                class="secondary"
+                @click="${this.finalizeScan}"
+                ?disabled="${this.previewFiles.length === 0 || this.scanning}"
+              >
+                ${this.scanning && !isScanning ? 'Saving...' : `Save as ${this.format.toUpperCase()}`}
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     `

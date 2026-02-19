@@ -27,6 +27,9 @@ export class ScannerCommand implements ICommand {
         options: [
           'list-scanners',
           'scan',
+          'scan-preview',
+          'finalize-scan',
+          'cleanup-scan',
           'list-documents',
           'open-document',
           'delete-document',
@@ -76,18 +79,23 @@ export class ScannerCommand implements ICommand {
         default: 'pdf',
       },
       {
-        name: 'duplex',
-        type: 'boolean',
-        description: 'Enable duplex (both sides) scanning',
-        required: false,
-        default: true,
-      },
-      {
         name: 'multiPage',
         type: 'boolean',
         description: 'Scan all pages from ADF (Automatic Document Feeder)',
         required: false,
         default: true,
+      },
+      {
+        name: 'files',
+        type: 'string',
+        description: 'JSON array of file paths (for finalize-scan/cleanup-scan)',
+        required: false,
+      },
+      {
+        name: 'tempDir',
+        type: 'string',
+        description: 'Temp directory path (for cleanup-scan)',
+        required: false,
       },
     ];
   }
@@ -101,8 +109,9 @@ export class ScannerCommand implements ICommand {
       resolution,
       colorMode,
       format,
-      duplex,
       multiPage,
+      files,
+      tempDir,
     } = params;
 
     try {
@@ -117,9 +126,24 @@ export class ScannerCommand implements ICommand {
             resolution,
             colorMode,
             format,
-            duplex !== false, // default true
             multiPage !== false, // default true
           );
+        case 'scan-preview':
+          return await this.scanPreview(
+            scannerId,
+            resolution,
+            colorMode,
+            multiPage !== false,
+          );
+        case 'finalize-scan':
+          return await this.finalizeScan(
+            files,
+            outputPath,
+            fileName,
+            format,
+          );
+        case 'cleanup-scan':
+          return await this.cleanupScan(files, tempDir);
         case 'list-documents':
           return await this.listDocuments(outputPath);
         case 'open-document':
@@ -313,7 +337,6 @@ try {
     resolution: string = '300',
     colorMode: string = 'color',
     format: string = 'pdf',
-    duplex: boolean = true,
     multiPage: boolean = true,
   ): Promise<any> {
     try {
@@ -345,7 +368,6 @@ try {
           resolution,
           colorMode,
           format,
-          duplex,
           multiPage,
         );
       } else {
@@ -375,7 +397,6 @@ try {
     resolution: string,
     colorMode: string,
     format: string,
-    duplex: boolean,
     multiPage: boolean,
   ): Promise<any> {
     try {
@@ -464,7 +485,6 @@ try {
 
       // Now perform the actual scan
       const scannerIdParam = scannerId ? `"${scannerId}"` : '""';
-      const duplexEnabled = duplex ? '$true' : '$false';
       const multiPageEnabled = multiPage ? '$true' : '$false';
 
       // For multi-page, we need a temp directory
@@ -519,12 +539,7 @@ try {
     $item = $device.Items.Item(1)
     Write-Host "DEBUG: Item retrieved successfully"
 
-    # Try to enable duplex and ADF/Feeder (Property ID: 3088)
-    # TEMPORARILY DISABLED FOR DEBUGGING
-    $duplexEnabled = ${duplexEnabled}
     $multiPageEnabled = ${multiPageEnabled}
-
-    Write-Host "DEBUG: Duplex configuration DISABLED for debugging - scanning without duplex/multi-page"
 
     Write-Host "DEBUG: Setting resolution and color mode..."
     # Try to set resolution (Property IDs: 6147=Vertical, 6148=Horizontal DPI)
@@ -915,6 +930,226 @@ try {
         message:
           'Unix scanning failed. Make sure SANE is installed and your scanner is connected.',
         help: 'Install SANE: brew install sane-backends (macOS) or sudo apt-get install sane sane-utils (Linux)',
+      };
+    }
+  }
+
+  /**
+   * Scan to preview - scans pages to temp PNGs without creating PDF
+   */
+  private async scanPreview(
+    scannerId: string = '',
+    resolution: string = '300',
+    colorMode: string = 'color',
+    multiPage: boolean = true,
+  ): Promise<any> {
+    try {
+      if (process.platform !== 'win32') {
+        return {
+          success: false,
+          error: 'scan-preview is currently only supported on Windows',
+        };
+      }
+
+      // Generate a temp output file path and ensure directory exists
+      const tempDir = path.join(
+        process.env.TEMP || '',
+        `scan_preview_${Date.now()}`,
+      );
+      fs.mkdirSync(tempDir, { recursive: true });
+      const tempOutputFile = path.join(tempDir, 'page.png');
+
+      // Scan as PNG - scanWindowsWIA may return success:false for multi-page PNG
+      // but the files will still be on disk
+      const result = await this.scanWindowsWIA(
+        tempOutputFile,
+        scannerId,
+        resolution,
+        colorMode,
+        'png',
+        multiPage,
+      );
+
+      // Collect PNG files from result or from disk
+      const resultFiles: string[] = result.files || [];
+      if (result.outputFile && !resultFiles.includes(result.outputFile)) {
+        resultFiles.push(result.outputFile);
+      }
+
+      // Also scan the temp directory for any PNG files
+      const scanTempDir = resultFiles.length > 0
+        ? path.dirname(resultFiles[0])
+        : tempDir;
+
+      const files: string[] = [];
+      if (fs.existsSync(scanTempDir)) {
+        const dirFiles = fs.readdirSync(scanTempDir);
+        for (const f of dirFiles) {
+          if (f.endsWith('.png')) {
+            const fullPath = path.join(scanTempDir, f);
+            if (!files.includes(fullPath)) {
+              files.push(fullPath);
+            }
+          }
+        }
+        files.sort();
+      }
+
+      // Fallback: use files from result if directory scan found nothing
+      if (files.length === 0) {
+        for (const f of resultFiles) {
+          if (fs.existsSync(f)) {
+            files.push(f);
+          }
+        }
+      }
+
+      if (files.length === 0) {
+        return {
+          success: false,
+          error: result.error || 'Scan completed but no files were created',
+          message: result.message,
+        };
+      }
+
+      // Convert files to base64 data URLs for display in Electron
+      const previews: string[] = [];
+      for (const f of files) {
+        const data = fs.readFileSync(f);
+        previews.push(`data:image/png;base64,${data.toString('base64')}`);
+      }
+
+      return {
+        success: true,
+        files,
+        previews,
+        tempDir: scanTempDir,
+        pageCount: files.length,
+        message: `Scanned ${files.length} page(s) - ready for review`,
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+  }
+
+  /**
+   * Finalize scan - create PDF from selected image files
+   */
+  private async finalizeScan(
+    files: string | string[],
+    outputPath: string,
+    fileName: string,
+    format: string = 'pdf',
+  ): Promise<any> {
+    try {
+      const fileList = typeof files === 'string' ? JSON.parse(files) : files;
+
+      if (!fileList || fileList.length === 0) {
+        return {
+          success: false,
+          error: 'No files provided',
+        };
+      }
+
+      const baseDir =
+        outputPath ||
+        path.join(
+          process.env.USERPROFILE || process.env.HOME || '',
+          'Documents',
+          'Scans',
+        );
+      if (!fs.existsSync(baseDir)) {
+        fs.mkdirSync(baseDir, { recursive: true });
+      }
+
+      const timestamp = new Date()
+        .toISOString()
+        .replace(/[:.]/g, '-')
+        .slice(0, 19);
+      const finalFileName = fileName || `scan_${timestamp}.${format}`;
+      const outputFile = path.join(baseDir, finalFileName);
+
+      if (format === 'pdf') {
+        await this.convertImagesToPdf(fileList, outputFile);
+      } else {
+        // For non-PDF, copy the first file
+        fs.copyFileSync(fileList[0], outputFile);
+      }
+
+      // Clean up temp files
+      const tempDirs = new Set<string>();
+      for (const file of fileList) {
+        tempDirs.add(path.dirname(file));
+        if (fs.existsSync(file)) {
+          fs.unlinkSync(file);
+        }
+      }
+      // Clean up temp directories
+      for (const dir of tempDirs) {
+        try {
+          if (fs.existsSync(dir) && dir.includes('scan_')) {
+            const remaining = fs.readdirSync(dir);
+            if (remaining.length === 0) {
+              fs.rmdirSync(dir);
+            }
+          }
+        } catch (e) {
+          // Ignore cleanup errors
+        }
+      }
+
+      const stats = fs.statSync(outputFile);
+      return {
+        success: true,
+        outputFile,
+        message: `Created ${format.toUpperCase()} with ${fileList.length} page(s): ${outputFile}`,
+        pageCount: fileList.length,
+        fileSize: stats.size,
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+  }
+
+  /**
+   * Cleanup scan - delete temp files when user cancels
+   */
+  private async cleanupScan(
+    files: string | string[] | undefined,
+    tempDir: string | undefined,
+  ): Promise<any> {
+    try {
+      const fileList = typeof files === 'string' ? JSON.parse(files) : (files || []);
+
+      for (const file of fileList) {
+        if (fs.existsSync(file)) {
+          fs.unlinkSync(file);
+        }
+      }
+
+      if (tempDir && fs.existsSync(tempDir)) {
+        // Delete any remaining files in the temp directory
+        const remaining = fs.readdirSync(tempDir);
+        for (const f of remaining) {
+          fs.unlinkSync(path.join(tempDir, f));
+        }
+        fs.rmdirSync(tempDir);
+      }
+
+      return {
+        success: true,
+        message: 'Temp files cleaned up',
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.message,
       };
     }
   }

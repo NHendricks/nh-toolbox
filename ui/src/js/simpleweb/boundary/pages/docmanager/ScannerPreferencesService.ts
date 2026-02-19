@@ -9,7 +9,6 @@ export interface ScannerPreferences {
   resolution?: string
   colorMode?: string
   format?: string
-  duplex?: boolean
   multiPage?: boolean
 }
 
@@ -108,21 +107,6 @@ export class ScannerPreferencesService {
    */
   setFormat(format: string): void {
     this.preferences.format = format
-    this.save()
-  }
-
-  /**
-   * Get duplex preference
-   */
-  getDuplex(): boolean {
-    return this.preferences.duplex !== undefined ? this.preferences.duplex : true
-  }
-
-  /**
-   * Set duplex preference
-   */
-  setDuplex(duplex: boolean): void {
-    this.preferences.duplex = duplex
     this.save()
   }
 
