@@ -724,6 +724,29 @@ try {
 
         const startTime = Date.now();
 
+        // Set up Node.js file system watcher for the temp directory
+        let fsWatcher: fs.FSWatcher | null = null;
+        if (multiPage && fs.existsSync(tempDir)) {
+          console.log(`[WATCHER] Monitoring directory: ${tempDir}`);
+          fsWatcher = fs.watch(tempDir, (eventType, filename) => {
+            if (filename && filename.endsWith('.png')) {
+              const timestamp = new Date()
+                .toISOString()
+                .split('T')[1]
+                .substring(0, 12);
+              console.log(`[${timestamp}] WATCHER: ${eventType} - ${filename}`);
+
+              // Log file size if it exists
+              const filePath = path.join(tempDir, filename);
+              if (eventType === 'rename' && fs.existsSync(filePath)) {
+                const stats = fs.statSync(filePath);
+                const sizeKB = Math.round((stats.size / 1024) * 100) / 100;
+                console.log(`[${timestamp}] WATCHER: File size: ${sizeKB} KB`);
+              }
+            }
+          });
+        }
+
         // Use spawn instead of exec to stream output in real-time
         const psProcess = spawn('powershell', [
           '-ExecutionPolicy',
@@ -764,6 +787,13 @@ try {
         await new Promise<void>((resolve, reject) => {
           psProcess.on('close', (code) => {
             const endTime = Date.now();
+
+            // Close file system watcher
+            if (fsWatcher) {
+              fsWatcher.close();
+              console.log('[WATCHER] File system monitor closed');
+            }
+
             console.log('========================================');
             console.log(
               `WIA scan completed in ${endTime - startTime}ms (exit code: ${code})`,
@@ -778,11 +808,17 @@ try {
           });
 
           psProcess.on('error', (error) => {
+            if (fsWatcher) {
+              fsWatcher.close();
+            }
             reject(error);
           });
 
           // Set timeout
           setTimeout(() => {
+            if (fsWatcher) {
+              fsWatcher.close();
+            }
             psProcess.kill();
             reject(new Error('Scan operation timed out after 5 minutes'));
           }, 300000);
