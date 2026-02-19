@@ -502,11 +502,11 @@ try {
 
     Write-Host "DEBUG: Attempting to connect to device..."
     
-    # Add delay before connection attempt to let scanner recover from previous operation
-    Start-Sleep -Milliseconds 500
+    # Add longer delay before connection attempt to let scanner recover from previous operation
+    Start-Sleep -Milliseconds 1000
     
     # Retry logic for device connection (Canon scanners sometimes need multiple attempts)
-    $maxRetries = 3
+    $maxRetries = 5
     $device = $null
     $retryCount = 0
     
@@ -519,7 +519,7 @@ try {
         } catch {
             $retryCount++
             if ($retryCount -lt $maxRetries) {
-                $waitTime = 1000 * $retryCount  # Exponential backoff: 1s, 2s
+                $waitTime = 1500 * $retryCount  # Exponential backoff: 1.5s, 3s, 4.5s, 6s
                 Write-Host "DEBUG: Connection failed, retrying in $($waitTime)ms... Error: $($_.Exception.Message)"
                 Start-Sleep -Milliseconds $waitTime
             } else {
@@ -534,7 +534,7 @@ try {
     }
     
     # Additional delay to ensure device is fully ready
-    Start-Sleep -Milliseconds 300
+    Start-Sleep -Milliseconds 500
 
     Write-Host "DEBUG: Getting scanner item..."
     $item = $device.Items.Item(1)
@@ -661,6 +661,10 @@ try {
     [System.GC]::Collect()
     [System.GC]::WaitForPendingFinalizers()
     Write-Host "DEBUG: COM objects released"
+    
+    # Additional delay after cleanup to let scanner fully reset
+    Start-Sleep -Milliseconds 1000
+    Write-Host "DEBUG: Scanner reset complete"
     
     exit 0
     
