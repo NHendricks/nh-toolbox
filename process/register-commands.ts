@@ -136,11 +136,7 @@ export function registerCommands(ipcMain: any, version: string) {
         }
 
         // If it's a restic command with backup operation, set up progress callback
-        if (
-          toolname === 'restic' &&
-          params.operation === 'backup' &&
-          command
-        ) {
+        if (toolname === 'restic' && params.operation === 'backup' && command) {
           // Reset cancellation flag before starting
           (command as any).resetCancellation?.();
 
@@ -156,7 +152,10 @@ export function registerCommands(ipcMain: any, version: string) {
           (params.operation === 'download' || params.operation === 'upload') &&
           command
         ) {
-          const eventName = params.operation === 'download' ? 'ftp-download-progress' : 'ftp-upload-progress';
+          const eventName =
+            params.operation === 'download'
+              ? 'ftp-download-progress'
+              : 'ftp-upload-progress';
 
           // Set up progress callback to send events to renderer
           (command as any).setProgressCallback?.(
@@ -167,6 +166,45 @@ export function registerCommands(ipcMain: any, version: string) {
                 fileName,
                 percentage: total > 0 ? Math.round((current / total) * 100) : 0,
               });
+            },
+          );
+        }
+
+        // If it's a scanner command with scan-preview action, set up progress callback
+        if (
+          toolname === 'scanner' &&
+          params.action === 'scan-preview' &&
+          command
+        ) {
+          // Set up progress callback to send events to renderer
+          (command as any).setProgressCallback?.(
+            (
+              pageNumber: number,
+              fileName: string,
+              fileSize: number,
+              filePath: string,
+              preview: string,
+            ) => {
+              const eventData = {
+                pageNumber,
+                fileName,
+                fileSize,
+                filePath,
+                preview,
+              };
+              console.log(
+                '[IPC] Sending scanner-page-scanned: page',
+                pageNumber,
+                'size:',
+                Math.round(fileSize / 1024) + 'KB',
+              );
+              console.log('[IPC] event.sender exists:', !!event.sender);
+              if (event.sender) {
+                event.sender.send('scanner-page-scanned', eventData);
+                console.log('[IPC] Event sent successfully');
+              } else {
+                console.log('[IPC] ERROR: event.sender is null!');
+              }
             },
           );
         }
@@ -197,11 +235,7 @@ export function registerCommands(ipcMain: any, version: string) {
         }
 
         // Clear restic progress callback after operation completes
-        if (
-          toolname === 'restic' &&
-          params.operation === 'backup' &&
-          command
-        ) {
+        if (toolname === 'restic' && params.operation === 'backup' && command) {
           (command as any).setProgressCallback?.(undefined);
         }
 
@@ -209,6 +243,15 @@ export function registerCommands(ipcMain: any, version: string) {
         if (
           toolname === 'ftp' &&
           (params.operation === 'download' || params.operation === 'upload') &&
+          command
+        ) {
+          (command as any).setProgressCallback?.(undefined);
+        }
+
+        // Clear scanner progress callback after operation completes
+        if (
+          toolname === 'scanner' &&
+          params.action === 'scan-preview' &&
           command
         ) {
           (command as any).setProgressCallback?.(undefined);
@@ -256,7 +299,19 @@ export function registerCommands(ipcMain: any, version: string) {
         }
 
         // Clear FTP progress callback on error
-        if (toolname === 'ftp' && (params.operation === 'download' || params.operation === 'upload')) {
+        if (
+          toolname === 'ftp' &&
+          (params.operation === 'download' || params.operation === 'upload')
+        ) {
+          const handler = getCommandHandler();
+          const command = handler.getCommand(toolname);
+          if (command) {
+            (command as any).setProgressCallback?.(undefined);
+          }
+        }
+
+        // Clear scanner progress callback on error
+        if (toolname === 'scanner' && params.action === 'scan-preview') {
           const handler = getCommandHandler();
           const command = handler.getCommand(toolname);
           if (command) {

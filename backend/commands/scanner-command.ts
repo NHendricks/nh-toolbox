@@ -13,6 +13,21 @@ const execAsync = promisify(exec);
  * Handles scanning documents from connected scanners/printers
  */
 export class ScannerCommand implements ICommand {
+  private progressCallback?: (
+    pageNumber: number,
+    fileName: string,
+    fileSize: number,
+  ) => void;
+
+  /**
+   * Set progress callback for real-time updates
+   */
+  setProgressCallback(
+    callback?: (pageNumber: number, fileName: string, fileSize: number) => void,
+  ): void {
+    this.progressCallback = callback;
+  }
+
   getDescription(): string {
     return 'Scanner & Document Manager - Scan PDFs from your scanner/printer';
   }
@@ -506,7 +521,7 @@ try {
     Start-Sleep -Milliseconds 1000
     
     # Retry logic for device connection (Canon scanners sometimes need multiple attempts)
-    $maxRetries = 5
+    $maxRetries = 7
     $device = $null
     $retryCount = 0
     
@@ -724,9 +739,18 @@ try {
 
         const startTime = Date.now();
 
+        // Create temp directory first so we can watch it
+        if (multiPage) {
+          if (!fs.existsSync(tempDir)) {
+            fs.mkdirSync(tempDir, { recursive: true });
+            console.log(`[SETUP] Created temp directory: ${tempDir}`);
+          }
+        }
+
         // Set up Node.js file system watcher for the temp directory
         let fsWatcher: fs.FSWatcher | null = null;
-        if (multiPage && fs.existsSync(tempDir)) {
+        let pageCounter = 0;
+        if (multiPage) {
           console.log(`[WATCHER] Monitoring directory: ${tempDir}`);
           fsWatcher = fs.watch(tempDir, (eventType, filename) => {
             if (filename && filename.endsWith('.png')) {
@@ -736,12 +760,34 @@ try {
                 .substring(0, 12);
               console.log(`[${timestamp}] WATCHER: ${eventType} - ${filename}`);
 
-              // Log file size if it exists
+              // Log file size and emit progress event if it exists
               const filePath = path.join(tempDir, filename);
               if (eventType === 'rename' && fs.existsSync(filePath)) {
                 const stats = fs.statSync(filePath);
                 const sizeKB = Math.round((stats.size / 1024) * 100) / 100;
                 console.log(`[${timestamp}] WATCHER: File size: ${sizeKB} KB`);
+
+                // Emit progress callback for IPC with base64 preview
+                pageCounter++;
+                if (this.progressCallback) {
+                  // Read file and create base64 preview
+                  try {
+                    const fileData = fs.readFileSync(filePath);
+                    const base64Preview = `data:image/png;base64,${fileData.toString('base64')}`;
+                    (this.progressCallback as any)(
+                      pageCounter,
+                      filename,
+                      stats.size,
+                      filePath,
+                      base64Preview,
+                    );
+                    console.log(
+                      `[WATCHER] Emitted progress event for page ${pageCounter}`,
+                    );
+                  } catch (err) {
+                    console.error(`[WATCHER] Failed to create preview:`, err);
+                  }
+                }
               }
             }
           });

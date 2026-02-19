@@ -464,6 +464,47 @@ export class DocManager extends LitElement {
     this.loadPreferences()
     this.loadDocuments()
     this.loadScanners()
+
+    // Set up IPC listener for scanner page events
+    this.setupScannerEventListener()
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback()
+    // Clean up IPC listener
+    this.removeScannerEventListener()
+  }
+
+  private setupScannerEventListener() {
+    // Listen for real-time page scan events
+    // Note: preload.js strips the event parameter, so we only get data
+    ;(window as any).electron?.ipcRenderer?.on?.(
+      'scanner-page-scanned',
+      (data: {
+        pageNumber: number
+        fileName: string
+        fileSize: number
+        filePath: string
+        preview: string
+      }) => {
+        console.log('[DocManager] Received scanner-page-scanned event:', data)
+
+        // Add the page to preview arrays in real-time
+        this.previewFiles = [...this.previewFiles, data.filePath]
+        this.previewDataUrls = [...this.previewDataUrls, data.preview]
+
+        this.showMessage(
+          `Page ${data.pageNumber} scanned (${Math.round(data.fileSize / 1024)} KB)`,
+          'success',
+        )
+      },
+    )
+  }
+
+  private removeScannerEventListener() {
+    ;(window as any).electron?.ipcRenderer?.removeAllListeners?.(
+      'scanner-page-scanned',
+    )
   }
 
   /**
@@ -982,20 +1023,39 @@ export class DocManager extends LitElement {
   }
 
   private renderPreviewDialog() {
-    const isScanning = this.scanning && this.previewDataUrls.length === 0
+    const isInitialScanning = this.scanning && this.previewDataUrls.length === 0
+    const isScanningWithPages = this.scanning && this.previewDataUrls.length > 0
 
     return html`
       <div class="preview-overlay">
         <div class="preview-dialog">
           <div class="preview-header">
             <span
-              >${isScanning
+              >${isInitialScanning
                 ? 'Scanning...'
-                : 'Scanned Pages - Review & Remove'}</span
+                : isScanningWithPages
+                  ? '📄 Scanning in progress...'
+                  : 'Scanned Pages - Review & Remove'}</span
             >
           </div>
           <div class="preview-body">
-            ${isScanning
+            ${isScanningWithPages
+              ? html`
+                  <div
+                    style="background: #fff3cd; color: #856404; padding: 12px; border-radius: 6px; margin-bottom: 15px; display: flex; align-items: center; gap: 10px;"
+                  >
+                    <div
+                      class="spinner"
+                      style="width: 20px; height: 20px; border-width: 3px;"
+                    ></div>
+                    <span
+                      ><strong>Scanning in progress...</strong> Pages will
+                      appear here as they're scanned.</span
+                    >
+                  </div>
+                `
+              : ''}
+            ${isInitialScanning
               ? html`
                   <div class="loading">
                     <div class="spinner"></div>
@@ -1034,7 +1094,10 @@ export class DocManager extends LitElement {
               >${this.previewDataUrls.length} page(s)</span
             >
             <div class="preview-footer-buttons">
-              <button @click="${this.cancelPreview}" ?disabled="${isScanning}">
+              <button
+                @click="${this.cancelPreview}"
+                ?disabled="${isInitialScanning}"
+              >
                 Cancel
               </button>
               <button
@@ -1042,7 +1105,7 @@ export class DocManager extends LitElement {
                 @click="${this.finalizeScan}"
                 ?disabled="${this.previewFiles.length === 0 || this.scanning}"
               >
-                ${this.scanning && !isScanning
+                ${this.scanning && !isInitialScanning
                   ? 'Saving...'
                   : `Save as ${this.format.toUpperCase()}`}
               </button>
