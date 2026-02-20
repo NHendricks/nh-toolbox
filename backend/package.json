@@ -36,6 +36,7 @@
     "@types/pdfkit": "^0.17.5",
     "adm-zip": "^0.5.16",
     "basic-ftp": "^5.1.0",
+    "compromise": "^14.14.5",
     "fast-xml-parser": "^5.3.3",
     "image-size": "^2.0.2",
     "pdfkit": "^0.17.2",

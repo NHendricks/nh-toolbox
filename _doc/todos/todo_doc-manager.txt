@@ -1,6 +1,4 @@
 - pdf manager
-  - test mac
-  - add image viewer from commander to image preview dialog when clicking on image 
   - arrange scan and files in 2 tabs
     - files tab: add new features here
   - add hint for duplex (use naps2)
