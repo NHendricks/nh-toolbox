@@ -1,6 +1,9 @@
 - pdf manager
   - fix cancel function during scan
-  - enable scan more pages in preview dialog
+  - enable scan more in preview dialog
+  - add image viewer from commander to png preview dilog when clicking on image 
+  - arrange scan and files in 2 tabs
+    - files tab: add new features here 
   - add hint for duplex (use naps2)
   - remember all settings
   - define own managed folder

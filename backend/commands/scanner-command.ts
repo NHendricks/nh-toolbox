@@ -1,4 +1,4 @@
-import { exec, spawn } from 'child_process';
+import { ChildProcess, exec, spawn } from 'child_process';
 import * as fs from 'fs';
 import sizeOf from 'image-size';
 import * as path from 'path';
@@ -18,6 +18,14 @@ export class ScannerCommand implements ICommand {
     fileName: string,
     fileSize: number,
   ) => void;
+  private activeProcess: ChildProcess | null = null;
+
+  cancel(): void {
+    if (this.activeProcess) {
+      this.activeProcess.kill();
+      this.activeProcess = null;
+    }
+  }
 
   /**
    * Set progress callback for real-time updates
@@ -519,6 +527,7 @@ try {
           '-File',
           tempScript,
         ]);
+        this.activeProcess = psProcess;
 
         let stdout = '';
         let stderr = '';
@@ -543,6 +552,7 @@ try {
 
         await new Promise<void>((resolve, reject) => {
           psProcess.on('close', (code) => {
+            this.activeProcess = null;
             if (fsWatcher) {
               fsWatcher.close();
             }
@@ -787,6 +797,7 @@ try {
         try {
           await new Promise<void>((resolve, reject) => {
             const scanProcess = spawn('scanimage', scanArgs);
+            this.activeProcess = scanProcess;
             let stderr = '';
 
             scanProcess.stdout.on('data', (data) => {
@@ -812,6 +823,7 @@ try {
             }, 300000);
 
             scanProcess.on('close', (code) => {
+              this.activeProcess = null;
               clearTimeout(timeout);
               // ADF empty may exit non-zero on some drivers; treat as success
               // if files were already written to disk

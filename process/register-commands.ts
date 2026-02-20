@@ -353,6 +353,21 @@ export function registerCommands(ipcMain: any, version: string) {
     }
   });
 
+  // Cancel active scanner process
+  ipcMain.handle('cancel-scanner', async () => {
+    try {
+      const handler = getCommandHandler();
+      const command = handler.getCommand('scanner');
+      if (command) {
+        (command as any).cancel?.();
+        return { success: true };
+      }
+      return { success: false, error: 'Command not found' };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  });
+
   // Cancel garbage-finder scan
   ipcMain.handle('cancel-garbage-scan', async () => {
     try {

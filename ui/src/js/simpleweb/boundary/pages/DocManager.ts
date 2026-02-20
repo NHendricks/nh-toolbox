@@ -741,6 +741,14 @@ export class DocManager extends LitElement {
   }
 
   async cancelPreview() {
+    // Kill the active scanner process first
+    try {
+      await (window as any).electron.ipcRenderer.invoke('cancel-scanner')
+    } catch (e) {
+      // Ignore
+    }
+
+    // Clean up any temp files
     try {
       await (window as any).electron.ipcRenderer.invoke(
         'cli-execute',
@@ -1094,12 +1102,7 @@ export class DocManager extends LitElement {
               >${this.previewDataUrls.length} page(s)</span
             >
             <div class="preview-footer-buttons">
-              <button
-                @click="${this.cancelPreview}"
-                ?disabled="${isInitialScanning}"
-              >
-                Cancel
-              </button>
+              <button @click="${this.cancelPreview}">Cancel</button>
               <button
                 class="secondary"
                 @click="${this.finalizeScan}"
