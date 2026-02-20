@@ -861,6 +861,8 @@ try {
         String(dpiValue),
         '--mode',
         'Color',
+        '-x', '210',  // A4 width in mm
+        '-y', '297',  // A4 height in mm
         ...deviceArg,
       ];
 
