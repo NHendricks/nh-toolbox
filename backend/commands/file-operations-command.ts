@@ -270,12 +270,16 @@ export class FileOperationsCommand implements ICommand {
       if (process.platform === 'darwin') {
         const volumesPath = '/Volumes';
         try {
+          console.log('[GarbageFinder] Scanning macOS volumes...');
           const volumeEntries = await fs.promises.readdir(volumesPath, {
             withFileTypes: true,
           });
+          console.log(`[GarbageFinder] Found ${volumeEntries.length} volume entries`);
+          
           for (const entry of volumeEntries) {
             if (entry.isDirectory()) {
               const volumePath = `${volumesPath}/${entry.name}`;
+              console.log(`[GarbageFinder] Adding volume: ${volumePath}`);
               drives.push({
                 letter: entry.name,
                 path: volumePath,
@@ -285,7 +289,27 @@ export class FileOperationsCommand implements ICommand {
           }
         } catch (error) {
           // /Volumes might not be accessible or doesn't exist
-          console.warn('Could not read /Volumes:', error);
+          console.warn('[GarbageFinder] Could not read /Volumes:', error);
+          
+          // Fallback: Try to use 'df' command to find mounted filesystems on macOS
+          try {
+            const { stdout } = await execPromise('df -h | grep -v "^Filesystem" | awk \'{print $NF}\'');
+            const mountPoints = stdout.trim().split('\n').filter((p: string) => p && p !== '/');
+            
+            console.log(`[GarbageFinder] Found ${mountPoints.length} mount points via df`);
+            for (const mountPoint of mountPoints) {
+              if (mountPoint && !mountPoint.startsWith('/private')) {
+                console.log(`[GarbageFinder] Adding mount point: ${mountPoint}`);
+                drives.push({
+                  letter: mountPoint.split('/').pop() || mountPoint,
+                  path: mountPoint,
+                  label: mountPoint.split('/').pop() || mountPoint,
+                });
+              }
+            }
+          } catch (dfError) {
+            console.warn('[GarbageFinder] df command also failed:', dfError);
+          }
         }
       }
     }
