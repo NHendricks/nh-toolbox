@@ -117,15 +117,6 @@ export class ScannerCommand implements ICommand {
       switch (action) {
         case 'list-scanners':
           return await this.listScanners();
-        case 'scan':
-          return await this.scanDocument(
-            outputPath,
-            fileName,
-            scannerId,
-            resolution,
-            format,
-            multiPage !== false, // default true
-          );
         case 'scan-preview':
           return await this.scanPreview(
             scannerId,
@@ -319,63 +310,6 @@ try {
     }
   }
 
-  /**
-   * Scan a document
-   */
-  private async scanDocument(
-    outputPath: string,
-    fileName: string,
-    scannerId: string = '',
-    resolution: string = '300',
-    format: string = 'pdf',
-    multiPage: boolean = true,
-  ): Promise<any> {
-    try {
-      // Ensure output directory exists
-      const baseDir =
-        outputPath ||
-        path.join(
-          process.env.USERPROFILE || process.env.HOME || '',
-          'Documents',
-          'Scans',
-        );
-      if (!fs.existsSync(baseDir)) {
-        fs.mkdirSync(baseDir, { recursive: true });
-      }
-
-      // Generate filename if not provided
-      const timestamp = new Date()
-        .toISOString()
-        .replace(/[:.]/g, '-')
-        .slice(0, 19);
-      const finalFileName = fileName || `scan_${timestamp}.${format}`;
-      const outputFile = path.join(baseDir, finalFileName);
-
-      if (process.platform === 'win32') {
-        // Windows scanning using PowerShell and WIA - always scan in color
-        return await this.scanWindowsWIA(
-          outputFile,
-          scannerId,
-          resolution,
-          format,
-          multiPage,
-        );
-      } else {
-        // Unix-like systems (macOS, Linux) using scanimage - always scan in color
-        return await this.scanUnixSANE(
-          outputFile,
-          scannerId,
-          resolution,
-          format,
-        );
-      }
-    } catch (error: any) {
-      return {
-        success: false,
-        error: error.message,
-      };
-    }
-  }
 
   /**
    * Scan on Windows using WIA - always scans in color
@@ -388,7 +322,6 @@ try {
     multiPage: boolean,
   ): Promise<any> {
     try {
-      // Improved PowerShell script for WIA scanning
       const dpiValue = parseInt(resolution);
 
       // Always scan in color (Color Intent: 1 = Color)
@@ -409,68 +342,6 @@ try {
         ? outputFile.replace(/\.pdf$/i, '.png')
         : outputFile;
 
-      // First, check if WIA is available and if scanners are present
-      const checkScript = `
-$ErrorActionPreference = 'Stop'
-try {
-    $deviceManager = New-Object -ComObject WIA.DeviceManager
-    if ($deviceManager.DeviceInfos.Count -eq 0) {
-        Write-Output "NO_SCANNERS"
-        exit 1
-    }
-    Write-Output "SCANNERS_FOUND:$($deviceManager.DeviceInfos.Count)"
-    exit 0
-} catch {
-    Write-Output "WIA_ERROR:$($_.Exception.Message)"
-    exit 1
-}
-`;
-
-      const tempCheckScript = path.join(
-        process.env.TEMP || '',
-        'check_wia.ps1',
-      );
-      fs.writeFileSync(tempCheckScript, checkScript, 'utf8');
-
-      try {
-        const { stdout: checkOutput } = await execAsync(
-          `powershell -ExecutionPolicy Bypass -NoProfile -File "${tempCheckScript}"`,
-        );
-
-        if (fs.existsSync(tempCheckScript)) {
-          fs.unlinkSync(tempCheckScript);
-        }
-
-        if (checkOutput.includes('NO_SCANNERS')) {
-          return {
-            success: false,
-            error: 'No scanners detected by WIA',
-            message:
-              'No scanners found. Please check: 1) Scanner is connected and powered on, 2) Scanner drivers are installed, 3) Scanner supports WIA protocol',
-          };
-        }
-
-        if (checkOutput.includes('WIA_ERROR')) {
-          return {
-            success: false,
-            error: checkOutput,
-            message:
-              'WIA (Windows Image Acquisition) service error. Try restarting the scanner or checking device drivers.',
-          };
-        }
-      } catch (checkError: any) {
-        if (fs.existsSync(tempCheckScript)) {
-          fs.unlinkSync(tempCheckScript);
-        }
-        return {
-          success: false,
-          error: checkError.message,
-          message:
-            'Failed to check WIA availability. WIA service may not be running.',
-        };
-      }
-
-      // Now perform the actual scan
       const scannerIdParam = scannerId ? `"${scannerId}"` : '""';
       const multiPageEnabled = multiPage ? '$true' : '$false';
 
@@ -478,13 +349,11 @@ try {
       const tempDir = path.join(process.env.TEMP || '', `scan_${Date.now()}`);
 
       const psScript = `
-Write-Host "=== SCRIPT START ==="
+$item = $null
+$device = $null
+$deviceManager = $null
 try {
-    Write-Host "DEBUG: Creating WIA DeviceManager"
     $deviceManager = New-Object -ComObject WIA.DeviceManager
-    Write-Host "DEBUG: DeviceManager created, scanner count: $($deviceManager.DeviceInfos.Count)"
-
-    # Get scanner by ID or use first available
     if ($deviceManager.DeviceInfos.Count -eq 0) {
         Write-Error "No scanners found"
         exit 1
@@ -492,15 +361,10 @@ try {
 
     $targetScannerId = ${scannerIdParam}
     $deviceInfo = $null
-    Write-Host "DEBUG: Looking for scanner ID: $targetScannerId"
-
     if ($targetScannerId -ne "") {
-        # Find scanner by Device ID
-        Write-Host "DEBUG: Searching for specific scanner"
         foreach ($info in $deviceManager.DeviceInfos) {
             if ($info.DeviceID -eq $targetScannerId) {
                 $deviceInfo = $info
-                Write-Host "Using scanner: $($info.Properties.Item('Name').Value)"
                 break
             }
         }
@@ -509,146 +373,74 @@ try {
             exit 1
         }
     } else {
-        # Use first available scanner
-        Write-Host "DEBUG: Using first available scanner"
         $deviceInfo = $deviceManager.DeviceInfos.Item(1)
-        Write-Host "Using default scanner: $($deviceInfo.Properties.Item('Name').Value)"
     }
+    Write-Host "Using scanner: $($deviceInfo.Properties.Item('Name').Value)"
 
-    Write-Host "DEBUG: Attempting to connect to device..."
-    
-    # Add longer delay before connection attempt to let scanner recover from previous operation
+    # Delay to let scanner recover from previous operation
     Start-Sleep -Milliseconds 1000
-    
-    # Retry logic for device connection (Canon scanners sometimes need multiple attempts)
+
+    # Retry logic for device connection with exponential backoff
     $maxRetries = 7
-    $device = $null
     $retryCount = 0
-    
     while ($retryCount -lt $maxRetries) {
         try {
-            Write-Host "DEBUG: Connection attempt $($retryCount + 1) of $maxRetries..."
             $device = $deviceInfo.Connect()
-            Write-Host "DEBUG: Device connected successfully"
             break
         } catch {
             $retryCount++
             if ($retryCount -lt $maxRetries) {
-                $waitTime = 1500 * $retryCount  # Exponential backoff: 1.5s, 3s, 4.5s, 6s
-                Write-Host "DEBUG: Connection failed, retrying in $($waitTime)ms... Error: $($_.Exception.Message)"
+                $waitTime = 1500 * $retryCount
+                Write-Host "Connection attempt $retryCount failed, retrying in $($waitTime)ms..."
                 Start-Sleep -Milliseconds $waitTime
             } else {
-                Write-Host "DEBUG: All connection attempts failed"
                 throw $_
             }
         }
     }
-    
-    if ($device -eq $null) {
-        throw "Failed to connect to scanner after $maxRetries attempts"
-    }
-    
-    # Additional delay to ensure device is fully ready
-    Start-Sleep -Milliseconds 500
+    if ($device -eq $null) { throw "Failed to connect after $maxRetries attempts" }
 
-    Write-Host "DEBUG: Getting scanner item..."
     $item = $device.Items.Item(1)
-    Write-Host "DEBUG: Item retrieved successfully"
-
     $multiPageEnabled = ${multiPageEnabled}
 
-    Write-Host "DEBUG: Setting resolution and color mode..."
-    # Try to set resolution (Property IDs: 6147=Vertical, 6148=Horizontal DPI)
     try {
-        # Set horizontal resolution
-        $horizontalRes = $item.Properties.Item("6147")
-        if ($horizontalRes -ne $null) {
-            $horizontalRes.Value = ${dpiValue}
-        }
+        $item.Properties.Item("6147").Value = ${dpiValue}
+        $item.Properties.Item("6148").Value = ${dpiValue}
+    } catch { Write-Warning "Could not set resolution: $_" }
 
-        # Set vertical resolution
-        $verticalRes = $item.Properties.Item("6148")
-        if ($verticalRes -ne $null) {
-            $verticalRes.Value = ${dpiValue}
-        }
-    } catch {
-        Write-Warning "Could not set resolution: $_"
-    }
-
-    # Try to set color mode (Property ID: 6146)
     try {
-        $colorProp = $item.Properties.Item("6146")
-        if ($colorProp -ne $null) {
-            $colorProp.Value = ${colorIntent}
-        }
-    } catch {
-        Write-Warning "Could not set color mode: $_"
-    }
-    Write-Host "DEBUG: Resolution and color mode configured"
+        $item.Properties.Item("6146").Value = ${colorIntent}
+    } catch { Write-Warning "Could not set color mode: $_" }
 
-    # Create temp directory for multi-page scans
-    Write-Host "DEBUG: Creating temp directory if needed..."
     $tempDir = "${tempDir.replace(/\\/g, '\\\\')}"
     if ($multiPageEnabled) {
         New-Item -ItemType Directory -Force -Path $tempDir | Out-Null
-        Write-Host "DEBUG: Temp directory created: $tempDir"
     }
 
-    # Perform the scan (multi-page loop)
-    Write-Host "DEBUG: About to start scan loop"
-    Write-Host "Starting scan..."
     $pageNumber = 1
-    $scannedFiles = @()
-
     do {
         try {
             Write-Host "Scanning page $pageNumber..."
-
-            # Create image process for format conversion
             $imageProcess = New-Object -ComObject WIA.ImageProcess
             $imageProcess.Filters.Add($imageProcess.FilterInfos.Item("Convert").FilterID)
             $imageProcess.Filters.Item(1).Properties.Item("FormatID").Value = "${formatId}"
-
-            # Transfer image from scanner
             $image = $item.Transfer("${formatId}")
-
-            # Process image
             $image = $imageProcess.Apply($image)
 
-            # Determine output file path
             if ($multiPageEnabled) {
                 $outputPath = "$tempDir\\page_$pageNumber.png"
             } else {
                 $outputPath = "${tempOutputFile.replace(/\\/g, '\\\\')}"
             }
 
-            # Save image
-            Write-Host "DEBUG: Saving page $pageNumber to disk..."
-            $saveStartTime = Get-Date
             $image.SaveFile($outputPath)
-            $saveEndTime = Get-Date
-            $saveDuration = ($saveEndTime - $saveStartTime).TotalMilliseconds
-            $scannedFiles += $outputPath
-            
-            # Get file size
-            $fileInfo = Get-Item $outputPath
-            $fileSizeKB = [math]::Round($fileInfo.Length / 1KB, 2)
-            
-            Write-Host "DEBUG: Page $pageNumber saved in $($saveDuration)ms, size: $($fileSizeKB) KB"
-            Write-Host "DEBUG: File location: $outputPath"
-
+            Write-Host "Page $pageNumber saved"
+            [System.Runtime.InteropServices.Marshal]::ReleaseComObject($imageProcess) | Out-Null
             $pageNumber++
 
-            # If not multi-page, break after first page
-            if (-not $multiPageEnabled) {
-                break
-            }
-
-            # Small delay between pages
+            if (-not $multiPageEnabled) { break }
             Start-Sleep -Milliseconds 500
-
         } catch {
-            # Check if error is due to no more pages
             if ($_.Exception.Message -match "feeder|empty|no.*document" -or $pageNumber -gt 1) {
                 Write-Host "No more pages in feeder (scanned $($pageNumber - 1) pages)"
                 break
@@ -658,68 +450,17 @@ try {
         }
     } while ($multiPageEnabled)
 
-    # Output scanned file paths as JSON
-    $result = @{
-        success = $true
-        pageCount = $scannedFiles.Count
-        files = $scannedFiles
-        tempDir = if ($multiPageEnabled) { $tempDir } else { "" }
-    }
-
-    $result | ConvertTo-Json -Compress
-    Write-Host "Scan completed successfully - $($scannedFiles.Count) page(s)"
-    
-    # Release COM objects to free the scanner device
-    Write-Host "DEBUG: Releasing COM objects..."
-    if ($item -ne $null) {
-        [System.Runtime.InteropServices.Marshal]::ReleaseComObject($item) | Out-Null
-    }
-    if ($imageProcess -ne $null) {
-        [System.Runtime.InteropServices.Marshal]::ReleaseComObject($imageProcess) | Out-Null
-    }
-    if ($device -ne $null) {
-        [System.Runtime.InteropServices.Marshal]::ReleaseComObject($device) | Out-Null
-    }
-    if ($deviceManager -ne $null) {
-        [System.Runtime.InteropServices.Marshal]::ReleaseComObject($deviceManager) | Out-Null
-    }
-    [System.GC]::Collect()
-    [System.GC]::WaitForPendingFinalizers()
-    Write-Host "DEBUG: COM objects released"
-    
-    # Additional delay after cleanup to let scanner fully reset
-    Start-Sleep -Milliseconds 1000
-    Write-Host "DEBUG: Scanner reset complete"
-    
-    exit 0
-    
+    Write-Host "Scan completed - $($pageNumber - 1) page(s)"
 } catch {
     Write-Error "Scan failed: $_"
-    Write-Error $_.Exception.Message
-    
-    # Release COM objects even on error
-    Write-Host "DEBUG: Releasing COM objects after error..."
-    try {
-        if ($item -ne $null) {
-            [System.Runtime.InteropServices.Marshal]::ReleaseComObject($item) | Out-Null
-        }
-        if ($imageProcess -ne $null) {
-            [System.Runtime.InteropServices.Marshal]::ReleaseComObject($imageProcess) | Out-Null
-        }
-        if ($device -ne $null) {
-            [System.Runtime.InteropServices.Marshal]::ReleaseComObject($device) | Out-Null
-        }
-        if ($deviceManager -ne $null) {
-            [System.Runtime.InteropServices.Marshal]::ReleaseComObject($deviceManager) | Out-Null
-        }
-        [System.GC]::Collect()
-        [System.GC]::WaitForPendingFinalizers()
-        Write-Host "DEBUG: COM objects released after error"
-    } catch {
-        Write-Host "DEBUG: Error during COM cleanup (non-fatal): $_"
-    }
-    
     exit 1
+} finally {
+    try { if ($item) { [System.Runtime.InteropServices.Marshal]::ReleaseComObject($item) | Out-Null } } catch {}
+    try { if ($device) { [System.Runtime.InteropServices.Marshal]::ReleaseComObject($device) | Out-Null } } catch {}
+    try { if ($deviceManager) { [System.Runtime.InteropServices.Marshal]::ReleaseComObject($deviceManager) | Out-Null } } catch {}
+    [System.GC]::Collect()
+    [System.GC]::WaitForPendingFinalizers()
+    Start-Sleep -Milliseconds 1000
 }
 `;
 
@@ -727,47 +468,24 @@ try {
       fs.writeFileSync(tempScript, psScript, 'utf8');
 
       try {
-        console.log('========================================');
-        console.log('Starting WIA scan...');
-        console.log(`Scanner ID: ${scannerId || '(default)'}`);
-        console.log(`Resolution: ${resolution} DPI`);
-        console.log(`Format: ${format} (actual: ${actualFormat})`);
-        console.log(`Multi-page: ${multiPage}`);
-        console.log(`Output file: ${outputFile}`);
-        console.log(`Temp directory: ${tempDir}`);
-        console.log('========================================');
+        console.log(
+          `Starting WIA scan: scanner=${scannerId || 'default'}, ${resolution}dpi, ${format}, multiPage=${multiPage}`,
+        );
 
         const startTime = Date.now();
 
-        // Create temp directory first so we can watch it
-        if (multiPage) {
-          if (!fs.existsSync(tempDir)) {
-            fs.mkdirSync(tempDir, { recursive: true });
-            console.log(`[SETUP] Created temp directory: ${tempDir}`);
-          }
+        if (multiPage && !fs.existsSync(tempDir)) {
+          fs.mkdirSync(tempDir, { recursive: true });
         }
 
-        // Set up Node.js file system watcher for the temp directory
         let fsWatcher: fs.FSWatcher | null = null;
         let pageCounter = 0;
         if (multiPage) {
-          console.log(`[WATCHER] Monitoring directory: ${tempDir}`);
           fsWatcher = fs.watch(tempDir, (eventType, filename) => {
             if (filename && filename.endsWith('.png')) {
-              const timestamp = new Date()
-                .toISOString()
-                .split('T')[1]
-                .substring(0, 12);
-              console.log(`[${timestamp}] WATCHER: ${eventType} - ${filename}`);
-
-              // Log file size and emit progress event if it exists
               const filePath = path.join(tempDir, filename);
               if (eventType === 'rename' && fs.existsSync(filePath)) {
                 const stats = fs.statSync(filePath);
-                const sizeKB = Math.round((stats.size / 1024) * 100) / 100;
-                console.log(`[${timestamp}] WATCHER: File size: ${sizeKB} KB`);
-
-                // Emit progress callback for IPC with base64 preview
                 pageCounter++;
                 if (this.progressCallback) {
                   // Small delay to ensure file is fully written before reading
@@ -783,12 +501,9 @@ try {
                           filePath,
                           base64Preview,
                         );
-                        console.log(
-                          `[WATCHER] Emitted progress event for page ${pageCounter}`,
-                        );
                       }
                     } catch (err) {
-                      console.error(`[WATCHER] Failed to create preview:`, err);
+                      console.error('Failed to create preview:', err);
                     }
                   }, 100); // 100ms delay to let file finish writing
                 }
@@ -797,7 +512,6 @@ try {
           });
         }
 
-        // Use spawn instead of exec to stream output in real-time
         const psProcess = spawn('powershell', [
           '-ExecutionPolicy',
           'Bypass',
@@ -809,49 +523,39 @@ try {
         let stdout = '';
         let stderr = '';
 
-        // Stream stdout in real-time
         psProcess.stdout.on('data', (data) => {
           const output = data.toString();
           stdout += output;
-          // Log each line immediately to backend console
-          output.split('\n').forEach((line: string) => {
-            if (line.trim()) {
-              console.log(`[PS] ${line.trim()}`);
-            }
-          });
+          output
+            .split('\n')
+            .filter((l: string) => l.trim())
+            .forEach((l: string) => console.log(`[PS] ${l.trim()}`));
         });
 
-        // Stream stderr in real-time
         psProcess.stderr.on('data', (data) => {
           const output = data.toString();
           stderr += output;
-          // Log errors immediately
-          output.split('\n').forEach((line: string) => {
-            if (line.trim()) {
-              console.error(`[PS ERROR] ${line.trim()}`);
-            }
-          });
+          output
+            .split('\n')
+            .filter((l: string) => l.trim())
+            .forEach((l: string) => console.error(`[PS] ${l.trim()}`));
         });
 
-        // Wait for process to complete
         await new Promise<void>((resolve, reject) => {
           psProcess.on('close', (code) => {
-            const endTime = Date.now();
-
-            // Close file system watcher
             if (fsWatcher) {
               fsWatcher.close();
-              console.log('[WATCHER] File system monitor closed');
             }
 
-            console.log('========================================');
             console.log(
-              `WIA scan completed in ${endTime - startTime}ms (exit code: ${code})`,
+              `WIA scan finished in ${Date.now() - startTime}ms (exit code: ${code})`,
             );
-            console.log('========================================');
 
             if (code !== 0) {
-              reject(new Error(`PowerShell process exited with code ${code}`));
+              const errorMsg =
+                stderr.trim() ||
+                `PowerShell process exited with code ${code}`;
+              reject(new Error(errorMsg));
             } else {
               resolve();
             }
@@ -879,34 +583,32 @@ try {
           fs.unlinkSync(tempScript);
         }
 
-        // Parse the JSON result from PowerShell
-        const lines = stdout.split('\n');
-        let scanResult: any = null;
-
-        for (const line of lines) {
-          const trimmed = line.trim();
-          if (trimmed.startsWith('{')) {
-            try {
-              scanResult = JSON.parse(trimmed);
-              break;
-            } catch (e) {
-              // Not JSON, continue
-            }
-          }
-        }
-
-        if (!scanResult || !scanResult.files || scanResult.files.length === 0) {
-          // Fallback: check if single file exists
-          if (fs.existsSync(tempOutputFile)) {
-            scanResult = {
-              success: true,
-              pageCount: 1,
-              files: [tempOutputFile],
-              tempDir: '',
-            };
-          } else {
+        // Collect scanned files from filesystem
+        let scanResult: any;
+        if (multiPage && fs.existsSync(tempDir)) {
+          const files = fs
+            .readdirSync(tempDir)
+            .filter((f) => f.endsWith('.png'))
+            .sort()
+            .map((f) => path.join(tempDir, f));
+          if (files.length === 0) {
             throw new Error('Scan completed but no files were created');
           }
+          scanResult = {
+            success: true,
+            pageCount: files.length,
+            files,
+            tempDir,
+          };
+        } else if (fs.existsSync(tempOutputFile)) {
+          scanResult = {
+            success: true,
+            pageCount: 1,
+            files: [tempOutputFile],
+            tempDir: '',
+          };
+        } else {
+          throw new Error('Scan completed but no files were created');
         }
 
         console.log(
@@ -939,8 +641,6 @@ try {
               method: 'WIA + PNG-to-PDF conversion',
               pageCount: scanResult.pageCount,
               fileSize: stats.size,
-              debugOutput:
-                stdout + (stderr ? '\n\n=== STDERR ===\n' + stderr : ''),
             };
           } else {
             // Not PDF - if multi-page, just return first page or error
@@ -961,8 +661,6 @@ try {
               method: 'WIA',
               pageCount: 1,
               fileSize: stats.size,
-              debugOutput:
-                stdout + (stderr ? '\n\n=== STDERR ===\n' + stderr : ''),
             };
           }
         } catch (conversionError: any) {
@@ -974,45 +672,28 @@ try {
           };
         }
       } catch (error: any) {
-        // Clean up on error
         if (fs.existsSync(tempScript)) {
           fs.unlinkSync(tempScript);
         }
-
-        // Log detailed error information
-        console.log('========================================');
-        console.log('WIA SCAN FAILED');
-        console.log('Error message:', error.message);
-        console.log('========================================');
-
-        if (error.stdout) {
-          console.log('Error stdout:');
-          console.log(error.stdout);
-          console.log('========================================');
-        }
-
-        if (error.stderr) {
-          console.log('Error stderr:');
-          console.log(error.stderr);
-          console.log('========================================');
-        }
-
         throw error;
       }
     } catch (error: any) {
-      console.log('========================================');
-      console.log('EXCEPTION CAUGHT IN scanWindowsWIA');
-      console.log('Error type:', error.constructor.name);
-      console.log('Error message:', error.message);
-      console.log('========================================');
+      console.error('WIA scan failed:', error.message);
 
-      const errorDetails = {
+      let message =
+        'Windows scanning failed. Make sure your scanner is connected and powered on.';
+      if (error.message.includes('timeout')) {
+        message =
+          'Scan operation timed out. Scanner may be offline or not responding.';
+      } else if (error.message.includes('No scanners found')) {
+        message =
+          'No scanners detected. Please check scanner connection and drivers.';
+      }
+
+      return {
         success: false,
         error: error.message,
-        stderr: error.stderr || '',
-        stdout: error.stdout || '',
-        message:
-          'Windows scanning failed. Make sure your scanner is connected and powered on.',
+        message,
         help:
           'Troubleshooting steps:\n' +
           '1. Check scanner is connected via USB and powered on\n' +
@@ -1021,21 +702,6 @@ try {
           '4. Check Device Manager for scanner device\n' +
           '5. Restart the WIA service: services.msc -> Windows Image Acquisition (WIA)',
       };
-
-      // Add more specific error messages based on error content
-      if (error.message.includes('timeout')) {
-        errorDetails.message =
-          'Scan operation timed out. Scanner may be offline or not responding.';
-        console.log('Detected: TIMEOUT error');
-      } else if (error.message.includes('No scanners found')) {
-        errorDetails.message =
-          'No scanners detected. Please check scanner connection and drivers.';
-        console.log('Detected: NO SCANNERS error');
-      }
-
-      console.log('Returning error details to frontend');
-      console.log('========================================');
-      return errorDetails;
     }
   }
 
@@ -1120,54 +786,6 @@ try {
     });
   }
 
-  /**
-   * Scan on Unix systems using SANE/scanimage - always scans in color
-   */
-  private async scanUnixSANE(
-    outputFile: string,
-    scannerId: string,
-    resolution: string,
-    format: string,
-  ): Promise<any> {
-    try {
-      // Always scan in color
-      const mode = 'Color';
-      const scanFormat = format === 'pdf' ? 'tiff' : format;
-
-      // Scan to temporary file first
-      const tempFile = outputFile.replace(/\.[^.]+$/, `.${scanFormat}`);
-
-      const scanCmd = `scanimage --resolution ${resolution} --mode ${mode} --format ${scanFormat} > "${tempFile}"`;
-      await execAsync(scanCmd);
-
-      // Convert to PDF if needed
-      if (format === 'pdf' && scanFormat === 'tiff') {
-        // Try to use ImageMagick convert
-        try {
-          await execAsync(`convert "${tempFile}" "${outputFile}"`);
-          fs.unlinkSync(tempFile);
-        } catch (error) {
-          // If convert fails, just rename the tiff
-          fs.renameSync(tempFile, outputFile);
-        }
-      }
-
-      return {
-        success: true,
-        outputFile,
-        message: `Document scanned successfully to ${outputFile}`,
-        method: 'SANE',
-      };
-    } catch (error: any) {
-      return {
-        success: false,
-        error: error.message,
-        message:
-          'Unix scanning failed. Make sure SANE is installed and your scanner is connected.',
-        help: 'Install SANE: brew install sane-backends (macOS) or sudo apt-get install sane sane-utils (Linux)',
-      };
-    }
-  }
 
   /**
    * Scan to preview - scans pages to temp PNGs without creating PDF (always in color)

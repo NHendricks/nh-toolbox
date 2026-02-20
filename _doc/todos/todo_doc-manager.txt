@@ -1,4 +1,5 @@
 - pdf manager
+  - simplify powershell for wia, remove listener (we watch the filesystem now), remove all unused code. keep retries
   - fix cancel function during scan
   - enable scan more pages in preview dialog
   - fix duplex (use naps2)
