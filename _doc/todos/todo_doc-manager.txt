@@ -1,9 +1,8 @@
 - pdf manager
-  - make smaller pdf sizes
-  - add scan button in preview dialog to scan more pages for this session
-  - add image viewer from commander to png preview dilog when clicking on image 
+  - test mac
+  - add image viewer from commander to image preview dialog when clicking on image 
   - arrange scan and files in 2 tabs
-    - files tab: add new features here 
+    - files tab: add new features here
   - add hint for duplex (use naps2)
   - remember all settings
   - define own managed folder

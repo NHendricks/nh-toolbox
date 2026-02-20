@@ -25,6 +25,7 @@ export class DocManager extends LitElement {
   @state() private scanners: Scanner[] = []
   @state() private loading = false
   @state() private scanning = false
+  @state() private saving = false
   @state() private message = ''
   @state() private scanDirectory = ''
   @state() private fileName = ''
@@ -672,6 +673,55 @@ export class DocManager extends LitElement {
     }
   }
 
+  async scanMorePages() {
+    if (this.scanning) return
+
+    this.scanning = true
+    // Snapshot the count before scanning; live events will append during the scan,
+    // and we need to discard those in favour of the authoritative result.files list.
+    const prevCount = this.previewFiles.length
+    try {
+      const response = await (window as any).electron.ipcRenderer.invoke(
+        'cli-execute',
+        'scanner',
+        {
+          action: 'scan-preview',
+          scannerId: this.selectedScannerId,
+          resolution: this.resolution,
+          multiPage: this.multiPage,
+        },
+      )
+      const result = response.data || response
+
+      if (result.success) {
+        // Slice back to pre-scan state then append authoritative result lists,
+        // discarding any live-event entries that arrived during the scan.
+        this.previewFiles = [
+          ...this.previewFiles.slice(0, prevCount),
+          ...(result.files || []),
+        ]
+        this.previewDataUrls = [
+          ...this.previewDataUrls.slice(0, prevCount),
+          ...(result.previews || []),
+        ]
+        this.showMessage(
+          `Added ${result.pageCount} more page(s) — ${this.previewFiles.length} total.`,
+          'success',
+        )
+      } else {
+        this.showMessage(
+          'Scan failed: ' + (result.error || result.message || 'Unknown error'),
+          'error',
+        )
+        if (result.help) this.showMessage(result.help, 'info')
+      }
+    } catch (error: any) {
+      this.showMessage('Error scanning more pages: ' + error.message, 'error')
+    } finally {
+      this.scanning = false
+    }
+  }
+
   async removePreviewPage(index: number) {
     const file = this.previewFiles[index]
     if (!file) return
@@ -701,6 +751,7 @@ export class DocManager extends LitElement {
 
     try {
       this.scanning = true
+      this.saving = true
       this.showMessage('Creating document...', 'info')
 
       const response = await (window as any).electron.ipcRenderer.invoke(
@@ -737,6 +788,7 @@ export class DocManager extends LitElement {
       this.showMessage('Error saving document: ' + error.message, 'error')
     } finally {
       this.scanning = false
+      this.saving = false
     }
   }
 
@@ -1104,13 +1156,17 @@ export class DocManager extends LitElement {
             <div class="preview-footer-buttons">
               <button @click="${this.cancelPreview}">Cancel</button>
               <button
+                @click="${this.scanMorePages}"
+                ?disabled="${this.scanning}"
+              >
+                ${isScanningWithPages ? 'Scanning...' : 'Scan More'}
+              </button>
+              <button
                 class="secondary"
                 @click="${this.finalizeScan}"
                 ?disabled="${this.previewFiles.length === 0 || this.scanning}"
               >
-                ${this.scanning && !isInitialScanning
-                  ? 'Saving...'
-                  : `Save as ${this.format.toUpperCase()}`}
+                ${this.saving ? 'Saving...' : `Save as ${this.format.toUpperCase()}`}
               </button>
             </div>
           </div>

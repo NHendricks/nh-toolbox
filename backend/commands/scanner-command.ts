@@ -497,6 +497,7 @@ try {
                 pageCounter++;
                 if (this.progressCallback) {
                   setTimeout(() => {
+                    if (!fsWatcher) return; // watcher already closed; skip late event
                     try {
                       if (fs.existsSync(filePath)) {
                         const fileData = fs.readFileSync(filePath);
@@ -554,6 +555,7 @@ try {
             this.activeProcess = null;
             if (fsWatcher) {
               fsWatcher.close();
+              fsWatcher = null; // null-out so pending 100ms timeouts skip their callback
             }
 
             console.log(
@@ -770,6 +772,7 @@ try {
               pageCounter++;
               if (this.progressCallback) {
                 setTimeout(() => {
+                  if (!fsWatcher) return; // watcher already closed; skip late event
                   try {
                     if (fs.existsSync(filePath)) {
                       const fileData = fs.readFileSync(filePath);
@@ -866,6 +869,7 @@ try {
 
       if (fsWatcher) {
         fsWatcher.close();
+        fsWatcher = null; // null-out so pending 100ms timeouts skip their callback
       }
 
       if (lastError) {
