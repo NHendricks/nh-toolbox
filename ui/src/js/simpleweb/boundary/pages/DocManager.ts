@@ -27,9 +27,7 @@ interface Scanner {
 export class DocManager extends LitElement {
   constructor() {
     super()
-    const plat = window.process?.platform
-    // only show when we explicitly know it's macOS or Linux
-    this.showDuplex = plat === 'darwin' || plat === 'linux'
+    this.showDuplex = true
   }
 
   @state() private documents: Document[] = []

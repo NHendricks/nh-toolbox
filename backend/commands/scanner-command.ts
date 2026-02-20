@@ -94,16 +94,13 @@ export class ScannerCommand implements ICommand {
       },
     ];
 
-    // duplex only available on non-Windows (SANE) platforms
-    if (process.platform !== 'win32') {
-      params.push({
-        name: 'duplex',
-        type: 'boolean',
-        description: 'Duplex scanning (both sides) - only applicable on macOS/Linux',
-        required: false,
-        default: false,
-      });
-    }
+    params.push({
+      name: 'duplex',
+      type: 'boolean',
+      description: 'Duplex scanning (both sides) — requires scanner with duplex ADF',
+      required: false,
+      default: false,
+    });
 
     params.push(
       {
@@ -147,7 +144,7 @@ export class ScannerCommand implements ICommand {
             scannerId,
             resolution,
             multiPage !== false,
-            duplex !== false,
+            duplex === true,
           );
         case 'finalize-scan':
           return await this.finalizeScan(files, outputPath, fileName, format);
@@ -346,6 +343,7 @@ try {
     resolution: string,
     format: string,
     multiPage: boolean,
+    duplex: boolean = false,
   ): Promise<any> {
     try {
       const dpiValue = parseInt(resolution);
@@ -437,6 +435,22 @@ try {
     try {
         $item.Properties.Item("6146").Value = ${colorIntent}
     } catch { Write-Warning "Could not set color mode: $_" }
+
+    if (${duplex ? '$true' : '$false'}) {
+        try {
+            # WIA 2.0: WIA_IPS_DOCUMENT_HANDLING_SELECT (3096) — DUPLEX|FRONT_FIRST = 12
+            $item.Properties.Item("3096").Value = 12
+            Write-Host "Duplex mode enabled (WIA 2.0)"
+        } catch {
+            try {
+                # WIA 1.0 fallback: WIA_DPS_DOCUMENT_HANDLING_SELECT (3088) — FEEDER|DUPLEX|FRONT_FIRST = 13
+                $device.Properties.Item("3088").Value = 13
+                Write-Host "Duplex mode enabled (WIA 1.0 fallback)"
+            } catch {
+                Write-Warning "Scanner does not support duplex via WIA; scanning single-sided"
+            }
+        }
+    }
 
     $tempDir = "${tempDir.replace(/\\/g, '\\\\')}"
     if ($multiPageEnabled) {
@@ -1237,6 +1251,7 @@ try {
               resolution,
               'jpg',
               multiPage,
+              duplex,
             )
           : await this.scanUnixSANE(
               tempOutputFile,
