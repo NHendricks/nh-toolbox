@@ -1040,7 +1040,10 @@ export class Commander extends LitElement {
   handleItemClick(index: number, event: MouseEvent) {
     const pane = this.getActivePane()
 
-    if (event.ctrlKey) {
+    // Use Ctrl/Control key for multi-select (works on both Mac and Windows)
+    const isMultiSelectKey = event.ctrlKey
+
+    if (isMultiSelectKey) {
       // Toggle selection
       const newSelected = new Set(pane.selectedIndices)
       if (newSelected.has(index)) {

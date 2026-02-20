@@ -14,9 +14,10 @@ You can find the binary downloads here: https://github.com/NHendricks/nh-toolbox
   - scan documents (pdf, png, jpg)
   - remove images option in live preview, save as pdf
   - support multipage scanning (adf)
-  -
+  - add ocr option for page 1 (maybne useful for later autorename file)
 - commander
   - add zoom functins to imageviewer
+  - add help entry how to select files on mac
 - garbagefinder
   - fix drive detection on mac
 

@@ -143,6 +143,10 @@ export class HelpDialog extends LitElement {
               <div class="help-description">toggle select</div>
             </div>
             <div class="help-item">
+              <div class="help-key">Shift+Ctrl</div>
+              <div class="help-description">select multiple</div>
+            </div>
+            <div class="help-item">
               <div class="help-key">Ctrl+↑ / ↓</div>
               <div class="help-description">extend selection</div>
             </div>
