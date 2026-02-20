@@ -436,6 +436,20 @@ try {
         $item.Properties.Item("6146").Value = ${colorIntent}
     } catch { Write-Warning "Could not set color mode: $_" }
 
+    # Set scan area to A4 (210 x 297 mm) to avoid white space at bottom
+    $a4WidthPx  = [int](210.0 / 25.4 * ${dpiValue})
+    $a4HeightPx = [int](297.0 / 25.4 * ${dpiValue})
+    try {
+        $item.Properties.Item("6151").Value = $a4WidthPx   # WIA_IPS_XEXTENT
+        $item.Properties.Item("6152").Value = $a4HeightPx  # WIA_IPS_YEXTENT
+        Write-Host "Scan area set to A4 (\${a4WidthPx}x\${a4HeightPx}px)"
+    } catch {
+        try {
+            $item.Properties.Item("3099").Value = 1  # WIA_IPS_PAGE_SIZE = WIA_PAGE_A4
+            Write-Host "Page size set to A4 via WIA_IPS_PAGE_SIZE"
+        } catch { Write-Warning "Could not set scan area to A4: $_" }
+    }
+
     if (${duplex ? '$true' : '$false'}) {
         try {
             # WIA 2.0: WIA_IPS_DOCUMENT_HANDLING_SELECT (3096) — DUPLEX|FRONT_FIRST = 12
