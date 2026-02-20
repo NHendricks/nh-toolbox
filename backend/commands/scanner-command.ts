@@ -620,6 +620,10 @@ try {
           throw new Error('Scan completed but no files were created');
         }
 
+        for (const file of scanResult.files) {
+          await this.recompressJpeg(file);
+        }
+
         console.log(
           `Scanned ${scanResult.pageCount} page(s): ${scanResult.files.join(', ')}`,
         );
@@ -893,6 +897,10 @@ try {
         throw new Error('Scan completed but no files were created');
       }
 
+      for (const file of scanResult.files) {
+        await this.recompressJpeg(file);
+      }
+
       console.log(
         `Scanned ${scanResult.pageCount} page(s): ${scanResult.files.join(', ')}`,
       );
@@ -958,6 +966,50 @@ try {
             ? 'Install SANE: brew install sane-backends'
             : 'Install SANE: sudo apt-get install sane sane-utils',
       };
+    }
+  }
+
+  /**
+   * Recompress a JPEG file at the given quality (0-100) using platform-native tools.
+   * Best-effort — silently skips if the tool is unavailable.
+   */
+  private async recompressJpeg(filePath: string, quality = 75): Promise<void> {
+    const tmp = filePath + '.tmp';
+    try {
+      if (process.platform === 'darwin') {
+        // sips is always available on macOS
+        await execAsync(
+          `sips -s format jpeg -s formatOptions ${quality} "${filePath}" --out "${filePath}"`,
+        );
+      } else if (process.platform === 'linux') {
+        // ImageMagick convert — widely installed
+        await execAsync(`convert -quality ${quality} "${filePath}" "${tmp}"`);
+        fs.renameSync(tmp, filePath);
+      } else {
+        // Windows: System.Drawing via PowerShell (always available)
+        const f = filePath.replace(/\\/g, '\\\\');
+        const t = tmp.replace(/\\/g, '\\\\');
+        const cmd = [
+          'Add-Type -AssemblyName System.Drawing;',
+          `$img = [System.Drawing.Image]::FromFile('${f}');`,
+          `$c = [System.Drawing.Imaging.ImageCodecInfo]::GetImageEncoders() | Where-Object { $_.MimeType -eq 'image/jpeg' };`,
+          `$p = New-Object System.Drawing.Imaging.EncoderParameters(1);`,
+          `$p.Param[0] = New-Object System.Drawing.Imaging.EncoderParameter([System.Drawing.Imaging.Encoder]::Quality, [long]${quality});`,
+          `$img.Save('${t}', $c, $p); $img.Dispose();`,
+          `Move-Item -Force '${t}' '${f}'`,
+        ].join(' ');
+        await execAsync(`powershell -NoProfile -Command "${cmd}"`);
+      }
+    } catch (err: any) {
+      console.warn(
+        `JPEG recompression skipped for ${path.basename(filePath)}:`,
+        err.message?.split('\n')[0],
+      );
+      if (fs.existsSync(tmp)) {
+        try {
+          fs.unlinkSync(tmp);
+        } catch {}
+      }
     }
   }
 
