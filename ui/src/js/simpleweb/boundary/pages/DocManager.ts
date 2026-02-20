@@ -2,6 +2,10 @@ import { LitElement, css, html } from 'lit'
 import { customElement, state } from 'lit/decorators.js'
 import { scannerPreferencesService } from './docmanager/ScannerPreferencesService.js'
 
+// bring in the commander viewer component and type so we can reuse it here
+import './commander/dialogs/index.js'
+import type { ViewerFile } from './commander/commander.types.js'
+
 interface Document {
   name: string
   path: string
@@ -37,6 +41,7 @@ export class DocManager extends LitElement {
   @state() private previewFiles: string[] = []
   @state() private previewDataUrls: string[] = []
   @state() private previewTempDir = ''
+  @state() private viewerFile: ViewerFile | null = null
 
   static styles = css`
     :host {
@@ -435,6 +440,11 @@ export class DocManager extends LitElement {
       box-shadow: none;
     }
 
+    /* make preview thumbnails clickable for viewing */
+    .preview-item {
+      cursor: pointer;
+    }
+
     .preview-footer {
       padding: 16px 24px;
       border-top: 2px solid #e0e0e0;
@@ -741,6 +751,19 @@ export class DocManager extends LitElement {
 
     this.previewFiles = this.previewFiles.filter((_, i) => i !== index)
     this.previewDataUrls = this.previewDataUrls.filter((_, i) => i !== index)
+  }
+
+  /**
+   * Show the built‑in commander image viewer for the given preview page
+   */
+  private openViewer(index: number) {
+    const path = this.previewFiles[index] || ''
+    const content = this.previewDataUrls[index] || ''
+    this.viewerFile = { path, content, size: 0, isImage: true }
+  }
+
+  private closeViewer() {
+    this.viewerFile = null
   }
 
   async finalizeScan() {
@@ -1078,6 +1101,12 @@ export class DocManager extends LitElement {
         </div>
 
         ${this.showPreviewDialog ? this.renderPreviewDialog() : ''}
+        ${this.viewerFile
+          ? html`<viewer-dialog
+              .file=${this.viewerFile}
+              @close=${this.closeViewer}
+            ></viewer-dialog>`
+          : ''}
       </div>
     `
   }
@@ -1127,7 +1156,7 @@ export class DocManager extends LitElement {
                     <div class="preview-grid">
                       ${this.previewDataUrls.map(
                         (dataUrl, index) => html`
-                          <div class="preview-item">
+                          <div class="preview-item" @click="${() => this.openViewer(index)}">
                             <img src="${dataUrl}" alt="Page ${index + 1}" />
                             <div class="preview-item-footer">
                               <span class="preview-item-label"
