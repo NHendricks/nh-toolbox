@@ -97,7 +97,8 @@ export class ScannerCommand implements ICommand {
     params.push({
       name: 'duplex',
       type: 'boolean',
-      description: 'Duplex scanning (both sides) — requires scanner with duplex ADF',
+      description:
+        'Duplex scanning (both sides) — requires scanner with duplex ADF',
       required: false,
       default: false,
     });
@@ -148,7 +149,13 @@ export class ScannerCommand implements ICommand {
             duplex === true,
           );
         case 'finalize-scan':
-          return await this.finalizeScan(files, outputPath, fileName, format, autoSetFileName);
+          return await this.finalizeScan(
+            files,
+            outputPath,
+            fileName,
+            format,
+            autoSetFileName,
+          );
         case 'cleanup-scan':
           return await this.cleanupScan(files, tempDir);
         case 'list-documents':
@@ -333,7 +340,6 @@ try {
       };
     }
   }
-
 
   /**
    * Scan on Windows using WIA - always scans in color
@@ -611,8 +617,7 @@ try {
 
             if (code !== 0) {
               const errorMsg =
-                stderr.trim() ||
-                `PowerShell process exited with code ${code}`;
+                stderr.trim() || `PowerShell process exited with code ${code}`;
               reject(new Error(errorMsg));
             } else {
               resolve();
@@ -770,14 +775,20 @@ try {
    * Scan on Unix systems (Linux/macOS) using SANE/scanimage
    */
   // Cached duplex support information so we only shell out once per process
-  private duplexInfo: { flagSupported: boolean; sourceOption: string | null } | null = null;
+  private duplexInfo: {
+    flagSupported: boolean;
+    sourceOption: string | null;
+  } | null = null;
 
   /**
    * Detects duplex scanning support by examining scanimage help output.
    * Returns both whether --duplex flag is supported and any alternative source option.
    * This runs scanimage --help only once and caches the result.
    */
-  private async detectDuplexSupport(): Promise<{ flagSupported: boolean; sourceOption: string | null }> {
+  private async detectDuplexSupport(): Promise<{
+    flagSupported: boolean;
+    sourceOption: string | null;
+  }> {
     if (this.duplexInfo !== null) return this.duplexInfo;
 
     try {
@@ -863,12 +874,18 @@ try {
         String(dpiValue),
         '--mode',
         'Color',
-        '--page-width', '210',   // Tell scanner A4 paper width for proper centering
-        '--page-height', '297',  // Tell scanner A4 paper height for proper centering
-        '-l', '0',    // Start scanning at left edge
-        '-t', '0',    // Start scanning at top edge
-        '-x', '210',  // Scan width: A4 width in mm
-        '-y', '297',  // Scan height: A4 height in mm
+        '--page-width',
+        '210', // Tell scanner A4 paper width for proper centering
+        '--page-height',
+        '297', // Tell scanner A4 paper height for proper centering
+        '-l',
+        '0', // Start scanning at left edge
+        '-t',
+        '0', // Start scanning at top edge
+        '-x',
+        '210', // Scan width: A4 width in mm
+        '-y',
+        '297', // Scan height: A4 height in mm
         ...deviceArg,
       ];
 
@@ -895,7 +912,9 @@ try {
           scanArgs.push('--source', duplexSupport.sourceOption);
           fallbackUsed = true;
         } else {
-          console.warn('Duplex flag requested but scanimage does not support it; ignoring');
+          console.warn(
+            'Duplex flag requested but scanimage does not support it; ignoring',
+          );
         }
       }
 
@@ -974,12 +993,11 @@ try {
               clearTimeout(timeout);
               // ADF empty may exit non-zero on some drivers; treat as success
               // if files were already written to disk
-              const filesExist =
-                multiPage
-                  ? fs
-                      .readdirSync(tempDir)
-                      .some((f) => f.endsWith(`.${actualFormat}`))
-                  : fs.existsSync(tempOutputFile);
+              const filesExist = multiPage
+                ? fs
+                    .readdirSync(tempDir)
+                    .some((f) => f.endsWith(`.${actualFormat}`))
+                : fs.existsSync(tempOutputFile);
               if (code === 0 || filesExist) {
                 resolve();
               } else {
@@ -1254,7 +1272,9 @@ try {
                   firstImage,
                   outputFile,
                 );
-                console.log(`[OCR] OCR completed (first page only). Text saved to: ${textFile}`);
+                console.log(
+                  `[OCR] OCR completed (first page only). Text saved to: ${textFile}`,
+                );
               } catch (ocrError: any) {
                 console.warn(
                   `[OCR] OCR processing failed (continuing anyway): ${ocrError.message}`,
@@ -1278,7 +1298,6 @@ try {
     });
   }
 
-
   /**
    * Scan to preview - scans pages to temp JPEGs without creating PDF (always in color)
    */
@@ -1289,8 +1308,7 @@ try {
     duplex: boolean = false,
   ): Promise<any> {
     try {
-      const tmpBase =
-        process.env.TMPDIR || process.env.TEMP || '/tmp';
+      const tmpBase = process.env.TMPDIR || process.env.TEMP || '/tmp';
       const tempDir = path.join(tmpBase, `scan_preview_${Date.now()}`);
       fs.mkdirSync(tempDir, { recursive: true });
       const tempOutputFile = path.join(tempDir, 'page.jpg');

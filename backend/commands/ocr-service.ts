@@ -1,6 +1,6 @@
-import { createWorker } from 'tesseract.js';
 import * as fs from 'fs';
 import * as path from 'path';
+import { createWorker } from 'tesseract.js';
 
 /**
  * OCR Service for extracting text from images using Tesseract.js
@@ -69,14 +69,16 @@ export class OcrService {
         const {
           data: { text },
         } = await this.worker.recognize(imagePath);
-        
+
         console.log(
           `[OCR] Extracted ${text.length} characters from page ${i + 1}`,
         );
         allTexts.push(text);
       }
 
-      console.log(`[OCR] Text extraction complete. Total length: ${allTexts.join('').length} chars`);
+      console.log(
+        `[OCR] Text extraction complete. Total length: ${allTexts.join('').length} chars`,
+      );
       return allTexts.join('\n---PAGE BREAK---\n');
     } catch (error: any) {
       console.error('OCR error:', error.message);
