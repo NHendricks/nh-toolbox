@@ -1,7 +1,7 @@
+import nlp from 'compromise';
 import * as fs from 'fs';
 import * as path from 'path';
 import { createWorker } from 'tesseract.js';
-import nlp from 'compromise';
 
 /**
  * OCR Service for extracting text from images using Tesseract.js
@@ -156,7 +156,10 @@ export class OcrService {
 
     // ISO format: YYYY-MM-DD
     const isoDatePattern = /\b(\d{4})[-/](\d{1,2})[-/](\d{1,2})\b/g;
-    while ((isoDatePattern.lastIndex = 0), (match = isoDatePattern.exec(text)) !== null) {
+    while (
+      ((isoDatePattern.lastIndex = 0),
+      (match = isoDatePattern.exec(text)) !== null)
+    ) {
       const dateStr = match[0];
       if (!dates.includes(dateStr)) {
         dates.push(dateStr);
@@ -165,7 +168,10 @@ export class OcrService {
 
     // English/US format: MM/DD/YYYY or M/D/YY
     const usDatePattern = /\b(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})\b/g;
-    while ((usDatePattern.lastIndex = 0), (match = usDatePattern.exec(text)) !== null) {
+    while (
+      ((usDatePattern.lastIndex = 0),
+      (match = usDatePattern.exec(text)) !== null)
+    ) {
       const dateStr = match[0];
       if (!dates.includes(dateStr)) {
         dates.push(dateStr);
@@ -197,7 +203,11 @@ export class OcrService {
   /**
    * Extract URLs, websites, and email domains from text
    */
-  private extractWebsitesAndEmails(text: string): { websites: string[]; emails: string[]; domains: string[] } {
+  private extractWebsitesAndEmails(text: string): {
+    websites: string[];
+    emails: string[];
+    domains: string[];
+  } {
     const websites: string[] = [];
     const emails: string[] = [];
     const domains = new Set<string>();
@@ -284,10 +294,7 @@ export class OcrService {
         if (match) {
           let extracted = match[1]?.trim() || 'Unknown';
           // Clean up the extracted sender
-          extracted = extracted
-            .split('\n')[0]
-            .substring(0, 100)
-            .trim();
+          extracted = extracted.split('\n')[0].substring(0, 100).trim();
           if (extracted.length > 2) {
             sender = extracted;
             break;
@@ -318,7 +325,7 @@ export class OcrService {
         .split(/[\s\n.,;:!?()[\]{}"'\-]+/)
         .filter(
           (word) =>
-            word.length > 3 && 
+            word.length > 3 &&
             !['that', 'this', 'with', 'from', 'have', 'been'].includes(word),
         );
 
@@ -350,9 +357,7 @@ export class OcrService {
         .split('\n')
         .map((line) => line.trim())
         .filter((line) => line.length > 5);
-      const subject = lines.length > 0 
-        ? lines[0].substring(0, 100) 
-        : 'N/A';
+      const subject = lines.length > 0 ? lines[0].substring(0, 100) : 'N/A';
 
       return {
         sender: sender,
@@ -369,14 +374,15 @@ export class OcrService {
           totalLines: lineCount,
           totalSentences: sentences,
           averageLineLength:
-            characterCount > 0
-              ? Math.round(characterCount / lineCount)
-              : 0,
+            characterCount > 0 ? Math.round(characterCount / lineCount) : 0,
         },
         subject: subject,
       };
     } catch (error: any) {
-      console.error('[OCR Analysis] Error during text analysis:', error.message);
+      console.error(
+        '[OCR Analysis] Error during text analysis:',
+        error.message,
+      );
       return {
         sender: 'Unknown',
         error: error.message,
