@@ -50,6 +50,61 @@ export class OcrService {
   }
 
   /**
+   * Perform OCR on an image and analyze the text
+   */
+  async recognizeAndAnalyze(imagePath: string): Promise<{
+    text: string;
+    analysis: any;
+  }> {
+    try {
+      const text = await this.recognizeImage(imagePath);
+
+      // Analyze the extracted text
+      console.log('[OCR Analysis] Starting text analysis...');
+      const analysis = this.analyzeText(text);
+
+      console.log('\n=== OCR TEXT ANALYSIS RESULTS ===');
+      console.log(`Sender: ${analysis.sender}`);
+      console.log(
+        `People detected: ${analysis.people?.length > 0 ? analysis.people.join(', ') : 'None'}`,
+      );
+      console.log(
+        `Organizations detected: ${analysis.organizations?.length > 0 ? analysis.organizations.join(', ') : 'None'}`,
+      );
+      console.log(
+        `Locations detected: ${analysis.places?.length > 0 ? analysis.places.join(', ') : 'None'}`,
+      );
+      console.log(
+        `Dates found: ${analysis.dates?.length > 0 ? analysis.dates.join(', ') : 'None'}`,
+      );
+      console.log(
+        `Websites: ${analysis.websites?.length > 0 ? analysis.websites.join(', ') : 'None'}`,
+      );
+      console.log(
+        `Email addresses: ${analysis.emails?.length > 0 ? analysis.emails.join(', ') : 'None'}`,
+      );
+      console.log(
+        `Domains found: ${analysis.domains?.length > 0 ? analysis.domains.join(', ') : 'None'}`,
+      );
+      console.log(`Subject: ${analysis.subject}`);
+      console.log(`Keywords: ${analysis.keywords?.join(', ')}`);
+      console.log('\n--- Text Statistics ---');
+      console.log(`Total characters: ${analysis.statistics?.totalCharacters}`);
+      console.log(`Total lines: ${analysis.statistics?.totalLines}`);
+      console.log(`Total sentences: ${analysis.statistics?.totalSentences}`);
+      console.log(
+        `Average line length: ${analysis.statistics?.averageLineLength} chars`,
+      );
+      console.log('================================\n');
+
+      return { text, analysis };
+    } catch (error: any) {
+      console.error(`OCR and analysis error for ${imagePath}:`, error.message);
+      throw error;
+    }
+  }
+
+  /**
    * Perform OCR on all images and return combined text
    */
   async recognizeImages(imagePaths: string[]): Promise<string> {

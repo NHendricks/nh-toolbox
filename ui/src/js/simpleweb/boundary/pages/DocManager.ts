@@ -52,6 +52,7 @@ export class DocManager extends LitElement {
   @state() private previewDataUrls: string[] = []
   @state() private previewTempDir = ''
   @state() private viewerFile: ViewerFile | null = null
+  @state() private ocrStatus: string = '' // OCR scan status message
 
   static styles = css`
     :host {
@@ -509,7 +510,39 @@ export class DocManager extends LitElement {
         preview: string
       }) => {
         console.log('[DocManager] Received scanner-page-scanned event:', data)
+        console.log('[DocManager] Event fileName:', data.fileName)
+        console.log('[DocManager] Event pageNumber:', data.pageNumber)
 
+        // Check for OCR-specific events
+        if (data.fileName === 'OCR_SCAN_START') {
+          console.log('[DocManager] ✅ OCR_SCAN_START detected!')
+          this.ocrStatus = '🔍 OCR scan läuft...'
+          return
+        }
+
+        if (data.fileName === 'OCR_SCAN_COMPLETE') {
+          console.log('[DocManager] ✅ OCR_SCAN_COMPLETE detected!')
+          this.ocrStatus = `✅ OCR scan abgeschlossen: ${data.fileSize} Zeichen erkannt`
+          // Clear OCR status after 5 seconds
+          setTimeout(() => {
+            this.ocrStatus = ''
+          }, 5000)
+          return
+        }
+
+        if (data.fileName === 'OCR_SCAN_ERROR') {
+          console.log('[DocManager] ✅ OCR_SCAN_ERROR detected!')
+          this.ocrStatus = `⚠️ OCR scan fehlgeschlagen: ${data.filePath}`
+          // Clear OCR status after 5 seconds
+          setTimeout(() => {
+            this.ocrStatus = ''
+          }, 5000)
+          return
+        }
+
+        console.log('[DocManager] Normal page scan event, adding to preview')
+
+        // Normal page scanned event
         // Add the page to preview arrays in real-time
         this.previewFiles = [...this.previewFiles, data.filePath]
         this.previewDataUrls = [...this.previewDataUrls, data.preview]
@@ -1223,6 +1256,29 @@ export class DocManager extends LitElement {
             >
           </div>
           <div class="preview-body">
+            ${this.ocrStatus
+              ? html`
+                  <div
+                    style="background: ${this.ocrStatus.includes('✅')
+                      ? '#d4edda'
+                      : this.ocrStatus.includes('⚠️')
+                        ? '#f8d7da'
+                        : '#d1ecf1'}; color: ${this.ocrStatus.includes('✅')
+                      ? '#155724'
+                      : this.ocrStatus.includes('⚠️')
+                        ? '#721c24'
+                        : '#0c5460'}; padding: 12px; border-radius: 6px; margin-bottom: 15px; display: flex; align-items: center; gap: 10px; font-weight: 600;"
+                  >
+                    ${this.ocrStatus.includes('läuft')
+                      ? html`<div
+                          class="spinner"
+                          style="width: 20px; height: 20px; border-width: 3px; border-color: #0c5460 transparent #0c5460 transparent;"
+                        ></div>`
+                      : ''}
+                    <span>${this.ocrStatus}</span>
+                  </div>
+                `
+              : ''}
             ${this.saving
               ? html`
                   <div

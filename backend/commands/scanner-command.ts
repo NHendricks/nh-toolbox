@@ -541,27 +541,90 @@ try {
 
         let fsWatcher: fs.FSWatcher | null = null;
         let pageCounter = 0;
+        let firstImageProcessed = false;
+        // Store callback reference to use even after fsWatcher is closed
+        const progressCallbackRef = this.progressCallback;
         if (multiPage) {
-          fsWatcher = fs.watch(tempDir, (eventType, filename) => {
+          fsWatcher = fs.watch(tempDir, async (eventType, filename) => {
             if (filename && filename.endsWith(`.${actualFormat}`)) {
               const filePath = path.join(tempDir, filename);
               if (eventType === 'rename' && fs.existsSync(filePath)) {
                 const stats = fs.statSync(filePath);
                 pageCounter++;
-                if (this.progressCallback) {
-                  setTimeout(() => {
-                    if (!fsWatcher) return; // watcher already closed; skip late event
+                if (progressCallbackRef) {
+                  setTimeout(async () => {
+                    // Don't check fsWatcher here - we have a stored reference
                     try {
                       if (fs.existsSync(filePath)) {
                         const fileData = fs.readFileSync(filePath);
                         const base64Preview = `data:${mimeType};base64,${fileData.toString('base64')}`;
-                        (this.progressCallback as any)(
+                        (progressCallbackRef as any)(
                           pageCounter,
                           filename,
                           stats.size,
                           filePath,
                           base64Preview,
                         );
+
+                        // Perform OCR on the first image only
+                        if (pageCounter === 1 && !firstImageProcessed) {
+                          firstImageProcessed = true;
+                          try {
+                            // Send UI feedback: OCR scan starting (only if callback exists)
+                            if (progressCallbackRef) {
+                              (progressCallbackRef as any)(
+                                0,
+                                'OCR_SCAN_START',
+                                0,
+                                '',
+                                '',
+                              );
+                            }
+                            console.log(
+                              '[OCR] Starting OCR scan of first page...',
+                            );
+
+                            const { getOcrService } =
+                              await import('./ocr-service.js');
+                            const ocrService = getOcrService();
+                            await ocrService.initialize();
+
+                            // OCR and analyze the first image (PNG/JPG)
+                            const { text, analysis } =
+                              await ocrService.recognizeAndAnalyze(filePath);
+                            console.log(
+                              `[OCR] Extracted ${text.length} characters from first page`,
+                            );
+
+                            // Send UI feedback: OCR scan completed (only if callback exists)
+                            if (progressCallbackRef) {
+                              (progressCallbackRef as any)(
+                                0,
+                                'OCR_SCAN_COMPLETE',
+                                text.length,
+                                '',
+                                '',
+                              );
+                            }
+                            console.log(
+                              '[OCR] OCR scan and analysis completed',
+                            );
+                          } catch (ocrError: any) {
+                            console.warn(
+                              `[OCR] OCR processing failed: ${ocrError.message}`,
+                            );
+                            // Send UI feedback: OCR scan failed (only if callback exists)
+                            if (progressCallbackRef) {
+                              (progressCallbackRef as any)(
+                                0,
+                                'OCR_SCAN_ERROR',
+                                0,
+                                ocrError.message,
+                                '',
+                              );
+                            }
+                          }
+                        }
                       }
                     } catch (err) {
                       console.error('Failed to create preview:', err);
@@ -923,27 +986,88 @@ try {
 
       let fsWatcher: fs.FSWatcher | null = null;
       let pageCounter = 0;
+      let firstImageProcessed = false;
+      // Store callback reference to use even after fsWatcher is closed
+      const progressCallbackRef = this.progressCallback;
       if (multiPage) {
-        fsWatcher = fs.watch(tempDir, (eventType, filename) => {
+        fsWatcher = fs.watch(tempDir, async (eventType, filename) => {
           if (filename && filename.endsWith(`.${actualFormat}`)) {
             const filePath = path.join(tempDir, filename);
             if (eventType === 'rename' && fs.existsSync(filePath)) {
               const stats = fs.statSync(filePath);
               pageCounter++;
-              if (this.progressCallback) {
-                setTimeout(() => {
-                  if (!fsWatcher) return; // watcher already closed; skip late event
+              if (progressCallbackRef) {
+                setTimeout(async () => {
+                  // Don't check fsWatcher here - we have a stored reference
                   try {
                     if (fs.existsSync(filePath)) {
                       const fileData = fs.readFileSync(filePath);
                       const base64Preview = `data:${mimeType};base64,${fileData.toString('base64')}`;
-                      (this.progressCallback as any)(
+                      (progressCallbackRef as any)(
                         pageCounter,
                         filename,
                         stats.size,
                         filePath,
                         base64Preview,
                       );
+
+                      // Perform OCR on the first image only
+                      if (pageCounter === 1 && !firstImageProcessed) {
+                        firstImageProcessed = true;
+                        try {
+                          // Send UI feedback: OCR scan starting (only if callback exists)
+                          if (progressCallbackRef) {
+                            (progressCallbackRef as any)(
+                              0,
+                              'OCR_SCAN_START',
+                              0,
+                              '',
+                              '',
+                            );
+                          }
+                          console.log(
+                            '[OCR] Starting OCR scan of first page...',
+                          );
+
+                          const { getOcrService } =
+                            await import('./ocr-service.js');
+                          const ocrService = getOcrService();
+                          await ocrService.initialize();
+
+                          // OCR and analyze the first image (PNG/JPG)
+                          const { text, analysis } =
+                            await ocrService.recognizeAndAnalyze(filePath);
+                          console.log(
+                            `[OCR] Extracted ${text.length} characters from first page`,
+                          );
+
+                          // Send UI feedback: OCR scan completed (only if callback exists)
+                          if (progressCallbackRef) {
+                            (progressCallbackRef as any)(
+                              0,
+                              'OCR_SCAN_COMPLETE',
+                              text.length,
+                              '',
+                              '',
+                            );
+                          }
+                          console.log('[OCR] OCR scan and analysis completed');
+                        } catch (ocrError: any) {
+                          console.warn(
+                            `[OCR] OCR processing failed: ${ocrError.message}`,
+                          );
+                          // Send UI feedback: OCR scan failed (only if callback exists)
+                          if (progressCallbackRef) {
+                            (progressCallbackRef as any)(
+                              0,
+                              'OCR_SCAN_ERROR',
+                              0,
+                              ocrError.message,
+                              '',
+                            );
+                          }
+                        }
+                      }
                     }
                   } catch (err) {
                     console.error('Failed to create preview:', err);
@@ -1187,7 +1311,7 @@ try {
 
   /**
    * Convert multiple images (PNG/JPG) to a multi-page PDF using PDFKit
-   * Optionally performs OCR recognition on the first image only
+   * OCR is now performed earlier, right after the first image is scanned
    */
   private async convertImagesToPdf(
     inputFiles: string[],
@@ -1257,32 +1381,6 @@ try {
         writeStream.on('finish', async () => {
           try {
             console.log('[PDF] PDF generated successfully');
-
-            // Perform OCR only on first page if requested
-            if (autoSetFileName) {
-              try {
-                console.log('[OCR] Starting OCR scan of page 1...');
-                // Dynamically import OCR service to avoid circular dependencies
-                const { getOcrService } = await import('./ocr-service.js');
-                const ocrService = getOcrService();
-                await ocrService.initialize();
-                // Only OCR the first image
-                const firstImage = [inputFiles[0]];
-                const textFile = await ocrService.saveTextToFile(
-                  firstImage,
-                  outputFile,
-                );
-                console.log(
-                  `[OCR] OCR completed (first page only). Text saved to: ${textFile}`,
-                );
-              } catch (ocrError: any) {
-                console.warn(
-                  `[OCR] OCR processing failed (continuing anyway): ${ocrError.message}`,
-                );
-                // Continue even if OCR fails
-              }
-            }
-
             resolve();
           } catch (error) {
             reject(error);
